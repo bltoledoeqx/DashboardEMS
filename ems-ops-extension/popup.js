@@ -2077,6 +2077,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       if (prevLane) card.classList.remove(prevLane);
       card.classList.add('card-' + nextLane);
       moveCardToLane(card, nextLane);
+      // Mantém consistência quando a visão está filtrada por analista.
       reapplyAnalystFilters();
     }
 
