@@ -1207,6 +1207,17 @@ function getReportAssigneeFilter(gid){
   return '';
 }
 
+function getRatingAssigneeFilter(gid){
+  const analystId=document.getElementById('analyst-sel')?.value||'';
+  const managerId=document.getElementById('manager-sel')?.value||'';
+  if(analystId) return '^cse_assigned_to='+analystId;
+  if(managerId){
+    const ids=getMembersByManager(gid,managerId).map(m=>m.id).filter(Boolean);
+    return ids.length?'^cse_assigned_toIN'+ids.join(','):'^sys_id=-1';
+  }
+  return '';
+}
+
 function applyAnalystTableFilter(){
   const gid=window._GID_MAP?.[currentFila]||'';
   const rows=document.querySelectorAll('#ana-table-wrap-acc .ana-table tbody tr');
@@ -1398,6 +1409,7 @@ function fetchAccordionScores(){
   const h={'Accept':'application/json','X-UserToken':_TOK};
   const gid=window._GID_MAP?.[currentFila]||'1c7c9057db6771d0832ead8ed396197a';
   const assigneeF=getReportAssigneeFilter(gid);
+  const ratingAssigneeF=getRatingAssigneeFilter(gid);
 
   // Sem Type
   const elST=document.getElementById('sem-type-score');
@@ -1459,9 +1471,9 @@ function fetchAccordionScores(){
 
   // Rating EMS Year
   const elRating=document.getElementById('rating-score');
-  if(elRating&&(elRating.textContent==='—'||elRating.textContent==='')){elRating.textContent='…';
+  if(elRating){elRating.textContent='…';
     const ratingGids='1c7c9057db6771d0832ead8ed396197a,ff72689247ee1e143cbfe07a216d4357,673c2170476422503cbfe07a216d430f,61d7da1edb71a450c6445457dc9619f9,52cd04fbdbe71700b3cd73e1ba961949,6c67c13bdbeb1700b3cd73e1ba9619b9,5d4cb3f1db90a050e0e15cb8dc961970,5d77053bdbeb1700b3cd73e1ba9619ca,8b3850eddb1adf00448b01a3ca9619ce,7dbeba001ba173004948ece03d4bcb7a,01d511c2db68cc10fddc7bedae9619de,3469cd95dbe9dbc0b3cd73e1ba9619b3';
-    const rQ='ai_sys_created_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()^cse_accountNOT LIKEEQUINIX^mr_metric=e7d1c39ddb56df00448b01a3ca961972^cse_assignment_groupIN'+ratingGids;
+    const rQ='ai_sys_created_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()^cse_accountNOT LIKEEQUINIX^mr_metric=e7d1c39ddb56df00448b01a3ca961972^cse_assignment_groupIN'+ratingGids+ratingAssigneeF;
     fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(rQ)+'&sysparm_avg_fields=mr_actual_value&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{
       const avg=parseFloat(d.result?.stats?.avg?.mr_actual_value||0);
