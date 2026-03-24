@@ -262,6 +262,25 @@ function runEMSOps(userToken, userMes) {
     };
     const ativosMap  = {l1:buildLanes(ativosItems,'l1'), l2:buildLanes(ativosItems,'l2'), event:buildLanes(ativosItems,'event')};
     const backlogMap = {l1:buildLanes(backlogItems,'l1'), l2:buildLanes(backlogItems,'l2'), event:buildLanes(backlogItems,'event')};
+    const sumLane = (a,b,c,k) => [...(a[k]||[]), ...(b[k]||[]), ...(c[k]||[])];
+    ativosMap.all = {
+      critical: sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'critical'),
+      high    : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'high'),
+      medium  : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'medium'),
+      awaiting: sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'awaiting'),
+      normal  : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'normal'),
+      orphan  : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'orphan'),
+      total   : ativosMap.l1.total + ativosMap.l2.total + ativosMap.event.total
+    };
+    backlogMap.all = {
+      critical: sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'critical'),
+      high    : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'high'),
+      medium  : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'medium'),
+      awaiting: sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'awaiting'),
+      normal  : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'normal'),
+      orphan  : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'orphan'),
+      total   : backlogMap.l1.total + backlogMap.l2.total + backlogMap.event.total
+    };
     const lanesMap   = ativosMap; // kept for KPI compat
 
     const totalBreach = classified.filter(c=>c.sl.st==='breach').length;
@@ -311,8 +330,8 @@ function runEMSOps(userToken, userMes) {
         </div>
       </div>`;
 
-    const renderLane = (label,color,icon,items) => `
-      <div class="lane">
+    const renderLane = (laneKey,label,color,icon,items) => `
+      <div class="lane" data-lane="${laneKey}">
         <div class="lane-hdr" style="border-top:3px solid ${color}">
           <div class="lane-title"><span class="lane-dot" style="background:${color}"></span>${icon} ${label}</div>
           <span class="lane-count" style="color:${color}">${items.length}</span>
@@ -336,10 +355,35 @@ function runEMSOps(userToken, userMes) {
 
     const COLORS_RT = ['#0969DA','#1A7F37','#BF8700','#CF222E','#8250DF','#0550AE','#116329','#7D4E00','#A40E26','#6E40C9','#1A7F37','#0969DA','#BF8700','#CF222E','#8250DF'];
     const renderResolvedToday = key => {
-      const gid  = G_ID_MAP[key];
-      const data = buildResolvedChart(key);
+      const data = buildResolvedChart(key==='all'?'l1':key);
       const total = data.reduce((s,d)=>s+d.count,0);
       const max   = data.length ? Math.max(...data.map(d=>d.count)) : 1;
+      const renderRows = rows => !rows.length ? '<div class="lane-empty">Nenhum hoje</div>' :
+        rows.map((d,i) => `
+          <div class="rt-row">
+            <div class="rt-name" title="${d.name}">${d.name.split(' ').slice(0,2).join(' ')}</div>
+            <div class="rt-track">
+              <div class="rt-fill" style="width:${Math.round((d.count/max)*100)}%;background:${COLORS_RT[i%COLORS_RT.length]}"></div>
+            </div>
+            <span class="rt-val">${d.count}</span>
+          </div>`).join('');
+      if(key==='all'){
+        const dL1=buildResolvedChart('l1'), dL2=buildResolvedChart('l2'), dEV=buildResolvedChart('event');
+        return `
+          <div class="lane lane-rt">
+            <div class="lane-hdr" style="border-top:3px solid #6E40C9">
+              <div class="lane-title"><span class="lane-dot" style="background:#6E40C9"></span>✅ Resolvidos Hoje</div>
+              <select onchange="switchResolvedTodayQueue(this.value)" style="font-size:11px;padding:2px 6px;border:1px solid #d0d7de;border-radius:6px;">
+                <option value="l1">L1</option><option value="l2">L2</option><option value="event">Event</option>
+              </select>
+            </div>
+            <div class="lane-body">
+              <div id="rt-l1" class="rt-group">${renderRows(dL1)}</div>
+              <div id="rt-l2" class="rt-group" style="display:none">${renderRows(dL2)}</div>
+              <div id="rt-event" class="rt-group" style="display:none">${renderRows(dEV)}</div>
+            </div>
+          </div>`;
+      }
       return `
         <div class="lane lane-rt">
           <div class="lane-hdr" style="border-top:3px solid #6E40C9">
@@ -347,15 +391,7 @@ function runEMSOps(userToken, userMes) {
             <span class="lane-count" style="color:#6E40C9">${total}</span>
           </div>
           <div class="lane-body">
-            ${!data.length ? '<div class="lane-empty">Nenhum hoje</div>' :
-              data.map((d,i) => `
-                <div class="rt-row">
-                  <div class="rt-name" title="${d.name}">${d.name.split(' ').slice(0,2).join(' ')}</div>
-                  <div class="rt-track">
-                    <div class="rt-fill" style="width:${Math.round((d.count/max)*100)}%;background:${COLORS_RT[i%COLORS_RT.length]}"></div>
-                  </div>
-                  <span class="rt-val">${d.count}</span>
-                </div>`).join('')}
+            ${renderRows(data)}
           </div>
         </div>`;
     };
@@ -364,12 +400,12 @@ function runEMSOps(userToken, userMes) {
       const ln = lmap[key];
       return `
         <div class="board-inner">
-          ${renderLane('Crítico',    '#CF222E','🔴',ln.critical)}
-          ${renderLane('Alto Risco', '#BF8700','🟠',ln.high)}
-          ${renderLane('Atenção',    '#0550AE','🔵',ln.medium)}
-          ${renderLane('Normal',     '#1A7F37','🟢',ln.normal)}
-          ${renderLane('Aguardando', '#0969DA','⏳',ln.awaiting)}
-          ${renderLane('Órfãos',     '#57606A','⚫',ln.orphan)}
+          ${renderLane('critical', 'Crítico',    '#CF222E','🔴',ln.critical)}
+          ${renderLane('high',     'Alto Risco', '#BF8700','🟠',ln.high)}
+          ${renderLane('medium',   'Atenção',    '#0550AE','🔵',ln.medium)}
+          ${renderLane('normal',   'Normal',     '#1A7F37','🟢',ln.normal)}
+          ${renderLane('awaiting', 'Aguardando', '#0969DA','⏳',ln.awaiting)}
+          ${renderLane('orphan',   'Órfãos',     '#57606A','⚫',ln.orphan)}
           ${showRT ? renderResolvedToday(key) : ''}
         </div>`;
     };
@@ -474,6 +510,24 @@ function runEMSOps(userToken, userMes) {
     const analyticsL1    = analystTableHTML('l1');
     const analyticsL2    = analystTableHTML('l2');
     const analyticsEvent = analystTableHTML('event');
+    const analyticsAll   = (() => {
+      const map = {};
+      ['l1','l2','event'].forEach(k=>{
+        (buildAggTable(k)||[]).forEach(r=>{
+          if(!map[r.name]) map[r.name]={sr:0,tt:0,total:0};
+          map[r.name].sr += r.sr||0;
+          map[r.name].tt += r.tt||0;
+          map[r.name].total += r.total||0;
+        });
+      });
+      const rows = Object.entries(map).map(([name,v])=>({name, sr:v.sr, tt:v.tt, total:v.total})).sort((a,b)=>b.total-a.total);
+      if(!rows.length) return '<div class="ana-empty">Sem dados</div>';
+      let html = '<table class="ana-table"><thead><tr><th>Analista</th><th class="ana-num">Service Request</th><th class="ana-num">Trouble</th><th class="ana-num">Total</th></tr></thead><tbody>';
+      rows.forEach(r=>{html += '<tr><td class="ana-name">'+r.name+'</td><td class="ana-num">'+r.sr+'</td><td class="ana-num">'+r.tt+'</td><td class="ana-num ana-total">'+r.total+'</td></tr>';});
+      const totSR=rows.reduce((s,r)=>s+r.sr,0), totTT=rows.reduce((s,r)=>s+r.tt,0), tot=totSR+totTT;
+      html += '</tbody><tfoot><tr class="ana-foot"><td>Total</td><td class="ana-num">'+totSR+'</td><td class="ana-num">'+totTT+'</td><td class="ana-num ana-total">'+tot+'</td></tr></tfoot></table>';
+      return html;
+    })();
 
     const resolvedChartHTML = (groupKey) => {
       const data = buildResolvedChart(groupKey);
@@ -582,9 +636,10 @@ a{text-decoration:none;}
 .acc-report-card.acc-analyst .ana-table td:first-child{width:auto;overflow:hidden;text-overflow:ellipsis;}
 .acc-report-card.acc-analyst .ana-table th.ana-num,
 .acc-report-card.acc-analyst .ana-table td.ana-num{width:42px;}
-/* 4 score cards — 2x2 grid */
-.acc-scores-wrap{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex-shrink:0;width:300px;}
-.acc-report-card.acc-score-card{width:auto;}
+/* score cards */
+.acc-scores-wrap{display:flex;flex-shrink:0;max-width:100%;}
+.acc-scores-row{display:flex;gap:8px;align-items:stretch;flex-wrap:nowrap;}
+.acc-report-card.acc-score-card{width:132px;display:flex;flex-direction:column;justify-content:center;}
 /* Resolved chart — fixed width */
 .acc-report-card.acc-resolved-card{width:280px;flex-shrink:0;}
 .acc-report-title{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;}
@@ -888,11 +943,9 @@ tr:hover td{background:#F6F8FA;}
 
 <!-- Reports Accordion -->
   <div class="board-toolbar">
-    <label for="fila-sel">Fila:</label>
-    <select id="fila-sel" onchange="switchFila(this.value)">
-      <option value="l1">L1 OpsCenter AMER (${lanesMap.l1.total})</option>
-      <option value="l2">L2 OpsCenter AMER (${lanesMap.l2.total})</option>
-      <option value="event">Event Management BR (${lanesMap.event.total})</option>
+    <label for="manager-sel">👔 Manager:</label>
+    <select id="manager-sel" onchange="switchManager(this.value)">
+      <option value="">— Todos —</option>
     </select>
     <div class="toolbar-sep"></div>
     <label for="analyst-sel">👤 Analista:</label>
@@ -921,7 +974,13 @@ tr:hover td{background:#F6F8FA;}
     <div class="accordion-body" id="acc-body-analyst" style="display:none">
       <div class="acc-grid">
         <div class="acc-report-card acc-analyst">
-          <div class="acc-report-title">Cases Ativos por Analista</div>
+          <div class="acc-report-title">Cases Ativos por Analista
+            <span id="ana-queue-wrap">
+              <select id="ana-queue-sel" onchange="changeAnalystReportQueue(this.value)" style="font-size:10px;padding:1px 6px;border:1px solid #d0d7de;border-radius:6px;">
+                <option value="all">All</option><option value="l1">L1</option><option value="l2">L2</option><option value="event">Event</option>
+              </select>
+            </span>
+          </div>
           <div id="ana-table-wrap-acc"></div>
         </div>
         <div class="acc-scores-wrap">
@@ -960,13 +1019,28 @@ tr:hover td{background:#F6F8FA;}
                 <div class="acc-score-lbl">nota média</div>
               </div>
             </div>
+            <div class="acc-report-card acc-score-card">
+              <div class="acc-report-title">Customer Satisfaction</div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num acc-score-rating" id="customer-satisfaction-score">—</div>
+                <div class="acc-score-lbl">(% promotors - detractors) / total</div>
+              </div>
+            </div>
           </div>
         </div>
-        <div class="acc-report-card acc-resolved-card">
-          <div class="acc-report-title">Resolvidos no Mês
-            <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=c1c71f5847335e543cbfe07a216d430e" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
+        <div style="display:flex;flex-direction:row;gap:8px;align-items:flex-start;">
+          <div class="acc-report-card acc-resolved-card">
+            <div class="acc-report-title">Resolvidos no Mês · L1</div>
+            <div id="resolved-month-chart-l1"><div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div></div>
           </div>
-          <div id="resolved-month-chart"><div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div></div>
+          <div class="acc-report-card acc-resolved-card">
+            <div class="acc-report-title">Resolvidos no Mês · L2</div>
+            <div id="resolved-month-chart-l2"><div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div></div>
+          </div>
+          <div class="acc-report-card acc-resolved-card">
+            <div class="acc-report-title">Resolvidos no Mês · Event</div>
+            <div id="resolved-month-chart-event"><div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div></div>
+          </div>
         </div>
       </div>
     </div>
@@ -974,6 +1048,7 @@ tr:hover td{background:#F6F8FA;}
 </div>
   <!-- Hidden data source for analytics (used by accordion + switchFila) -->
   <div id="ana-table-wrap" style="display:none">${analyticsL1}</div>
+  <div id="_at_all" style="display:none">${analyticsAll}</div>
   <div id="_at_l1" style="display:none">${analyticsL1}</div>
   <div id="_at_l2" style="display:none">${analyticsL2}</div>
   <div id="_at_event" style="display:none">${analyticsEvent}</div>
@@ -987,7 +1062,7 @@ tr:hover td{background:#F6F8FA;}
     </div>
     <div class="section-body" id="section-body-ativos">
       <div class="board-wrap" id="board-wrap">
-        ${renderBoard('l1', ativosMap)}
+        ${renderBoard('all', ativosMap)}
       </div>
     </div>
   </div>
@@ -1002,17 +1077,7 @@ tr:hover td{background:#F6F8FA;}
 
 <div class="page" id="page-backlog">
   <div class="board-toolbar" style="padding:8px 20px;">
-    <label for="fila-sel-bl">Fila:</label>
-    <select id="fila-sel-bl" onchange="switchFilaBacklog(this.value)">
-      <option value="l1">L1 OpsCenter AMER</option>
-      <option value="l2">L2 OpsCenter AMER</option>
-      <option value="event">Event Management BR</option>
-    </select>
-    <div class="toolbar-sep"></div>
-    <label for="analyst-sel-bl">👤 Analista:</label>
-    <select id="analyst-sel-bl" onchange="switchAnalystBacklog(this.value)">
-      <option value="">— Todos —</option>
-    </select>
+    <span style="font-size:12px;color:var(--muted);">Filtros: Manager / Analista (aba Cases Ativos)</span>
     <div class="toolbar-sep"></div>
     <button onclick="refreshBacklog()" class="refresh-btn" title="Atualizar Backlog">↻</button>
   </div>
@@ -1025,7 +1090,7 @@ tr:hover td{background:#F6F8FA;}
     </div>
     <div class="section-body" id="section-body-backlog-tab">
       <div class="board-wrap" id="board-wrap-backlog-tab">
-        ${renderBoard('l1', backlogMap, false)}
+        ${renderBoard('all', backlogMap, false)}
       </div>
     </div>
   </div>
@@ -1107,9 +1172,11 @@ function refreshPostmortem(){
 }
 function refreshReports(){
   setRefreshStatus('↻ Atualizando reports...');
-  ['sem-type-score','last-interacted-score','support-attention-score','rating-score'].forEach(id=>{const e=document.getElementById(id);if(e){e.textContent='—';e.style.color='';}});
-  const elR=document.getElementById('resolved-month-chart');
-  if(elR)elR.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
+  ['sem-type-score','last-interacted-score','support-attention-score','rating-score','customer-satisfaction-score'].forEach(id=>{const e=document.getElementById(id);if(e){e.textContent='—';e.style.color='';}});
+  ['resolved-month-chart-l1','resolved-month-chart-l2','resolved-month-chart-event'].forEach(id=>{
+    const elR=document.getElementById(id);
+    if(elR)elR.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
+  });
   // Also reload analyst table
   const tbl=document.getElementById('_at_'+currentFila)?.innerHTML||'';
   initAccordion(tbl);
@@ -1118,9 +1185,153 @@ function refreshMyCases(){
   initMyCases();
 }
 
-let currentFila='l1';
+let currentFila='all';
+let currentAnalystReportQueue='all';
 window._GMEMBERS=${gmembersJson};
-window._GID_MAP={'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
+window._GID_MAP={'all':_IDS,'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
+window._MANAGER_CACHE={};
+window._MSH_NOC_GID=undefined;
+
+async function ensureMshNocGroupId(){
+  if(window._MSH_NOC_GID!==undefined) return window._MSH_NOC_GID;
+  try{
+    const r=await fetch(_BASE+'/api/now/table/sys_user_group?sysparm_query='+encodeURIComponent('name=MSH_NOC')+'&sysparm_fields=sys_id&sysparm_limit=1',{
+      headers:{'Accept':'application/json','X-UserToken':_TOK}
+    });
+    const d=await r.json();
+    window._MSH_NOC_GID=d.result?.[0]?.sys_id?.value||d.result?.[0]?.sys_id||'';
+  }catch(e){window._MSH_NOC_GID='';}
+  return window._MSH_NOC_GID;
+}
+
+async function ensureManagerData(gid){
+  if(!gid) return {members:[],managers:[]};
+  if(window._MANAGER_CACHE[gid]) return window._MANAGER_CACHE[gid];
+  let baseMembers=(window._GMEMBERS?.[gid]||[]).slice();
+  if(!baseMembers.length&&gid.includes(',')){
+    const byId={};
+    Object.keys(window._GMEMBERS||{}).forEach(k=>{
+      (window._GMEMBERS[k]||[]).forEach(m=>{if(m?.id&&!byId[m.id])byId[m.id]={id:m.id,name:m.name};});
+    });
+    baseMembers=Object.values(byId);
+  }
+  const ids=baseMembers.map(m=>m.id).filter(Boolean);
+  if(!ids.length){
+    const empty={members:[],managers:[]};
+    window._MANAGER_CACHE[gid]=empty;
+    return empty;
+  }
+  try{
+    const r=await fetch(_BASE+'/api/now/table/sys_user?sysparm_query='+encodeURIComponent('sys_idIN'+ids.join(','))+'&sysparm_fields=sys_id,name,manager&sysparm_display_value=all&sysparm_limit=500',{
+      headers:{'Accept':'application/json','X-UserToken':_TOK}
+    });
+    const d=await r.json();
+    const byId={};
+    (d.result||[]).forEach(u=>{byId[u.sys_id?.value||u.sys_id]=u;});
+    const members=baseMembers.map(m=>{
+      const u=byId[m.id]||{};
+      return {
+        id:m.id,
+        name:m.name,
+        managerId:u.manager?.value||'',
+        managerName:u.manager?.display_value||'Sem manager'
+      };
+    });
+    const mgrMap={};
+    members.forEach(m=>{if(m.managerId)mgrMap[m.managerId]=m.managerName;});
+    const managers=Object.entries(mgrMap).map(([id,name])=>({id,name})).sort((a,b)=>a.name.localeCompare(b.name,'pt'));
+    window._MANAGER_CACHE[gid]={members,managers};
+  }catch(e){
+    const fallback={members:baseMembers.map(m=>({id:m.id,name:m.name,managerId:'',managerName:''})),managers:[]};
+    window._MANAGER_CACHE[gid]=fallback;
+  }
+  return window._MANAGER_CACHE[gid];
+}
+
+function getMembersByManager(gid, managerId){
+  const cached=window._MANAGER_CACHE?.[gid];
+  const members=(cached?.members||window._GMEMBERS?.[gid]||[]).slice();
+  if(!managerId) return members;
+  return members.filter(m=>m.managerId===managerId);
+}
+
+async function populateManagerDropdown(selectId,key){
+  const sel=document.getElementById(selectId); if(!sel) return;
+  const gid=window._GID_MAP?.[key]||'';
+  const prev=sel.value||'';
+  const data=await ensureManagerData(gid);
+  sel.innerHTML='<option value="">— Todos —</option>'+data.managers.map(m=>'<option value="'+m.id+'">'+m.name+'</option>').join('');
+  if(prev&&Array.from(sel.options).some(o=>o.value===prev)) sel.value=prev;
+}
+
+function populateAnalystDropdown(selectId,key,managerId,placeholder){
+  const sel=document.getElementById(selectId); if(!sel) return;
+  const gid=window._GID_MAP?.[key]||'';
+  const prev=sel.value||'';
+  const members=getMembersByManager(gid,managerId).slice().sort((a,b)=>a.name.localeCompare(b.name,'pt'));
+  sel.innerHTML='<option value="">'+(placeholder||'— Todos —')+'</option>'+members.map(a=>'<option value="'+a.id+'">'+a.name+'</option>').join('');
+  if(prev&&Array.from(sel.options).some(o=>o.value===prev)) sel.value=prev;
+}
+
+function getReportAssigneeFilter(gid){
+  const analystId=document.getElementById('analyst-sel')?.value||'';
+  const managerId=document.getElementById('manager-sel')?.value||'';
+  if(analystId) return '^assigned_to='+analystId;
+  if(managerId){
+    const ids=getMembersByManager(gid,managerId).map(m=>m.id).filter(Boolean);
+    return ids.length?'^assigned_toIN'+ids.join(','):'^sys_id=-1';
+  }
+  return '';
+}
+
+function getRatingAssigneeFilter(gid){
+  const analystId=document.getElementById('analyst-sel')?.value||'';
+  const managerId=document.getElementById('manager-sel')?.value||'';
+  if(analystId) return '^cse_assigned_to='+analystId;
+  if(managerId){
+    const ids=getMembersByManager(gid,managerId).map(m=>m.id).filter(Boolean);
+    return ids.length?'^cse_assigned_toIN'+ids.join(','):'^sys_id=-1';
+  }
+  return '';
+}
+
+function applyAnalystTableFilter(){
+  const gid=window._GID_MAP?.[currentFila]||'';
+  const managerId=document.getElementById('manager-sel')?.value||'';
+  const queueWrap=document.getElementById('ana-queue-wrap');
+  const queueSel=document.getElementById('ana-queue-sel');
+  const qKey=(queueSel?.value||currentAnalystReportQueue||'all');
+  const srcKey=managerId?'all':qKey;
+  const src=document.getElementById('_at_'+srcKey)?.innerHTML||'';
+  const anaAcc=document.getElementById('ana-table-wrap-acc');
+  if(anaAcc && src && anaAcc.dataset.src!==srcKey){anaAcc.innerHTML=src;anaAcc.dataset.src=srcKey;}
+  if(queueWrap) queueWrap.style.display=managerId?'none':'inline-flex';
+
+  const rows=document.querySelectorAll('#ana-table-wrap-acc .ana-table tbody tr');
+  if(!rows.length) return;
+  const analystId=document.getElementById('analyst-sel')?.value||'';
+  let allowNames=null;
+  if(analystId){
+    const member=(window._MANAGER_CACHE?.[gid]?.members||window._GMEMBERS?.[gid]||[]).find(m=>m.id===analystId);
+    allowNames=new Set(member?[member.name]:[]);
+  }else if(managerId){
+    allowNames=new Set(getMembersByManager(gid,managerId).map(m=>m.name));
+  }
+  let visible=0;
+  rows.forEach(r=>{
+    const name=(r.cells?.[0]?.innerText||r.cells?.[0]?.textContent||'').trim();
+    const show=!allowNames||allowNames.has(name);
+    r.style.display=show?'':'none';
+    if(show) visible++;
+  });
+  const badge=document.getElementById('acc-badge-analyst');
+  if(badge) badge.textContent=visible?visible+' analistas':'';
+}
+
+function changeAnalystReportQueue(queueKey){
+  currentAnalystReportQueue=queueKey||'all';
+  applyAnalystTableFilter();
+}
 
 function showPage(id,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -1129,8 +1340,7 @@ function showPage(id,el){
   el.classList.add('active');
   if(id==='postmortem') pgInit();
   if(id==='backlog'){
-    const selBl=document.getElementById('analyst-sel-bl');
-    if(selBl&&selBl.options.length<=1) buildBacklogAnalystDropdown();
+    switchAnalystBacklog(document.getElementById('analyst-sel')?.value||'');
   }
   if(id==='kanban'){
     // Re-init accordion in case it wasn't loaded yet
@@ -1155,48 +1365,39 @@ function switchFila(key){
   const tbl=document.getElementById('_at_'+key)?.innerHTML||'';
   document.getElementById('ana-table-wrap').innerHTML=tbl;
   initAccordion(tbl);
-  const sel=document.getElementById('analyst-sel');
-  if(sel){
-    const gid=window._GID_MAP[key]||'';
-    const members=(window._GMEMBERS[gid]||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
-    sel.innerHTML='<option value="">— Selecione —</option>'+members.map(a=>'<option value="'+a.id+'">'+a.name+'</option>').join('');
-  }
+  populateManagerDropdown('manager-sel', key).then(()=>{
+    const managerId=document.getElementById('manager-sel')?.value||'';
+    populateAnalystDropdown('analyst-sel', key, managerId, '— Todos —');
+    switchAnalyst(document.getElementById('analyst-sel')?.value||'');
+    applyAnalystTableFilter();
+  });
   document.getElementById('analyst-board-content').innerHTML='';
-  const elResolved=document.getElementById('resolved-month-chart');
-  if(elResolved)elResolved.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
-  ['sem-type-score','last-interacted-score','support-attention-score'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
+  ['resolved-month-chart-l1','resolved-month-chart-l2','resolved-month-chart-event'].forEach(id=>{
+    const elResolved=document.getElementById(id);
+    if(elResolved)elResolved.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
+  });
+  ['sem-type-score','last-interacted-score','support-attention-score','customer-satisfaction-score'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
   fetchAccordionScores();
 }
 
-function buildBacklogAnalystDropdown(){
-  const bb=document.getElementById('board-wrap-backlog-tab');
-  const selBl=document.getElementById('analyst-sel-bl');
-  if(!bb||!selBl)return;
-  const seen={};
-  bb.querySelectorAll('.card[data-assignedid]').forEach(card=>{
-    const id=card.dataset.assignedid;
-    const name=card.dataset.assignedname;
-    if(id&&name&&!seen[id]) seen[id]=name;
-  });
-  const sorted=Object.entries(seen).sort((a,b)=>a[1].localeCompare(b[1],'pt'));
-  selBl.innerHTML='<option value="">— Todos —</option>'+sorted.map(([id,name])=>'<option value="'+id+'">'+name+'</option>').join('');
-}
-
-function switchFilaBacklog(key){
-  const backlogBoards={'l1':${JSON.stringify(renderBoard('l1',backlogMap,false))},'l2':${JSON.stringify(renderBoard('l2',backlogMap,false))},'event':${JSON.stringify(renderBoard('event',backlogMap,false))}};
-  const bb=document.getElementById('board-wrap-backlog-tab');
-  if(bb)bb.innerHTML=backlogBoards[key]||'';
-  const badge=document.getElementById('section-badge-backlog-tab');
-  if(badge){const c=(backlogBoards[key]||'').match(/data-count="(\d+)"/g)||[];const tot=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,'')),0);badge.textContent=tot+' cases · ≥20 dias';}
-  buildBacklogAnalystDropdown();
+function switchManager(managerId){
+  populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
+  const analystId=document.getElementById('analyst-sel')?.value||'';
+  switchAnalyst(analystId);
 }
 
 function switchAnalystBacklog(analystId){
   const bb=document.getElementById('board-wrap-backlog-tab');
   if(!bb)return;
+  const gid=window._GID_MAP?.[currentFila]||'';
+  const managerId=document.getElementById('manager-sel')?.value||'';
+  const managerAllowed=new Set(getMembersByManager(gid,managerId).map(m=>m.id));
   const cards=bb.querySelectorAll('.card');
   cards.forEach(card=>{
-    if(!analystId||card.dataset.assignedid===analystId){
+    const assignedId=card.dataset.assignedid||'';
+    const passesAnalyst=!analystId||assignedId===analystId;
+    const passesManager=!managerId||managerAllowed.has(assignedId);
+    if(passesAnalyst&&passesManager){
       card.style.display='';
     } else {
       card.style.display='none';
@@ -1267,6 +1468,7 @@ function initAccordion(html){
   }
   const badge=document.getElementById('acc-badge-analyst');
   if(badge){const rows=document.querySelectorAll('#ana-table-wrap-acc .ana-table tbody tr');badge.textContent=rows.length?rows.length+' analistas':'';}
+  applyAnalystTableFilter();
   fetchAccordionScores();
 }
 
@@ -1275,27 +1477,38 @@ function setRefreshStatus(msg){const el=document.getElementById('refresh-status'
 function fetchAccordionScores(){
   const h={'Accept':'application/json','X-UserToken':_TOK};
   const gid=window._GID_MAP?.[currentFila]||'1c7c9057db6771d0832ead8ed396197a';
+  const grpQ=gid.includes(',')?'assignment_groupIN'+gid:'assignment_group='+gid;
+  const assigneeF=getReportAssigneeFilter(gid);
+  const ratingAssigneeF=getRatingAssigneeFilter(gid);
+  const yearOpenedF='^opened_atONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()';
 
   // Sem Type
   const elST=document.getElementById('sem-type-score');
   if(elST){elST.textContent='…';
-    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('stateIN1,10,21^u_typeISEMPTY^assignment_group='+gid)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('stateIN1,10,21^u_typeISEMPTY^'+grpQ+assigneeF+yearOpenedF)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elST.textContent=c;elST.style.color=c===0?'#1A7F37':'#CF222E';}).catch(()=>{elST.textContent='?';});
   }
 
   // Last Interacted by Client
   const elLI=document.getElementById('last-interacted-score');
   if(elLI){elLI.textContent='…';
-    const liQ='stateIN32,1,10,21,90,18,8,5,29,30,2^u_customer_last_interactionISNOTEMPTY^u_type!=7^assignment_group='+gid;
+    const liQ='stateIN32,1,10,21,90,18,8,5,29,30,2^u_customer_last_interactionISNOTEMPTY^u_type!=7^'+grpQ+assigneeF+yearOpenedF;
     fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(liQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elLI.textContent=c;elLI.style.color=c>0?'#0969DA':'#1A7F37';}).catch(()=>{elLI.textContent='?';});
   }
 
-  // Resolvidos no Mês — bar chart por analista
-  const elRM=document.getElementById('resolved-month-chart');
-  if(elRM&&(elRM.innerHTML.includes('Carregando')||elRM.innerHTML==='')){
+  // Resolvidos no Mês — 3 cards (L1/L2/Event)
+  const rmTargets = [
+    {key:'l1', id:'resolved-month-chart-l1'},
+    {key:'l2', id:'resolved-month-chart-l2'},
+    {key:'event', id:'resolved-month-chart-event'}
+  ];
+  rmTargets.forEach(t=>{
+    const elRM=document.getElementById(t.id);
+    if(!elRM) return;
     elRM.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
-    const rmQ='resolved_atONThis month@javascript:gs.beginningOfThisMonth()@javascript:gs.endOfThisMonth()^assignment_group='+gid+'^stateIN33,34,6,3^contact_typeNOT INautomation^u_recurrence_case=false^u_operating_countryINBR';
+    const qGid=window._GID_MAP?.[t.key]||'';
+    const rmQ='resolved_atONThis month@javascript:gs.beginningOfThisMonth()@javascript:gs.endOfThisMonth()^assignment_group='+qGid+assigneeF+'^stateIN33,34,6,3^contact_typeNOT INautomation^u_recurrence_case=false^u_operating_countryINBR';
     fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(rmQ)+'&sysparm_group_by=resolved_by&sysparm_count=true&sysparm_display_value=all&sysparm_limit=50',{headers:h})
     .then(r=>r.json()).then(d=>{
       const rows=(d.result||[]).map(r=>({name:r.groupby_fields?.[0]?.display_value||'—',cnt:parseInt(r.stats?.count||0)})).filter(r=>r.cnt>0).sort((a,b)=>b.cnt-a.cnt);
@@ -1314,12 +1527,12 @@ function fetchAccordionScores(){
       }).join('');
       elRM.innerHTML='<div class="res-chart-wrap">'+bars+'<div class="res-chart-total">Total: <strong>'+total+'</strong> resolvidos este mês</div></div>';
     }).catch(()=>{elRM.innerHTML='<div style="color:#CF222E;font-size:12px;">Erro ao carregar</div>';});
-  }
+  });
 
   // Support Attention — segmentado por fila
   const elSA=document.getElementById('support-attention-score');
   if(elSA){elSA.textContent='…';
-    const saQ='u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^assignment_group='+gid;
+    const saQ='u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^'+grpQ+assigneeF+yearOpenedF;
     fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(saQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{
       const c=parseInt(d.result?.stats?.count||0);
@@ -1328,7 +1541,7 @@ function fetchAccordionScores(){
       // Update link with correct gid
       const link=document.getElementById('support-attention-link');
       if(link){
-        const qEnc=encodeURIComponent('u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^assignment_group='+gid);
+        const qEnc=encodeURIComponent('u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^'+grpQ+assigneeF+yearOpenedF);
         link.href=_BASE+'/sn_customerservice_case_list.do?sysparm_query='+qEnc;
       }
     }).catch(()=>{elSA.textContent='?';});
@@ -1336,15 +1549,43 @@ function fetchAccordionScores(){
 
   // Rating EMS Year
   const elRating=document.getElementById('rating-score');
-  if(elRating&&(elRating.textContent==='—'||elRating.textContent==='')){elRating.textContent='…';
+  if(elRating){elRating.textContent='…';
     const ratingGids='1c7c9057db6771d0832ead8ed396197a,ff72689247ee1e143cbfe07a216d4357,673c2170476422503cbfe07a216d430f,61d7da1edb71a450c6445457dc9619f9,52cd04fbdbe71700b3cd73e1ba961949,6c67c13bdbeb1700b3cd73e1ba9619b9,5d4cb3f1db90a050e0e15cb8dc961970,5d77053bdbeb1700b3cd73e1ba9619ca,8b3850eddb1adf00448b01a3ca9619ce,7dbeba001ba173004948ece03d4bcb7a,01d511c2db68cc10fddc7bedae9619de,3469cd95dbe9dbc0b3cd73e1ba9619b3';
-    const rQ='ai_sys_created_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()^cse_accountNOT LIKEEQUINIX^mr_metric=e7d1c39ddb56df00448b01a3ca961972^cse_assignment_groupIN'+ratingGids;
+    const rQ='ai_sys_created_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()^cse_accountNOT LIKEEQUINIX^mr_metric=e7d1c39ddb56df00448b01a3ca961972^cse_assignment_groupIN'+ratingGids+ratingAssigneeF;
     fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(rQ)+'&sysparm_avg_fields=mr_actual_value&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{
       const avg=parseFloat(d.result?.stats?.avg?.mr_actual_value||0);
       elRating.textContent=avg>0?avg.toFixed(2):'—';
       elRating.style.color=avg>=4?'#1A7F37':avg>=3?'#BF8700':'#CF222E';
     }).catch(()=>{elRating.textContent='?';});
+  }
+
+  // Customer Satisfaction (NPS-style)
+  const elCS=document.getElementById('customer-satisfaction-score');
+  if(elCS){elCS.textContent='…';
+    const ratingGids='1c7c9057db6771d0832ead8ed396197a,ff72689247ee1e143cbfe07a216d4357,673c2170476422503cbfe07a216d430f,61d7da1edb71a450c6445457dc9619f9,52cd04fbdbe71700b3cd73e1ba961949,6c67c13bdbeb1700b3cd73e1ba9619b9,5d4cb3f1db90a050e0e15cb8dc961970,5d77053bdbeb1700b3cd73e1ba9619ca,8b3850eddb1adf00448b01a3ca9619ce,7dbeba001ba173004948ece03d4bcb7a,01d511c2db68cc10fddc7bedae9619de,3469cd95dbe9dbc0b3cd73e1ba9619b3';
+    ensureMshNocGroupId().then(mshGid=>{
+    const gids=[ratingGids,mshGid].filter(Boolean).join(',');
+    const csQ='ai_sys_created_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()^cse_accountNOT LIKEEQUINIX^mr_metric=e7d1c39ddb56df00448b01a3ca961972^cse_assignment_groupIN'+gids+ratingAssigneeF;
+    fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(csQ)+'&sysparm_group_by=mr_actual_value&sysparm_count=true&sysparm_display_value=all&sysparm_limit=20',{headers:h})
+    .then(r=>r.json()).then(d=>{
+      const rows=d.result||[];
+      let promoters=0,detractors=0,total=0;
+      rows.forEach(row=>{
+        const cnt=parseInt(row.stats?.count||0);
+        const raw=row.groupby_fields?.[0]?.value||row.groupby_fields?.[0]?.display_value||'0';
+        const rating=parseFloat(raw);
+        if(isNaN(rating)||cnt<=0) return;
+        total+=cnt;
+        if(rating>=5) promoters+=cnt;
+        else if(rating<=3) detractors+=cnt;
+      });
+      if(total<=0){elCS.textContent='—';elCS.style.color='';return;}
+      const cs=((promoters-detractors)/total)*100;
+      elCS.textContent=cs.toFixed(1)+'%';
+      elCS.style.color=cs>=80?'#1A7F37':cs>=60?'#BF8700':'#CF222E';
+    }).catch(()=>{elCS.textContent='?';});
+    }).catch(()=>{elCS.textContent='?';});
   }
 }
 function fetchSemTypeScore(){fetchAccordionScores();}
@@ -1361,11 +1602,13 @@ function startPolling(){
 
   // Layer 2: Reports/Scores (3min) — staggered
   _pollL2 = setInterval(()=>{
-    ['sem-type-score','last-interacted-score','support-attention-score'].forEach(id=>{
+    ['sem-type-score','last-interacted-score','support-attention-score','customer-satisfaction-score'].forEach(id=>{
       const e=document.getElementById(id); if(e) e.dataset.dirty='1';
     });
-    const elR=document.getElementById('resolved-month-chart');
-    if(elR) elR.dataset.dirty='1';
+    ['resolved-month-chart-l1','resolved-month-chart-l2','resolved-month-chart-event'].forEach(id=>{
+      const elR=document.getElementById(id);
+      if(elR) elR.dataset.dirty='1';
+    });
     // Only refresh if accordion is open
     const body=document.getElementById('acc-body-analyst');
     if(body&&body.style.display!=='none') fetchAccordionScores();
@@ -1431,6 +1674,33 @@ function toggleSection(key) {
   if (!body) return;
   const collapsed = body.classList.toggle('collapsed');
   if (icon) icon.style.transform = collapsed ? 'rotate(-90deg)' : '';
+}
+
+function switchResolvedTodayQueue(key){
+  ['l1','l2','event'].forEach(k=>{
+    const el=document.getElementById('rt-'+k);
+    if(el) el.style.display=(k===key)?'':'none';
+  });
+}
+
+function dedupeManagerToolbar(){
+  const toolbar=document.querySelector('#page-kanban .board-toolbar');
+  if(!toolbar) return;
+  const children=Array.from(toolbar.children);
+  const managerPairs=[];
+  for(let i=0;i<children.length;i++){
+    const el=children[i];
+    const nxt=children[i+1];
+    if(el?.tagName==='LABEL' && /manager/i.test(el.textContent||'') && nxt?.tagName==='SELECT'){
+      managerPairs.push({label:el,select:nxt,index:i});
+    }
+  }
+  managerPairs.slice(1).forEach(p=>{
+    const prev=p.label.previousElementSibling;
+    if(prev?.classList?.contains('toolbar-sep')) prev.remove();
+    p.label.remove();
+    p.select.remove();
+  });
 }
 
 
@@ -1554,18 +1824,17 @@ function switchAnalyst(userId){
   if(analystContent) analystContent.innerHTML='';
 
   // Filter all cards in both boards
-  const boards=['board-wrap','board-wrap-backlog'];
+  const boards=['board-wrap'];
+  const gid=window._GID_MAP?.[currentFila]||'';
+  const managerId=document.getElementById('manager-sel')?.value||'';
+  const managerAllowed=new Set(getMembersByManager(gid,managerId).map(m=>m.id));
   boards.forEach(bid=>{
     const bw=document.getElementById(bid); if(!bw)return;
     bw.querySelectorAll('.card').forEach(card=>{
-      if(!userId){card.style.display='';return;}
-      const sysId=card.dataset.sysid||'';
-      // Check if card belongs to selected analyst by looking at card-assigned text
-      const assignedEl=card.querySelector('.card-assigned');
-      const assignedText=assignedEl?assignedEl.textContent:'';
-      // Match by userId stored in reassign button data-assigned
       const cardAssignedId=card.dataset.assignedid||'';
-      card.style.display=(cardAssignedId===userId)?'':'none';
+      const passesAnalyst=!userId||cardAssignedId===userId;
+      const passesManager=!managerId||managerAllowed.has(cardAssignedId);
+      card.style.display=(passesAnalyst&&passesManager)?'':'none';
     });
     // Hide empty lanes
     bw.querySelectorAll('.lane').forEach(lane=>{
@@ -1575,8 +1844,10 @@ function switchAnalyst(userId){
     });
   });
 
+  applyAnalystTableFilter();
+  fetchAccordionScores();
+
   if(!userId){return;}
-  const gid=window._GID_MAP[currentFila]||'';
   const name=(window._GMEMBERS[gid]||[]).find(m=>m.id===userId)?.name||'Analista';
   // Don't fetch separately — boards are filtered
   return;
@@ -1595,6 +1866,12 @@ function switchAnalyst(userId){
     if(!cases.length){content.innerHTML='<div class="analyst-empty">Nenhum caso ativo para '+name+'</div>';return;}
     renderAnalystBoard(cases,name,gid,content);
   }).catch(()=>{content.innerHTML='<div class="analyst-empty">Erro ao carregar casos</div>';});
+}
+
+function reapplyAnalystFilters(){
+  const activeSel=document.getElementById('analyst-sel');
+  if(activeSel) switchAnalyst(activeSel.value||'');
+  switchAnalystBacklog(activeSel?.value||'');
 }
 
 function renderAnalystBoard(cases,analystName,gid,container){
@@ -1639,7 +1916,7 @@ function renderAnalystBoard(cases,analystName,gid,container){
     '</div><div class="card-footer">'+
     '<span class="card-assigned">👤 '+analystName+'</span>'+
     '<span class="card-time">⏰ '+c.openH+'</span></div></div>';
-  const renderL=(label,color,icon,items)=>'<div class="lane">'+
+  const renderL=(laneKey,label,color,icon,items)=>'<div class="lane" data-lane="'+laneKey+'">'+
     '<div class="lane-hdr" style="border-top:3px solid '+color+'">'+
     '<div class="lane-title"><span class="lane-dot" style="background:'+color+'"></span>'+icon+' '+label+'</div>'+
     '<span class="lane-count" style="color:'+color+'">'+items.length+'</span></div>'+
@@ -1648,11 +1925,11 @@ function renderAnalystBoard(cases,analystName,gid,container){
     '</div></div>';
   container.innerHTML='<div class="analyst-board-header"><span class="analyst-board-name">👤 '+analystName+'</span><span class="analyst-board-count">'+classified.length+' casos</span></div>'+
     '<div class="board-wrap"><div class="board-inner">'+
-    renderL('Crítico','#CF222E','🔴',lanes.critical)+
-    renderL('Alto Risco','#BF8700','🟠',lanes.high)+
-    renderL('Atenção','#0550AE','🔵',lanes.medium)+
-    renderL('Normal','#1A7F37','🟢',lanes.normal)+
-    renderL('Aguardando','#0969DA','⏳',lanes.awaiting)+
+    renderL('critical','Crítico','#CF222E','🔴',lanes.critical)+
+    renderL('high','Alto Risco','#BF8700','🟠',lanes.high)+
+    renderL('medium','Atenção','#0550AE','🔵',lanes.medium)+
+    renderL('normal','Normal','#1A7F37','🟢',lanes.normal)+
+    renderL('awaiting','Aguardando','#0969DA','⏳',lanes.awaiting)+
     '</div></div>';
 }
 
@@ -1951,6 +2228,11 @@ document.addEventListener('visibilitychange',()=>{
   else startPolling();
 });
 document.addEventListener('DOMContentLoaded',()=>{
+  dedupeManagerToolbar();
+  populateManagerDropdown('manager-sel', currentFila).then(()=>{
+    const managerId=document.getElementById('manager-sel')?.value||'';
+    populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
+  });
   document.querySelectorAll('th[data-col]').forEach(th=>{th.addEventListener('click',e=>{e.stopPropagation();openFil(th,parseInt(th.getAttribute('data-col')));});});
   pgInit();
   // Load analyst table — try immediately, then watch for content via MutationObserver
@@ -2003,6 +2285,37 @@ document.addEventListener('DOMContentLoaded',()=>{
       } catch (err) { console.error('[DeltaPolling] Erro:', err); }
     }
 
+    function resolveLaneFromDelta(data) {
+      const isAwaiting = ['18','32','5','29','30'].includes(data?.state?.value);
+      const hasAssigned = !!data?.assigned_to?.value;
+      const prio = parseInt(data?.priority?.value || '5', 10);
+
+      if (isAwaiting) return 'awaiting';
+      if (!hasAssigned) return 'orphan';
+      if (prio === 1) return 'critical';
+      if (prio === 2) return 'high';
+      if (prio === 3) return 'medium';
+      return 'normal';
+    }
+
+    function moveCardToLane(card, lane) {
+      const board = card.closest('.board-inner');
+      if (!board || !lane) return;
+      const targetBody = board.querySelector('.lane[data-lane="' + lane + '"] .lane-body');
+      if (!targetBody || card.parentElement === targetBody) return;
+      targetBody.insertBefore(card, targetBody.firstChild);
+      updateLaneCounters(board);
+    }
+
+    function updateLaneCounters(board) {
+      if (!board) return;
+      board.querySelectorAll('.lane[data-lane]').forEach(laneEl => {
+        const count = laneEl.querySelectorAll('.lane-body .card').length;
+        const countEl = laneEl.querySelector('.lane-count');
+        if (countEl) countEl.textContent = String(count);
+      });
+    }
+
     function updateCard(card, data) {
       const isAw = ['18','32','5','29','30'].includes(data.state.value);
       const badge = card.querySelector('.badge-await');
@@ -2031,11 +2344,21 @@ document.addEventListener('DOMContentLoaded',()=>{
       if (footer) {
         const ass = footer.querySelector('.card-assigned');
         if (ass) {
-          const name = data.assigned_to.display_value;
+          const name = data.assigned_to?.display_value || '';
+          card.dataset.assignedid = data.assigned_to?.value || '';
+          card.dataset.assignedname = name;
           ass.textContent = name ? '👤 ' + name : '⚠ Sem responsável';
           ass.className = 'card-assigned' + (name ? '' : ' unassigned');
         }
       }
+
+      const nextLane = resolveLaneFromDelta(data);
+      const prevLane = Array.from(card.classList).find(cls => cls.startsWith('card-'));
+      if (prevLane) card.classList.remove(prevLane);
+      card.classList.add('card-' + nextLane);
+      moveCardToLane(card, nextLane);
+      // Mantém consistência quando a visão está filtrada por analista.
+      reapplyAnalystFilters();
     }
 
     setInterval(fetchDeltas, POLLING_INTERVAL);
