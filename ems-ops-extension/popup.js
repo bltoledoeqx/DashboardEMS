@@ -311,8 +311,8 @@ function runEMSOps(userToken, userMes) {
         </div>
       </div>`;
 
-    const renderLane = (label,color,icon,items) => `
-      <div class="lane">
+    const renderLane = (laneKey,label,color,icon,items) => `
+      <div class="lane" data-lane="${laneKey}">
         <div class="lane-hdr" style="border-top:3px solid ${color}">
           <div class="lane-title"><span class="lane-dot" style="background:${color}"></span>${icon} ${label}</div>
           <span class="lane-count" style="color:${color}">${items.length}</span>
@@ -364,12 +364,12 @@ function runEMSOps(userToken, userMes) {
       const ln = lmap[key];
       return `
         <div class="board-inner">
-          ${renderLane('Crítico',    '#CF222E','🔴',ln.critical)}
-          ${renderLane('Alto Risco', '#BF8700','🟠',ln.high)}
-          ${renderLane('Atenção',    '#0550AE','🔵',ln.medium)}
-          ${renderLane('Normal',     '#1A7F37','🟢',ln.normal)}
-          ${renderLane('Aguardando', '#0969DA','⏳',ln.awaiting)}
-          ${renderLane('Órfãos',     '#57606A','⚫',ln.orphan)}
+          ${renderLane('critical', 'Crítico',    '#CF222E','🔴',ln.critical)}
+          ${renderLane('high',     'Alto Risco', '#BF8700','🟠',ln.high)}
+          ${renderLane('medium',   'Atenção',    '#0550AE','🔵',ln.medium)}
+          ${renderLane('normal',   'Normal',     '#1A7F37','🟢',ln.normal)}
+          ${renderLane('awaiting', 'Aguardando', '#0969DA','⏳',ln.awaiting)}
+          ${renderLane('orphan',   'Órfãos',     '#57606A','⚫',ln.orphan)}
           ${showRT ? renderResolvedToday(key) : ''}
         </div>`;
     };
@@ -1639,7 +1639,7 @@ function renderAnalystBoard(cases,analystName,gid,container){
     '</div><div class="card-footer">'+
     '<span class="card-assigned">👤 '+analystName+'</span>'+
     '<span class="card-time">⏰ '+c.openH+'</span></div></div>';
-  const renderL=(label,color,icon,items)=>'<div class="lane">'+
+  const renderL=(laneKey,label,color,icon,items)=>'<div class="lane" data-lane="'+laneKey+'">'+
     '<div class="lane-hdr" style="border-top:3px solid '+color+'">'+
     '<div class="lane-title"><span class="lane-dot" style="background:'+color+'"></span>'+icon+' '+label+'</div>'+
     '<span class="lane-count" style="color:'+color+'">'+items.length+'</span></div>'+
@@ -1648,11 +1648,11 @@ function renderAnalystBoard(cases,analystName,gid,container){
     '</div></div>';
   container.innerHTML='<div class="analyst-board-header"><span class="analyst-board-name">👤 '+analystName+'</span><span class="analyst-board-count">'+classified.length+' casos</span></div>'+
     '<div class="board-wrap"><div class="board-inner">'+
-    renderL('Crítico','#CF222E','🔴',lanes.critical)+
-    renderL('Alto Risco','#BF8700','🟠',lanes.high)+
-    renderL('Atenção','#0550AE','🔵',lanes.medium)+
-    renderL('Normal','#1A7F37','🟢',lanes.normal)+
-    renderL('Aguardando','#0969DA','⏳',lanes.awaiting)+
+    renderL('critical','Crítico','#CF222E','🔴',lanes.critical)+
+    renderL('high','Alto Risco','#BF8700','🟠',lanes.high)+
+    renderL('medium','Atenção','#0550AE','🔵',lanes.medium)+
+    renderL('normal','Normal','#1A7F37','🟢',lanes.normal)+
+    renderL('awaiting','Aguardando','#0969DA','⏳',lanes.awaiting)+
     '</div></div>';
 }
 
@@ -2003,6 +2003,37 @@ document.addEventListener('DOMContentLoaded',()=>{
       } catch (err) { console.error('[DeltaPolling] Erro:', err); }
     }
 
+    function resolveLaneFromDelta(data) {
+      const isAwaiting = ['18','32','5','29','30'].includes(data?.state?.value);
+      const hasAssigned = !!data?.assigned_to?.value;
+      const prio = parseInt(data?.priority?.value || '5', 10);
+
+      if (isAwaiting) return 'awaiting';
+      if (!hasAssigned) return 'orphan';
+      if (prio === 1) return 'critical';
+      if (prio === 2) return 'high';
+      if (prio === 3) return 'medium';
+      return 'normal';
+    }
+
+    function moveCardToLane(card, lane) {
+      const board = card.closest('.board-inner');
+      if (!board || !lane) return;
+      const targetBody = board.querySelector('.lane[data-lane="' + lane + '"] .lane-body');
+      if (!targetBody || card.parentElement === targetBody) return;
+      targetBody.insertBefore(card, targetBody.firstChild);
+      updateLaneCounters(board);
+    }
+
+    function updateLaneCounters(board) {
+      if (!board) return;
+      board.querySelectorAll('.lane[data-lane]').forEach(laneEl => {
+        const count = laneEl.querySelectorAll('.lane-body .card').length;
+        const countEl = laneEl.querySelector('.lane-count');
+        if (countEl) countEl.textContent = String(count);
+      });
+    }
+
     function updateCard(card, data) {
       const isAw = ['18','32','5','29','30'].includes(data.state.value);
       const badge = card.querySelector('.badge-await');
@@ -2031,11 +2062,19 @@ document.addEventListener('DOMContentLoaded',()=>{
       if (footer) {
         const ass = footer.querySelector('.card-assigned');
         if (ass) {
-          const name = data.assigned_to.display_value;
+          const name = data.assigned_to?.display_value || '';
+          card.dataset.assignedid = data.assigned_to?.value || '';
+          card.dataset.assignedname = name;
           ass.textContent = name ? '👤 ' + name : '⚠ Sem responsável';
           ass.className = 'card-assigned' + (name ? '' : ' unassigned');
         }
       }
+
+      const nextLane = resolveLaneFromDelta(data);
+      const prevLane = Array.from(card.classList).find(cls => cls.startsWith('card-'));
+      if (prevLane) card.classList.remove(prevLane);
+      card.classList.add('card-' + nextLane);
+      moveCardToLane(card, nextLane);
     }
 
     setInterval(fetchDeltas, POLLING_INTERVAL);
