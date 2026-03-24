@@ -930,11 +930,6 @@ tr:hover td{background:#F6F8FA;}
       <option value="">— Todos —</option>
     </select>
     <div class="toolbar-sep"></div>
-    <label for="manager-sel">👔 Manager:</label>
-    <select id="manager-sel" onchange="switchManager(this.value)">
-      <option value="">— Todos —</option>
-    </select>
-    <div class="toolbar-sep"></div>
     <label for="analyst-sel">👤 Analista:</label>
     <select id="analyst-sel" onchange="switchAnalyst(this.value)">
       <option value="">— Todos —</option>
@@ -1009,7 +1004,7 @@ tr:hover td{background:#F6F8FA;}
             </div>
           </div>
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;flex-direction:row;gap:8px;align-items:flex-start;">
           <div class="acc-report-card acc-resolved-card">
             <div class="acc-report-title">Resolvidos no Mês · L1</div>
             <div id="resolved-month-chart-l1"><div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div></div>
@@ -1157,8 +1152,6 @@ function refreshReports(){
     const elR=document.getElementById(id);
     if(elR)elR.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
   });
-  const elR=document.getElementById('resolved-month-chart');
-  if(elR)elR.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
   // Also reload analyst table
   const tbl=document.getElementById('_at_'+currentFila)?.innerHTML||'';
   initAccordion(tbl);
@@ -1167,10 +1160,9 @@ function refreshMyCases(){
   initMyCases();
 }
 
-let currentFila='l1';
-let currentFilaBacklog='l1';
+let currentFila='all';
 window._GMEMBERS=${gmembersJson};
-window._GID_MAP={'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
+window._GID_MAP={'all':_IDS,'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
 window._MANAGER_CACHE={};
 
 async function ensureManagerData(gid){
@@ -1435,18 +1427,19 @@ function fetchAccordionScores(){
   const grpQ=gid.includes(',')?'assignment_groupIN'+gid:'assignment_group='+gid;
   const assigneeF=getReportAssigneeFilter(gid);
   const ratingAssigneeF=getRatingAssigneeFilter(gid);
+  const yearOpenedF='^opened_atONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()';
 
   // Sem Type
   const elST=document.getElementById('sem-type-score');
   if(elST){elST.textContent='…';
-    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('stateIN1,10,21^u_typeISEMPTY^'+grpQ+assigneeF)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('stateIN1,10,21^u_typeISEMPTY^'+grpQ+assigneeF+yearOpenedF)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elST.textContent=c;elST.style.color=c===0?'#1A7F37':'#CF222E';}).catch(()=>{elST.textContent='?';});
   }
 
   // Last Interacted by Client
   const elLI=document.getElementById('last-interacted-score');
   if(elLI){elLI.textContent='…';
-    const liQ='stateIN32,1,10,21,90,18,8,5,29,30,2^u_customer_last_interactionISNOTEMPTY^u_type!=7^'+grpQ+assigneeF;
+    const liQ='stateIN32,1,10,21,90,18,8,5,29,30,2^u_customer_last_interactionISNOTEMPTY^u_type!=7^'+grpQ+assigneeF+yearOpenedF;
     fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(liQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elLI.textContent=c;elLI.style.color=c>0?'#0969DA':'#1A7F37';}).catch(()=>{elLI.textContent='?';});
   }
@@ -1486,7 +1479,7 @@ function fetchAccordionScores(){
   // Support Attention — segmentado por fila
   const elSA=document.getElementById('support-attention-score');
   if(elSA){elSA.textContent='…';
-    const saQ='u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^'+grpQ+assigneeF;
+    const saQ='u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^'+grpQ+assigneeF+yearOpenedF;
     fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(saQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{
       const c=parseInt(d.result?.stats?.count||0);
@@ -1495,7 +1488,7 @@ function fetchAccordionScores(){
       // Update link with correct gid
       const link=document.getElementById('support-attention-link');
       if(link){
-        const qEnc=encodeURIComponent('u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^'+grpQ+assigneeF);
+        const qEnc=encodeURIComponent('u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^'+grpQ+assigneeF+yearOpenedF);
         link.href=_BASE+'/sn_customerservice_case_list.do?sysparm_query='+qEnc;
       }
     }).catch(()=>{elSA.textContent='?';});
@@ -1631,6 +1624,26 @@ function switchResolvedTodayQueue(key){
   ['l1','l2','event'].forEach(k=>{
     const el=document.getElementById('rt-'+k);
     if(el) el.style.display=(k===key)?'':'none';
+  });
+}
+
+function dedupeManagerToolbar(){
+  const toolbar=document.querySelector('#page-kanban .board-toolbar');
+  if(!toolbar) return;
+  const children=Array.from(toolbar.children);
+  const managerPairs=[];
+  for(let i=0;i<children.length;i++){
+    const el=children[i];
+    const nxt=children[i+1];
+    if(el?.tagName==='LABEL' && /manager/i.test(el.textContent||'') && nxt?.tagName==='SELECT'){
+      managerPairs.push({label:el,select:nxt,index:i});
+    }
+  }
+  managerPairs.slice(1).forEach(p=>{
+    const prev=p.label.previousElementSibling;
+    if(prev?.classList?.contains('toolbar-sep')) prev.remove();
+    p.label.remove();
+    p.select.remove();
   });
 }
 
@@ -2159,6 +2172,7 @@ document.addEventListener('visibilitychange',()=>{
   else startPolling();
 });
 document.addEventListener('DOMContentLoaded',()=>{
+  dedupeManagerToolbar();
   populateManagerDropdown('manager-sel', currentFila).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
     populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
