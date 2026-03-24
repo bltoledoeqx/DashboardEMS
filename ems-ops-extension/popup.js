@@ -311,8 +311,8 @@ function runEMSOps(userToken, userMes) {
         </div>
       </div>`;
 
-    const renderLane = (label,color,icon,items) => `
-      <div class="lane">
+    const renderLane = (laneKey,label,color,icon,items) => `
+      <div class="lane" data-lane="${laneKey}">
         <div class="lane-hdr" style="border-top:3px solid ${color}">
           <div class="lane-title"><span class="lane-dot" style="background:${color}"></span>${icon} ${label}</div>
           <span class="lane-count" style="color:${color}">${items.length}</span>
@@ -364,12 +364,12 @@ function runEMSOps(userToken, userMes) {
       const ln = lmap[key];
       return `
         <div class="board-inner">
-          ${renderLane('Crítico',    '#CF222E','🔴',ln.critical)}
-          ${renderLane('Alto Risco', '#BF8700','🟠',ln.high)}
-          ${renderLane('Atenção',    '#0550AE','🔵',ln.medium)}
-          ${renderLane('Normal',     '#1A7F37','🟢',ln.normal)}
-          ${renderLane('Aguardando', '#0969DA','⏳',ln.awaiting)}
-          ${renderLane('Órfãos',     '#57606A','⚫',ln.orphan)}
+          ${renderLane('critical', 'Crítico',    '#CF222E','🔴',ln.critical)}
+          ${renderLane('high',     'Alto Risco', '#BF8700','🟠',ln.high)}
+          ${renderLane('medium',   'Atenção',    '#0550AE','🔵',ln.medium)}
+          ${renderLane('normal',   'Normal',     '#1A7F37','🟢',ln.normal)}
+          ${renderLane('awaiting', 'Aguardando', '#0969DA','⏳',ln.awaiting)}
+          ${renderLane('orphan',   'Órfãos',     '#57606A','⚫',ln.orphan)}
           ${showRT ? renderResolvedToday(key) : ''}
         </div>`;
     };
@@ -895,6 +895,11 @@ tr:hover td{background:#F6F8FA;}
       <option value="event">Event Management BR (${lanesMap.event.total})</option>
     </select>
     <div class="toolbar-sep"></div>
+    <label for="manager-sel">👔 Manager:</label>
+    <select id="manager-sel" onchange="switchManager(this.value)">
+      <option value="">— Todos —</option>
+    </select>
+    <div class="toolbar-sep"></div>
     <label for="analyst-sel">👤 Analista:</label>
     <select id="analyst-sel" onchange="switchAnalyst(this.value)">
       <option value="">— Todos —</option>
@@ -1009,6 +1014,11 @@ tr:hover td{background:#F6F8FA;}
       <option value="event">Event Management BR</option>
     </select>
     <div class="toolbar-sep"></div>
+    <label for="manager-sel-bl">👔 Manager:</label>
+    <select id="manager-sel-bl" onchange="switchManagerBacklog(this.value)">
+      <option value="">— Todos —</option>
+    </select>
+    <div class="toolbar-sep"></div>
     <label for="analyst-sel-bl">👤 Analista:</label>
     <select id="analyst-sel-bl" onchange="switchAnalystBacklog(this.value)">
       <option value="">— Todos —</option>
@@ -1119,8 +1129,107 @@ function refreshMyCases(){
 }
 
 let currentFila='l1';
+let currentFilaBacklog='l1';
 window._GMEMBERS=${gmembersJson};
 window._GID_MAP={'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
+window._MANAGER_CACHE={};
+
+async function ensureManagerData(gid){
+  if(!gid) return {members:[],managers:[]};
+  if(window._MANAGER_CACHE[gid]) return window._MANAGER_CACHE[gid];
+  const baseMembers=(window._GMEMBERS?.[gid]||[]).slice();
+  const ids=baseMembers.map(m=>m.id).filter(Boolean);
+  if(!ids.length){
+    const empty={members:[],managers:[]};
+    window._MANAGER_CACHE[gid]=empty;
+    return empty;
+  }
+  try{
+    const r=await fetch(_BASE+'/api/now/table/sys_user?sysparm_query='+encodeURIComponent('sys_idIN'+ids.join(','))+'&sysparm_fields=sys_id,name,manager&sysparm_display_value=all&sysparm_limit=500',{
+      headers:{'Accept':'application/json','X-UserToken':_TOK}
+    });
+    const d=await r.json();
+    const byId={};
+    (d.result||[]).forEach(u=>{byId[u.sys_id?.value||u.sys_id]=u;});
+    const members=baseMembers.map(m=>{
+      const u=byId[m.id]||{};
+      return {
+        id:m.id,
+        name:m.name,
+        managerId:u.manager?.value||'',
+        managerName:u.manager?.display_value||'Sem manager'
+      };
+    });
+    const mgrMap={};
+    members.forEach(m=>{if(m.managerId)mgrMap[m.managerId]=m.managerName;});
+    const managers=Object.entries(mgrMap).map(([id,name])=>({id,name})).sort((a,b)=>a.name.localeCompare(b.name,'pt'));
+    window._MANAGER_CACHE[gid]={members,managers};
+  }catch(e){
+    const fallback={members:baseMembers.map(m=>({id:m.id,name:m.name,managerId:'',managerName:''})),managers:[]};
+    window._MANAGER_CACHE[gid]=fallback;
+  }
+  return window._MANAGER_CACHE[gid];
+}
+
+function getMembersByManager(gid, managerId){
+  const cached=window._MANAGER_CACHE?.[gid];
+  const members=(cached?.members||window._GMEMBERS?.[gid]||[]).slice();
+  if(!managerId) return members;
+  return members.filter(m=>m.managerId===managerId);
+}
+
+async function populateManagerDropdown(selectId,key){
+  const sel=document.getElementById(selectId); if(!sel) return;
+  const gid=window._GID_MAP?.[key]||'';
+  const prev=sel.value||'';
+  const data=await ensureManagerData(gid);
+  sel.innerHTML='<option value="">— Todos —</option>'+data.managers.map(m=>'<option value="'+m.id+'">'+m.name+'</option>').join('');
+  if(prev&&Array.from(sel.options).some(o=>o.value===prev)) sel.value=prev;
+}
+
+function populateAnalystDropdown(selectId,key,managerId,placeholder){
+  const sel=document.getElementById(selectId); if(!sel) return;
+  const gid=window._GID_MAP?.[key]||'';
+  const prev=sel.value||'';
+  const members=getMembersByManager(gid,managerId).slice().sort((a,b)=>a.name.localeCompare(b.name,'pt'));
+  sel.innerHTML='<option value="">'+(placeholder||'— Todos —')+'</option>'+members.map(a=>'<option value="'+a.id+'">'+a.name+'</option>').join('');
+  if(prev&&Array.from(sel.options).some(o=>o.value===prev)) sel.value=prev;
+}
+
+function getReportAssigneeFilter(gid){
+  const analystId=document.getElementById('analyst-sel')?.value||'';
+  const managerId=document.getElementById('manager-sel')?.value||'';
+  if(analystId) return '^assigned_to='+analystId;
+  if(managerId){
+    const ids=getMembersByManager(gid,managerId).map(m=>m.id).filter(Boolean);
+    return ids.length?'^assigned_toIN'+ids.join(','):'^sys_id=-1';
+  }
+  return '';
+}
+
+function applyAnalystTableFilter(){
+  const gid=window._GID_MAP?.[currentFila]||'';
+  const rows=document.querySelectorAll('#ana-table-wrap-acc .ana-table tbody tr');
+  if(!rows.length) return;
+  const analystId=document.getElementById('analyst-sel')?.value||'';
+  const managerId=document.getElementById('manager-sel')?.value||'';
+  let allowNames=null;
+  if(analystId){
+    const member=(window._MANAGER_CACHE?.[gid]?.members||window._GMEMBERS?.[gid]||[]).find(m=>m.id===analystId);
+    allowNames=new Set(member?[member.name]:[]);
+  }else if(managerId){
+    allowNames=new Set(getMembersByManager(gid,managerId).map(m=>m.name));
+  }
+  let visible=0;
+  rows.forEach(r=>{
+    const name=(r.cells?.[0]?.innerText||r.cells?.[0]?.textContent||'').trim();
+    const show=!allowNames||allowNames.has(name);
+    r.style.display=show?'':'none';
+    if(show) visible++;
+  });
+  const badge=document.getElementById('acc-badge-analyst');
+  if(badge) badge.textContent=visible?visible+' analistas':'';
+}
 
 function showPage(id,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
@@ -1155,12 +1264,12 @@ function switchFila(key){
   const tbl=document.getElementById('_at_'+key)?.innerHTML||'';
   document.getElementById('ana-table-wrap').innerHTML=tbl;
   initAccordion(tbl);
-  const sel=document.getElementById('analyst-sel');
-  if(sel){
-    const gid=window._GID_MAP[key]||'';
-    const members=(window._GMEMBERS[gid]||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
-    sel.innerHTML='<option value="">— Selecione —</option>'+members.map(a=>'<option value="'+a.id+'">'+a.name+'</option>').join('');
-  }
+  populateManagerDropdown('manager-sel', key).then(()=>{
+    const managerId=document.getElementById('manager-sel')?.value||'';
+    populateAnalystDropdown('analyst-sel', key, managerId, '— Todos —');
+    switchAnalyst(document.getElementById('analyst-sel')?.value||'');
+    applyAnalystTableFilter();
+  });
   document.getElementById('analyst-board-content').innerHTML='';
   const elResolved=document.getElementById('resolved-month-chart');
   if(elResolved)elResolved.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
@@ -1169,34 +1278,46 @@ function switchFila(key){
 }
 
 function buildBacklogAnalystDropdown(){
-  const bb=document.getElementById('board-wrap-backlog-tab');
   const selBl=document.getElementById('analyst-sel-bl');
-  if(!bb||!selBl)return;
-  const seen={};
-  bb.querySelectorAll('.card[data-assignedid]').forEach(card=>{
-    const id=card.dataset.assignedid;
-    const name=card.dataset.assignedname;
-    if(id&&name&&!seen[id]) seen[id]=name;
-  });
-  const sorted=Object.entries(seen).sort((a,b)=>a[1].localeCompare(b[1],'pt'));
-  selBl.innerHTML='<option value="">— Todos —</option>'+sorted.map(([id,name])=>'<option value="'+id+'">'+name+'</option>').join('');
+  if(!selBl)return;
+  const managerId=document.getElementById('manager-sel-bl')?.value||'';
+  populateAnalystDropdown('analyst-sel-bl', currentFilaBacklog, managerId, '— Todos —');
 }
 
 function switchFilaBacklog(key){
+  currentFilaBacklog=key;
   const backlogBoards={'l1':${JSON.stringify(renderBoard('l1',backlogMap,false))},'l2':${JSON.stringify(renderBoard('l2',backlogMap,false))},'event':${JSON.stringify(renderBoard('event',backlogMap,false))}};
   const bb=document.getElementById('board-wrap-backlog-tab');
   if(bb)bb.innerHTML=backlogBoards[key]||'';
   const badge=document.getElementById('section-badge-backlog-tab');
   if(badge){const c=(backlogBoards[key]||'').match(/data-count="(\d+)"/g)||[];const tot=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,'')),0);badge.textContent=tot+' cases · ≥20 dias';}
+  populateManagerDropdown('manager-sel-bl', key).then(()=>{buildBacklogAnalystDropdown();switchAnalystBacklog(document.getElementById('analyst-sel-bl')?.value||'');});
+}
+
+function switchManager(managerId){
+  populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
+  const analystId=document.getElementById('analyst-sel')?.value||'';
+  switchAnalyst(analystId);
+}
+
+function switchManagerBacklog(managerId){
   buildBacklogAnalystDropdown();
+  const analystId=document.getElementById('analyst-sel-bl')?.value||'';
+  switchAnalystBacklog(analystId);
 }
 
 function switchAnalystBacklog(analystId){
   const bb=document.getElementById('board-wrap-backlog-tab');
   if(!bb)return;
+  const gid=window._GID_MAP?.[currentFilaBacklog]||'';
+  const managerId=document.getElementById('manager-sel-bl')?.value||'';
+  const managerAllowed=new Set(getMembersByManager(gid,managerId).map(m=>m.id));
   const cards=bb.querySelectorAll('.card');
   cards.forEach(card=>{
-    if(!analystId||card.dataset.assignedid===analystId){
+    const assignedId=card.dataset.assignedid||'';
+    const passesAnalyst=!analystId||assignedId===analystId;
+    const passesManager=!managerId||managerAllowed.has(assignedId);
+    if(passesAnalyst&&passesManager){
       card.style.display='';
     } else {
       card.style.display='none';
@@ -1267,6 +1388,7 @@ function initAccordion(html){
   }
   const badge=document.getElementById('acc-badge-analyst');
   if(badge){const rows=document.querySelectorAll('#ana-table-wrap-acc .ana-table tbody tr');badge.textContent=rows.length?rows.length+' analistas':'';}
+  applyAnalystTableFilter();
   fetchAccordionScores();
 }
 
@@ -1275,27 +1397,28 @@ function setRefreshStatus(msg){const el=document.getElementById('refresh-status'
 function fetchAccordionScores(){
   const h={'Accept':'application/json','X-UserToken':_TOK};
   const gid=window._GID_MAP?.[currentFila]||'1c7c9057db6771d0832ead8ed396197a';
+  const assigneeF=getReportAssigneeFilter(gid);
 
   // Sem Type
   const elST=document.getElementById('sem-type-score');
   if(elST){elST.textContent='…';
-    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('stateIN1,10,21^u_typeISEMPTY^assignment_group='+gid)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('stateIN1,10,21^u_typeISEMPTY^assignment_group='+gid+assigneeF)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elST.textContent=c;elST.style.color=c===0?'#1A7F37':'#CF222E';}).catch(()=>{elST.textContent='?';});
   }
 
   // Last Interacted by Client
   const elLI=document.getElementById('last-interacted-score');
   if(elLI){elLI.textContent='…';
-    const liQ='stateIN32,1,10,21,90,18,8,5,29,30,2^u_customer_last_interactionISNOTEMPTY^u_type!=7^assignment_group='+gid;
+    const liQ='stateIN32,1,10,21,90,18,8,5,29,30,2^u_customer_last_interactionISNOTEMPTY^u_type!=7^assignment_group='+gid+assigneeF;
     fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(liQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elLI.textContent=c;elLI.style.color=c>0?'#0969DA':'#1A7F37';}).catch(()=>{elLI.textContent='?';});
   }
 
   // Resolvidos no Mês — bar chart por analista
   const elRM=document.getElementById('resolved-month-chart');
-  if(elRM&&(elRM.innerHTML.includes('Carregando')||elRM.innerHTML==='')){
+  if(elRM){
     elRM.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
-    const rmQ='resolved_atONThis month@javascript:gs.beginningOfThisMonth()@javascript:gs.endOfThisMonth()^assignment_group='+gid+'^stateIN33,34,6,3^contact_typeNOT INautomation^u_recurrence_case=false^u_operating_countryINBR';
+    const rmQ='resolved_atONThis month@javascript:gs.beginningOfThisMonth()@javascript:gs.endOfThisMonth()^assignment_group='+gid+assigneeF+'^stateIN33,34,6,3^contact_typeNOT INautomation^u_recurrence_case=false^u_operating_countryINBR';
     fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(rmQ)+'&sysparm_group_by=resolved_by&sysparm_count=true&sysparm_display_value=all&sysparm_limit=50',{headers:h})
     .then(r=>r.json()).then(d=>{
       const rows=(d.result||[]).map(r=>({name:r.groupby_fields?.[0]?.display_value||'—',cnt:parseInt(r.stats?.count||0)})).filter(r=>r.cnt>0).sort((a,b)=>b.cnt-a.cnt);
@@ -1319,7 +1442,7 @@ function fetchAccordionScores(){
   // Support Attention — segmentado por fila
   const elSA=document.getElementById('support-attention-score');
   if(elSA){elSA.textContent='…';
-    const saQ='u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^assignment_group='+gid;
+    const saQ='u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^assignment_group='+gid+assigneeF;
     fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(saQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{
       const c=parseInt(d.result?.stats?.count||0);
@@ -1328,7 +1451,7 @@ function fetchAccordionScores(){
       // Update link with correct gid
       const link=document.getElementById('support-attention-link');
       if(link){
-        const qEnc=encodeURIComponent('u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^assignment_group='+gid);
+        const qEnc=encodeURIComponent('u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^assignment_group='+gid+assigneeF);
         link.href=_BASE+'/sn_customerservice_case_list.do?sysparm_query='+qEnc;
       }
     }).catch(()=>{elSA.textContent='?';});
@@ -1554,18 +1677,17 @@ function switchAnalyst(userId){
   if(analystContent) analystContent.innerHTML='';
 
   // Filter all cards in both boards
-  const boards=['board-wrap','board-wrap-backlog'];
+  const boards=['board-wrap'];
+  const gid=window._GID_MAP?.[currentFila]||'';
+  const managerId=document.getElementById('manager-sel')?.value||'';
+  const managerAllowed=new Set(getMembersByManager(gid,managerId).map(m=>m.id));
   boards.forEach(bid=>{
     const bw=document.getElementById(bid); if(!bw)return;
     bw.querySelectorAll('.card').forEach(card=>{
-      if(!userId){card.style.display='';return;}
-      const sysId=card.dataset.sysid||'';
-      // Check if card belongs to selected analyst by looking at card-assigned text
-      const assignedEl=card.querySelector('.card-assigned');
-      const assignedText=assignedEl?assignedEl.textContent:'';
-      // Match by userId stored in reassign button data-assigned
       const cardAssignedId=card.dataset.assignedid||'';
-      card.style.display=(cardAssignedId===userId)?'':'none';
+      const passesAnalyst=!userId||cardAssignedId===userId;
+      const passesManager=!managerId||managerAllowed.has(cardAssignedId);
+      card.style.display=(passesAnalyst&&passesManager)?'':'none';
     });
     // Hide empty lanes
     bw.querySelectorAll('.lane').forEach(lane=>{
@@ -1575,8 +1697,10 @@ function switchAnalyst(userId){
     });
   });
 
+  applyAnalystTableFilter();
+  fetchAccordionScores();
+
   if(!userId){return;}
-  const gid=window._GID_MAP[currentFila]||'';
   const name=(window._GMEMBERS[gid]||[]).find(m=>m.id===userId)?.name||'Analista';
   // Don't fetch separately — boards are filtered
   return;
@@ -1595,6 +1719,13 @@ function switchAnalyst(userId){
     if(!cases.length){content.innerHTML='<div class="analyst-empty">Nenhum caso ativo para '+name+'</div>';return;}
     renderAnalystBoard(cases,name,gid,content);
   }).catch(()=>{content.innerHTML='<div class="analyst-empty">Erro ao carregar casos</div>';});
+}
+
+function reapplyAnalystFilters(){
+  const activeSel=document.getElementById('analyst-sel');
+  if(activeSel) switchAnalyst(activeSel.value||'');
+  const backlogSel=document.getElementById('analyst-sel-bl');
+  if(backlogSel) switchAnalystBacklog(backlogSel.value||'');
 }
 
 function renderAnalystBoard(cases,analystName,gid,container){
@@ -1639,7 +1770,7 @@ function renderAnalystBoard(cases,analystName,gid,container){
     '</div><div class="card-footer">'+
     '<span class="card-assigned">👤 '+analystName+'</span>'+
     '<span class="card-time">⏰ '+c.openH+'</span></div></div>';
-  const renderL=(label,color,icon,items)=>'<div class="lane">'+
+  const renderL=(laneKey,label,color,icon,items)=>'<div class="lane" data-lane="'+laneKey+'">'+
     '<div class="lane-hdr" style="border-top:3px solid '+color+'">'+
     '<div class="lane-title"><span class="lane-dot" style="background:'+color+'"></span>'+icon+' '+label+'</div>'+
     '<span class="lane-count" style="color:'+color+'">'+items.length+'</span></div>'+
@@ -1648,11 +1779,11 @@ function renderAnalystBoard(cases,analystName,gid,container){
     '</div></div>';
   container.innerHTML='<div class="analyst-board-header"><span class="analyst-board-name">👤 '+analystName+'</span><span class="analyst-board-count">'+classified.length+' casos</span></div>'+
     '<div class="board-wrap"><div class="board-inner">'+
-    renderL('Crítico','#CF222E','🔴',lanes.critical)+
-    renderL('Alto Risco','#BF8700','🟠',lanes.high)+
-    renderL('Atenção','#0550AE','🔵',lanes.medium)+
-    renderL('Normal','#1A7F37','🟢',lanes.normal)+
-    renderL('Aguardando','#0969DA','⏳',lanes.awaiting)+
+    renderL('critical','Crítico','#CF222E','🔴',lanes.critical)+
+    renderL('high','Alto Risco','#BF8700','🟠',lanes.high)+
+    renderL('medium','Atenção','#0550AE','🔵',lanes.medium)+
+    renderL('normal','Normal','#1A7F37','🟢',lanes.normal)+
+    renderL('awaiting','Aguardando','#0969DA','⏳',lanes.awaiting)+
     '</div></div>';
 }
 
@@ -1951,6 +2082,11 @@ document.addEventListener('visibilitychange',()=>{
   else startPolling();
 });
 document.addEventListener('DOMContentLoaded',()=>{
+  populateManagerDropdown('manager-sel', currentFila).then(()=>{
+    const managerId=document.getElementById('manager-sel')?.value||'';
+    populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
+  });
+  populateManagerDropdown('manager-sel-bl', currentFilaBacklog).then(()=>buildBacklogAnalystDropdown());
   document.querySelectorAll('th[data-col]').forEach(th=>{th.addEventListener('click',e=>{e.stopPropagation();openFil(th,parseInt(th.getAttribute('data-col')));});});
   pgInit();
   // Load analyst table — try immediately, then watch for content via MutationObserver
@@ -2003,6 +2139,37 @@ document.addEventListener('DOMContentLoaded',()=>{
       } catch (err) { console.error('[DeltaPolling] Erro:', err); }
     }
 
+    function resolveLaneFromDelta(data) {
+      const isAwaiting = ['18','32','5','29','30'].includes(data?.state?.value);
+      const hasAssigned = !!data?.assigned_to?.value;
+      const prio = parseInt(data?.priority?.value || '5', 10);
+
+      if (isAwaiting) return 'awaiting';
+      if (!hasAssigned) return 'orphan';
+      if (prio === 1) return 'critical';
+      if (prio === 2) return 'high';
+      if (prio === 3) return 'medium';
+      return 'normal';
+    }
+
+    function moveCardToLane(card, lane) {
+      const board = card.closest('.board-inner');
+      if (!board || !lane) return;
+      const targetBody = board.querySelector('.lane[data-lane="' + lane + '"] .lane-body');
+      if (!targetBody || card.parentElement === targetBody) return;
+      targetBody.insertBefore(card, targetBody.firstChild);
+      updateLaneCounters(board);
+    }
+
+    function updateLaneCounters(board) {
+      if (!board) return;
+      board.querySelectorAll('.lane[data-lane]').forEach(laneEl => {
+        const count = laneEl.querySelectorAll('.lane-body .card').length;
+        const countEl = laneEl.querySelector('.lane-count');
+        if (countEl) countEl.textContent = String(count);
+      });
+    }
+
     function updateCard(card, data) {
       const isAw = ['18','32','5','29','30'].includes(data.state.value);
       const badge = card.querySelector('.badge-await');
@@ -2031,11 +2198,21 @@ document.addEventListener('DOMContentLoaded',()=>{
       if (footer) {
         const ass = footer.querySelector('.card-assigned');
         if (ass) {
-          const name = data.assigned_to.display_value;
+          const name = data.assigned_to?.display_value || '';
+          card.dataset.assignedid = data.assigned_to?.value || '';
+          card.dataset.assignedname = name;
           ass.textContent = name ? '👤 ' + name : '⚠ Sem responsável';
           ass.className = 'card-assigned' + (name ? '' : ' unassigned');
         }
       }
+
+      const nextLane = resolveLaneFromDelta(data);
+      const prevLane = Array.from(card.classList).find(cls => cls.startsWith('card-'));
+      if (prevLane) card.classList.remove(prevLane);
+      card.classList.add('card-' + nextLane);
+      moveCardToLane(card, nextLane);
+      // Mantém consistência quando a visão está filtrada por analista.
+      reapplyAnalystFilters();
     }
 
     setInterval(fetchDeltas, POLLING_INTERVAL);
