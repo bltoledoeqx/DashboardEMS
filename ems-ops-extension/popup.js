@@ -930,6 +930,11 @@ tr:hover td{background:#F6F8FA;}
       <option value="">— Todos —</option>
     </select>
     <div class="toolbar-sep"></div>
+    <label for="manager-sel">👔 Manager:</label>
+    <select id="manager-sel" onchange="switchManager(this.value)">
+      <option value="">— Todos —</option>
+    </select>
+    <div class="toolbar-sep"></div>
     <label for="analyst-sel">👤 Analista:</label>
     <select id="analyst-sel" onchange="switchAnalyst(this.value)">
       <option value="">— Todos —</option>
@@ -1152,6 +1157,8 @@ function refreshReports(){
     const elR=document.getElementById(id);
     if(elR)elR.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
   });
+  const elR=document.getElementById('resolved-month-chart');
+  if(elR)elR.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
   // Also reload analyst table
   const tbl=document.getElementById('_at_'+currentFila)?.innerHTML||'';
   initAccordion(tbl);
@@ -1160,9 +1167,10 @@ function refreshMyCases(){
   initMyCases();
 }
 
-let currentFila='all';
+let currentFila='l1';
+let currentFilaBacklog='l1';
 window._GMEMBERS=${gmembersJson};
-window._GID_MAP={'all':_IDS,'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
+window._GID_MAP={'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
 window._MANAGER_CACHE={};
 
 async function ensureManagerData(gid){
