@@ -1214,6 +1214,19 @@ async function ensureManagerData(gid){
       (window._GMEMBERS[k]||[]).forEach(m=>{if(m?.id&&!byId[m.id])byId[m.id]={id:m.id,name:m.name};});
     });
     baseMembers=Object.values(byId);
+    // Add MSH_NOC members so manager/analyst filters include this queue as well.
+    try{
+      const rGm=await fetch(_BASE+'/api/now/table/sys_user_grmember?sysparm_query='+encodeURIComponent('group=3469cd95dbe9dbc0b3cd73e1ba9619b3')+'&sysparm_fields=user&sysparm_display_value=all&sysparm_limit=500',{
+        headers:{'Accept':'application/json','X-UserToken':_TOK}
+      });
+      const dGm=await rGm.json();
+      (dGm.result||[]).forEach(row=>{
+        const uid=row.user?.value||'';
+        const uname=row.user?.display_value||'';
+        if(uid&&!byId[uid]) byId[uid]={id:uid,name:uname||uid};
+      });
+      baseMembers=Object.values(byId);
+    }catch(e){}
   }
   const ids=baseMembers.map(m=>m.id).filter(Boolean);
   if(!ids.length){
