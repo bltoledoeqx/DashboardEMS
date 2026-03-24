@@ -510,6 +510,24 @@ function runEMSOps(userToken, userMes) {
     const analyticsL1    = analystTableHTML('l1');
     const analyticsL2    = analystTableHTML('l2');
     const analyticsEvent = analystTableHTML('event');
+    const analyticsAll   = (() => {
+      const map = {};
+      ['l1','l2','event'].forEach(k=>{
+        (buildAggTable(k)||[]).forEach(r=>{
+          if(!map[r.name]) map[r.name]={sr:0,tt:0,total:0};
+          map[r.name].sr += r.sr||0;
+          map[r.name].tt += r.tt||0;
+          map[r.name].total += r.total||0;
+        });
+      });
+      const rows = Object.entries(map).map(([name,v])=>({name, sr:v.sr, tt:v.tt, total:v.total})).sort((a,b)=>b.total-a.total);
+      if(!rows.length) return '<div class="ana-empty">Sem dados</div>';
+      let html = '<table class="ana-table"><thead><tr><th>Analista</th><th class="ana-num">Service Request</th><th class="ana-num">Trouble</th><th class="ana-num">Total</th></tr></thead><tbody>';
+      rows.forEach(r=>{html += '<tr><td class="ana-name">'+r.name+'</td><td class="ana-num">'+r.sr+'</td><td class="ana-num">'+r.tt+'</td><td class="ana-num ana-total">'+r.total+'</td></tr>';});
+      const totSR=rows.reduce((s,r)=>s+r.sr,0), totTT=rows.reduce((s,r)=>s+r.tt,0), tot=totSR+totTT;
+      html += '</tbody><tfoot><tr class="ana-foot"><td>Total</td><td class="ana-num">'+totSR+'</td><td class="ana-num">'+totTT+'</td><td class="ana-num ana-total">'+tot+'</td></tr></tfoot></table>';
+      return html;
+    })();
 
     const resolvedChartHTML = (groupKey) => {
       const data = buildResolvedChart(groupKey);
@@ -956,7 +974,13 @@ tr:hover td{background:#F6F8FA;}
     <div class="accordion-body" id="acc-body-analyst" style="display:none">
       <div class="acc-grid">
         <div class="acc-report-card acc-analyst">
-          <div class="acc-report-title">Cases Ativos por Analista</div>
+          <div class="acc-report-title">Cases Ativos por Analista
+            <span id="ana-queue-wrap">
+              <select id="ana-queue-sel" onchange="changeAnalystReportQueue(this.value)" style="font-size:10px;padding:1px 6px;border:1px solid #d0d7de;border-radius:6px;">
+                <option value="all">All</option><option value="l1">L1</option><option value="l2">L2</option><option value="event">Event</option>
+              </select>
+            </span>
+          </div>
           <div id="ana-table-wrap-acc"></div>
         </div>
         <div class="acc-scores-wrap">
@@ -1024,6 +1048,7 @@ tr:hover td{background:#F6F8FA;}
 </div>
   <!-- Hidden data source for analytics (used by accordion + switchFila) -->
   <div id="ana-table-wrap" style="display:none">${analyticsL1}</div>
+  <div id="_at_all" style="display:none">${analyticsAll}</div>
   <div id="_at_l1" style="display:none">${analyticsL1}</div>
   <div id="_at_l2" style="display:none">${analyticsL2}</div>
   <div id="_at_event" style="display:none">${analyticsEvent}</div>
@@ -1161,9 +1186,23 @@ function refreshMyCases(){
 }
 
 let currentFila='all';
+let currentAnalystReportQueue='all';
 window._GMEMBERS=${gmembersJson};
 window._GID_MAP={'all':_IDS,'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
 window._MANAGER_CACHE={};
+window._MSH_NOC_GID=undefined;
+
+async function ensureMshNocGroupId(){
+  if(window._MSH_NOC_GID!==undefined) return window._MSH_NOC_GID;
+  try{
+    const r=await fetch(_BASE+'/api/now/table/sys_user_group?sysparm_query='+encodeURIComponent('name=MSH_NOC')+'&sysparm_fields=sys_id&sysparm_limit=1',{
+      headers:{'Accept':'application/json','X-UserToken':_TOK}
+    });
+    const d=await r.json();
+    window._MSH_NOC_GID=d.result?.[0]?.sys_id?.value||d.result?.[0]?.sys_id||'';
+  }catch(e){window._MSH_NOC_GID='';}
+  return window._MSH_NOC_GID;
+}
 
 async function ensureManagerData(gid){
   if(!gid) return {members:[],managers:[]};
@@ -1258,10 +1297,19 @@ function getRatingAssigneeFilter(gid){
 
 function applyAnalystTableFilter(){
   const gid=window._GID_MAP?.[currentFila]||'';
+  const managerId=document.getElementById('manager-sel')?.value||'';
+  const queueWrap=document.getElementById('ana-queue-wrap');
+  const queueSel=document.getElementById('ana-queue-sel');
+  const qKey=(queueSel?.value||currentAnalystReportQueue||'all');
+  const srcKey=managerId?'all':qKey;
+  const src=document.getElementById('_at_'+srcKey)?.innerHTML||'';
+  const anaAcc=document.getElementById('ana-table-wrap-acc');
+  if(anaAcc && src && anaAcc.dataset.src!==srcKey){anaAcc.innerHTML=src;anaAcc.dataset.src=srcKey;}
+  if(queueWrap) queueWrap.style.display=managerId?'none':'inline-flex';
+
   const rows=document.querySelectorAll('#ana-table-wrap-acc .ana-table tbody tr');
   if(!rows.length) return;
   const analystId=document.getElementById('analyst-sel')?.value||'';
-  const managerId=document.getElementById('manager-sel')?.value||'';
   let allowNames=null;
   if(analystId){
     const member=(window._MANAGER_CACHE?.[gid]?.members||window._GMEMBERS?.[gid]||[]).find(m=>m.id===analystId);
@@ -1278,6 +1326,11 @@ function applyAnalystTableFilter(){
   });
   const badge=document.getElementById('acc-badge-analyst');
   if(badge) badge.textContent=visible?visible+' analistas':'';
+}
+
+function changeAnalystReportQueue(queueKey){
+  currentAnalystReportQueue=queueKey||'all';
+  applyAnalystTableFilter();
 }
 
 function showPage(id,el){
@@ -1511,7 +1564,9 @@ function fetchAccordionScores(){
   const elCS=document.getElementById('customer-satisfaction-score');
   if(elCS){elCS.textContent='…';
     const ratingGids='1c7c9057db6771d0832ead8ed396197a,ff72689247ee1e143cbfe07a216d4357,673c2170476422503cbfe07a216d430f,61d7da1edb71a450c6445457dc9619f9,52cd04fbdbe71700b3cd73e1ba961949,6c67c13bdbeb1700b3cd73e1ba9619b9,5d4cb3f1db90a050e0e15cb8dc961970,5d77053bdbeb1700b3cd73e1ba9619ca,8b3850eddb1adf00448b01a3ca9619ce,7dbeba001ba173004948ece03d4bcb7a,01d511c2db68cc10fddc7bedae9619de,3469cd95dbe9dbc0b3cd73e1ba9619b3';
-    const csQ='ai_sys_created_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()^cse_accountNOT LIKEEQUINIX^mr_metric=e7d1c39ddb56df00448b01a3ca961972^cse_assignment_groupIN'+ratingGids+ratingAssigneeF;
+    ensureMshNocGroupId().then(mshGid=>{
+    const gids=[ratingGids,mshGid].filter(Boolean).join(',');
+    const csQ='ai_sys_created_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()^cse_accountNOT LIKEEQUINIX^mr_metric=e7d1c39ddb56df00448b01a3ca961972^cse_assignment_groupIN'+gids+ratingAssigneeF;
     fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(csQ)+'&sysparm_group_by=mr_actual_value&sysparm_count=true&sysparm_display_value=all&sysparm_limit=20',{headers:h})
     .then(r=>r.json()).then(d=>{
       const rows=d.result||[];
@@ -1529,6 +1584,7 @@ function fetchAccordionScores(){
       const cs=((promoters-detractors)/total)*100;
       elCS.textContent=cs.toFixed(1)+'%';
       elCS.style.color=cs>=80?'#1A7F37':cs>=60?'#BF8700':'#CF222E';
+    }).catch(()=>{elCS.textContent='?';});
     }).catch(()=>{elCS.textContent='?';});
   }
 }
