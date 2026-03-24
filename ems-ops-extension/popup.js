@@ -262,6 +262,25 @@ function runEMSOps(userToken, userMes) {
     };
     const ativosMap  = {l1:buildLanes(ativosItems,'l1'), l2:buildLanes(ativosItems,'l2'), event:buildLanes(ativosItems,'event')};
     const backlogMap = {l1:buildLanes(backlogItems,'l1'), l2:buildLanes(backlogItems,'l2'), event:buildLanes(backlogItems,'event')};
+    const sumLane = (a,b,c,k) => [...(a[k]||[]), ...(b[k]||[]), ...(c[k]||[])];
+    ativosMap.all = {
+      critical: sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'critical'),
+      high    : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'high'),
+      medium  : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'medium'),
+      awaiting: sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'awaiting'),
+      normal  : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'normal'),
+      orphan  : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'orphan'),
+      total   : ativosMap.l1.total + ativosMap.l2.total + ativosMap.event.total
+    };
+    backlogMap.all = {
+      critical: sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'critical'),
+      high    : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'high'),
+      medium  : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'medium'),
+      awaiting: sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'awaiting'),
+      normal  : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'normal'),
+      orphan  : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'orphan'),
+      total   : backlogMap.l1.total + backlogMap.l2.total + backlogMap.event.total
+    };
     const lanesMap   = ativosMap; // kept for KPI compat
 
     const totalBreach = classified.filter(c=>c.sl.st==='breach').length;
@@ -336,10 +355,35 @@ function runEMSOps(userToken, userMes) {
 
     const COLORS_RT = ['#0969DA','#1A7F37','#BF8700','#CF222E','#8250DF','#0550AE','#116329','#7D4E00','#A40E26','#6E40C9','#1A7F37','#0969DA','#BF8700','#CF222E','#8250DF'];
     const renderResolvedToday = key => {
-      const gid  = G_ID_MAP[key];
-      const data = buildResolvedChart(key);
+      const data = buildResolvedChart(key==='all'?'l1':key);
       const total = data.reduce((s,d)=>s+d.count,0);
       const max   = data.length ? Math.max(...data.map(d=>d.count)) : 1;
+      const renderRows = rows => !rows.length ? '<div class="lane-empty">Nenhum hoje</div>' :
+        rows.map((d,i) => `
+          <div class="rt-row">
+            <div class="rt-name" title="${d.name}">${d.name.split(' ').slice(0,2).join(' ')}</div>
+            <div class="rt-track">
+              <div class="rt-fill" style="width:${Math.round((d.count/max)*100)}%;background:${COLORS_RT[i%COLORS_RT.length]}"></div>
+            </div>
+            <span class="rt-val">${d.count}</span>
+          </div>`).join('');
+      if(key==='all'){
+        const dL1=buildResolvedChart('l1'), dL2=buildResolvedChart('l2'), dEV=buildResolvedChart('event');
+        return `
+          <div class="lane lane-rt">
+            <div class="lane-hdr" style="border-top:3px solid #6E40C9">
+              <div class="lane-title"><span class="lane-dot" style="background:#6E40C9"></span>✅ Resolvidos Hoje</div>
+              <select onchange="switchResolvedTodayQueue(this.value)" style="font-size:11px;padding:2px 6px;border:1px solid #d0d7de;border-radius:6px;">
+                <option value="l1">L1</option><option value="l2">L2</option><option value="event">Event</option>
+              </select>
+            </div>
+            <div class="lane-body">
+              <div id="rt-l1" class="rt-group">${renderRows(dL1)}</div>
+              <div id="rt-l2" class="rt-group" style="display:none">${renderRows(dL2)}</div>
+              <div id="rt-event" class="rt-group" style="display:none">${renderRows(dEV)}</div>
+            </div>
+          </div>`;
+      }
       return `
         <div class="lane lane-rt">
           <div class="lane-hdr" style="border-top:3px solid #6E40C9">
@@ -347,15 +391,7 @@ function runEMSOps(userToken, userMes) {
             <span class="lane-count" style="color:#6E40C9">${total}</span>
           </div>
           <div class="lane-body">
-            ${!data.length ? '<div class="lane-empty">Nenhum hoje</div>' :
-              data.map((d,i) => `
-                <div class="rt-row">
-                  <div class="rt-name" title="${d.name}">${d.name.split(' ').slice(0,2).join(' ')}</div>
-                  <div class="rt-track">
-                    <div class="rt-fill" style="width:${Math.round((d.count/max)*100)}%;background:${COLORS_RT[i%COLORS_RT.length]}"></div>
-                  </div>
-                  <span class="rt-val">${d.count}</span>
-                </div>`).join('')}
+            ${renderRows(data)}
           </div>
         </div>`;
     };
@@ -973,11 +1009,19 @@ tr:hover td{background:#F6F8FA;}
             </div>
           </div>
         </div>
-        <div class="acc-report-card acc-resolved-card">
-          <div class="acc-report-title">Resolvidos no Mês
-            <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=c1c71f5847335e543cbfe07a216d430e" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div class="acc-report-card acc-resolved-card">
+            <div class="acc-report-title">Resolvidos no Mês · L1</div>
+            <div id="resolved-month-chart-l1"><div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div></div>
           </div>
-          <div id="resolved-month-chart"><div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div></div>
+          <div class="acc-report-card acc-resolved-card">
+            <div class="acc-report-title">Resolvidos no Mês · L2</div>
+            <div id="resolved-month-chart-l2"><div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div></div>
+          </div>
+          <div class="acc-report-card acc-resolved-card">
+            <div class="acc-report-title">Resolvidos no Mês · Event</div>
+            <div id="resolved-month-chart-event"><div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div></div>
+          </div>
         </div>
       </div>
     </div>
@@ -998,7 +1042,7 @@ tr:hover td{background:#F6F8FA;}
     </div>
     <div class="section-body" id="section-body-ativos">
       <div class="board-wrap" id="board-wrap">
-        ${renderBoard('l1', ativosMap)}
+        ${renderBoard('all', ativosMap)}
       </div>
     </div>
   </div>
@@ -1013,20 +1057,7 @@ tr:hover td{background:#F6F8FA;}
 
 <div class="page" id="page-backlog">
   <div class="board-toolbar" style="padding:8px 20px;">
-    <label for="manager-sel-bl">👔 Manager:</label>
-    <select id="manager-sel-bl" onchange="switchManagerBacklog(this.value)">
-      <option value="">— Todos —</option>
-    </select>
-    <div class="toolbar-sep"></div>
-    <label for="manager-sel-bl">👔 Manager:</label>
-    <select id="manager-sel-bl" onchange="switchManagerBacklog(this.value)">
-      <option value="">— Todos —</option>
-    </select>
-    <div class="toolbar-sep"></div>
-    <label for="analyst-sel-bl">👤 Analista:</label>
-    <select id="analyst-sel-bl" onchange="switchAnalystBacklog(this.value)">
-      <option value="">— Todos —</option>
-    </select>
+    <span style="font-size:12px;color:var(--muted);">Filtros: Manager / Analista (aba Cases Ativos)</span>
     <div class="toolbar-sep"></div>
     <button onclick="refreshBacklog()" class="refresh-btn" title="Atualizar Backlog">↻</button>
   </div>
@@ -1039,7 +1070,7 @@ tr:hover td{background:#F6F8FA;}
     </div>
     <div class="section-body" id="section-body-backlog-tab">
       <div class="board-wrap" id="board-wrap-backlog-tab">
-        ${renderBoard('l1', backlogMap, false)}
+        ${renderBoard('all', backlogMap, false)}
       </div>
     </div>
   </div>
@@ -1122,6 +1153,10 @@ function refreshPostmortem(){
 function refreshReports(){
   setRefreshStatus('↻ Atualizando reports...');
   ['sem-type-score','last-interacted-score','support-attention-score','rating-score','customer-satisfaction-score'].forEach(id=>{const e=document.getElementById(id);if(e){e.textContent='—';e.style.color='';}});
+  ['resolved-month-chart-l1','resolved-month-chart-l2','resolved-month-chart-event'].forEach(id=>{
+    const elR=document.getElementById(id);
+    if(elR)elR.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
+  });
   const elR=document.getElementById('resolved-month-chart');
   if(elR)elR.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
   // Also reload analyst table
@@ -1141,7 +1176,14 @@ window._MANAGER_CACHE={};
 async function ensureManagerData(gid){
   if(!gid) return {members:[],managers:[]};
   if(window._MANAGER_CACHE[gid]) return window._MANAGER_CACHE[gid];
-  const baseMembers=(window._GMEMBERS?.[gid]||[]).slice();
+  let baseMembers=(window._GMEMBERS?.[gid]||[]).slice();
+  if(!baseMembers.length&&gid.includes(',')){
+    const byId={};
+    Object.keys(window._GMEMBERS||{}).forEach(k=>{
+      (window._GMEMBERS[k]||[]).forEach(m=>{if(m?.id&&!byId[m.id])byId[m.id]={id:m.id,name:m.name};});
+    });
+    baseMembers=Object.values(byId);
+  }
   const ids=baseMembers.map(m=>m.id).filter(Boolean);
   if(!ids.length){
     const empty={members:[],managers:[]};
@@ -1253,8 +1295,7 @@ function showPage(id,el){
   el.classList.add('active');
   if(id==='postmortem') pgInit();
   if(id==='backlog'){
-    const selBl=document.getElementById('analyst-sel-bl');
-    if(selBl&&selBl.options.length<=1) buildBacklogAnalystDropdown();
+    switchAnalystBacklog(document.getElementById('analyst-sel')?.value||'');
   }
   if(id==='kanban'){
     // Re-init accordion in case it wasn't loaded yet
@@ -1286,27 +1327,12 @@ function switchFila(key){
     applyAnalystTableFilter();
   });
   document.getElementById('analyst-board-content').innerHTML='';
-  const elResolved=document.getElementById('resolved-month-chart');
-  if(elResolved)elResolved.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
+  ['resolved-month-chart-l1','resolved-month-chart-l2','resolved-month-chart-event'].forEach(id=>{
+    const elResolved=document.getElementById(id);
+    if(elResolved)elResolved.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
+  });
   ['sem-type-score','last-interacted-score','support-attention-score','customer-satisfaction-score'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
   fetchAccordionScores();
-}
-
-function buildBacklogAnalystDropdown(){
-  const selBl=document.getElementById('analyst-sel-bl');
-  if(!selBl)return;
-  const managerId=document.getElementById('manager-sel-bl')?.value||'';
-  populateAnalystDropdown('analyst-sel-bl', currentFilaBacklog, managerId, '— Todos —');
-}
-
-function switchFilaBacklog(key){
-  currentFilaBacklog=key;
-  const backlogBoards={'l1':${JSON.stringify(renderBoard('l1',backlogMap,false))},'l2':${JSON.stringify(renderBoard('l2',backlogMap,false))},'event':${JSON.stringify(renderBoard('event',backlogMap,false))}};
-  const bb=document.getElementById('board-wrap-backlog-tab');
-  if(bb)bb.innerHTML=backlogBoards[key]||'';
-  const badge=document.getElementById('section-badge-backlog-tab');
-  if(badge){const c=(backlogBoards[key]||'').match(/data-count="(\d+)"/g)||[];const tot=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,'')),0);badge.textContent=tot+' cases · ≥20 dias';}
-  populateManagerDropdown('manager-sel-bl', key).then(()=>{buildBacklogAnalystDropdown();switchAnalystBacklog(document.getElementById('analyst-sel-bl')?.value||'');});
 }
 
 function switchManager(managerId){
@@ -1315,17 +1341,11 @@ function switchManager(managerId){
   switchAnalyst(analystId);
 }
 
-function switchManagerBacklog(managerId){
-  buildBacklogAnalystDropdown();
-  const analystId=document.getElementById('analyst-sel-bl')?.value||'';
-  switchAnalystBacklog(analystId);
-}
-
 function switchAnalystBacklog(analystId){
   const bb=document.getElementById('board-wrap-backlog-tab');
   if(!bb)return;
-  const gid=window._GID_MAP?.[currentFilaBacklog]||'';
-  const managerId=document.getElementById('manager-sel-bl')?.value||'';
+  const gid=window._GID_MAP?.[currentFila]||'';
+  const managerId=document.getElementById('manager-sel')?.value||'';
   const managerAllowed=new Set(getMembersByManager(gid,managerId).map(m=>m.id));
   const cards=bb.querySelectorAll('.card');
   cards.forEach(card=>{
@@ -1412,29 +1432,37 @@ function setRefreshStatus(msg){const el=document.getElementById('refresh-status'
 function fetchAccordionScores(){
   const h={'Accept':'application/json','X-UserToken':_TOK};
   const gid=window._GID_MAP?.[currentFila]||'1c7c9057db6771d0832ead8ed396197a';
+  const grpQ=gid.includes(',')?'assignment_groupIN'+gid:'assignment_group='+gid;
   const assigneeF=getReportAssigneeFilter(gid);
   const ratingAssigneeF=getRatingAssigneeFilter(gid);
 
   // Sem Type
   const elST=document.getElementById('sem-type-score');
   if(elST){elST.textContent='…';
-    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('stateIN1,10,21^u_typeISEMPTY^assignment_group='+gid+assigneeF)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('stateIN1,10,21^u_typeISEMPTY^'+grpQ+assigneeF)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elST.textContent=c;elST.style.color=c===0?'#1A7F37':'#CF222E';}).catch(()=>{elST.textContent='?';});
   }
 
   // Last Interacted by Client
   const elLI=document.getElementById('last-interacted-score');
   if(elLI){elLI.textContent='…';
-    const liQ='stateIN32,1,10,21,90,18,8,5,29,30,2^u_customer_last_interactionISNOTEMPTY^u_type!=7^assignment_group='+gid+assigneeF;
+    const liQ='stateIN32,1,10,21,90,18,8,5,29,30,2^u_customer_last_interactionISNOTEMPTY^u_type!=7^'+grpQ+assigneeF;
     fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(liQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elLI.textContent=c;elLI.style.color=c>0?'#0969DA':'#1A7F37';}).catch(()=>{elLI.textContent='?';});
   }
 
-  // Resolvidos no Mês — bar chart por analista
-  const elRM=document.getElementById('resolved-month-chart');
-  if(elRM){
+  // Resolvidos no Mês — 3 cards (L1/L2/Event)
+  const rmTargets = [
+    {key:'l1', id:'resolved-month-chart-l1'},
+    {key:'l2', id:'resolved-month-chart-l2'},
+    {key:'event', id:'resolved-month-chart-event'}
+  ];
+  rmTargets.forEach(t=>{
+    const elRM=document.getElementById(t.id);
+    if(!elRM) return;
     elRM.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
-    const rmQ='resolved_atONThis month@javascript:gs.beginningOfThisMonth()@javascript:gs.endOfThisMonth()^assignment_group='+gid+assigneeF+'^stateIN33,34,6,3^contact_typeNOT INautomation^u_recurrence_case=false^u_operating_countryINBR';
+    const qGid=window._GID_MAP?.[t.key]||'';
+    const rmQ='resolved_atONThis month@javascript:gs.beginningOfThisMonth()@javascript:gs.endOfThisMonth()^assignment_group='+qGid+assigneeF+'^stateIN33,34,6,3^contact_typeNOT INautomation^u_recurrence_case=false^u_operating_countryINBR';
     fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(rmQ)+'&sysparm_group_by=resolved_by&sysparm_count=true&sysparm_display_value=all&sysparm_limit=50',{headers:h})
     .then(r=>r.json()).then(d=>{
       const rows=(d.result||[]).map(r=>({name:r.groupby_fields?.[0]?.display_value||'—',cnt:parseInt(r.stats?.count||0)})).filter(r=>r.cnt>0).sort((a,b)=>b.cnt-a.cnt);
@@ -1453,12 +1481,12 @@ function fetchAccordionScores(){
       }).join('');
       elRM.innerHTML='<div class="res-chart-wrap">'+bars+'<div class="res-chart-total">Total: <strong>'+total+'</strong> resolvidos este mês</div></div>';
     }).catch(()=>{elRM.innerHTML='<div style="color:#CF222E;font-size:12px;">Erro ao carregar</div>';});
-  }
+  });
 
   // Support Attention — segmentado por fila
   const elSA=document.getElementById('support-attention-score');
   if(elSA){elSA.textContent='…';
-    const saQ='u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^assignment_group='+gid+assigneeF;
+    const saQ='u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^'+grpQ+assigneeF;
     fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(saQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{
       const c=parseInt(d.result?.stats?.count||0);
@@ -1467,7 +1495,7 @@ function fetchAccordionScores(){
       // Update link with correct gid
       const link=document.getElementById('support-attention-link');
       if(link){
-        const qEnc=encodeURIComponent('u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^assignment_group='+gid+assigneeF);
+        const qEnc=encodeURIComponent('u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^'+grpQ+assigneeF);
         link.href=_BASE+'/sn_customerservice_case_list.do?sysparm_query='+qEnc;
       }
     }).catch(()=>{elSA.textContent='?';});
@@ -1528,8 +1556,10 @@ function startPolling(){
     ['sem-type-score','last-interacted-score','support-attention-score','customer-satisfaction-score'].forEach(id=>{
       const e=document.getElementById(id); if(e) e.dataset.dirty='1';
     });
-    const elR=document.getElementById('resolved-month-chart');
-    if(elR) elR.dataset.dirty='1';
+    ['resolved-month-chart-l1','resolved-month-chart-l2','resolved-month-chart-event'].forEach(id=>{
+      const elR=document.getElementById(id);
+      if(elR) elR.dataset.dirty='1';
+    });
     // Only refresh if accordion is open
     const body=document.getElementById('acc-body-analyst');
     if(body&&body.style.display!=='none') fetchAccordionScores();
@@ -1595,6 +1625,13 @@ function toggleSection(key) {
   if (!body) return;
   const collapsed = body.classList.toggle('collapsed');
   if (icon) icon.style.transform = collapsed ? 'rotate(-90deg)' : '';
+}
+
+function switchResolvedTodayQueue(key){
+  ['l1','l2','event'].forEach(k=>{
+    const el=document.getElementById('rt-'+k);
+    if(el) el.style.display=(k===key)?'':'none';
+  });
 }
 
 
@@ -1765,8 +1802,7 @@ function switchAnalyst(userId){
 function reapplyAnalystFilters(){
   const activeSel=document.getElementById('analyst-sel');
   if(activeSel) switchAnalyst(activeSel.value||'');
-  const backlogSel=document.getElementById('analyst-sel-bl');
-  if(backlogSel) switchAnalystBacklog(backlogSel.value||'');
+  switchAnalystBacklog(activeSel?.value||'');
 }
 
 function renderAnalystBoard(cases,analystName,gid,container){
@@ -2127,7 +2163,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
     populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
   });
-  populateManagerDropdown('manager-sel-bl', currentFilaBacklog).then(()=>buildBacklogAnalystDropdown());
   document.querySelectorAll('th[data-col]').forEach(th=>{th.addEventListener('click',e=>{e.stopPropagation();openFil(th,parseInt(th.getAttribute('data-col')));});});
   pgInit();
   // Load analyst table — try immediately, then watch for content via MutationObserver
