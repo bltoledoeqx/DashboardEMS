@@ -965,6 +965,13 @@ tr:hover td{background:#F6F8FA;}
                 <div class="acc-score-lbl">nota média</div>
               </div>
             </div>
+            <div class="acc-report-card acc-score-card">
+              <div class="acc-report-title">Customer Satisfaction</div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num acc-score-rating" id="customer-satisfaction-score">—</div>
+                <div class="acc-score-lbl">(% promotors - detractors) / total</div>
+              </div>
+            </div>
           </div>
         </div>
         <div class="acc-report-card acc-resolved-card">
@@ -1117,7 +1124,7 @@ function refreshPostmortem(){
 }
 function refreshReports(){
   setRefreshStatus('↻ Atualizando reports...');
-  ['sem-type-score','last-interacted-score','support-attention-score','rating-score'].forEach(id=>{const e=document.getElementById(id);if(e){e.textContent='—';e.style.color='';}});
+  ['sem-type-score','last-interacted-score','support-attention-score','rating-score','customer-satisfaction-score'].forEach(id=>{const e=document.getElementById(id);if(e){e.textContent='—';e.style.color='';}});
   const elR=document.getElementById('resolved-month-chart');
   if(elR)elR.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
   // Also reload analyst table
@@ -1284,7 +1291,7 @@ function switchFila(key){
   document.getElementById('analyst-board-content').innerHTML='';
   const elResolved=document.getElementById('resolved-month-chart');
   if(elResolved)elResolved.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
-  ['sem-type-score','last-interacted-score','support-attention-score'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
+  ['sem-type-score','last-interacted-score','support-attention-score','customer-satisfaction-score'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
   fetchAccordionScores();
 }
 
@@ -1481,6 +1488,31 @@ function fetchAccordionScores(){
       elRating.style.color=avg>=4?'#1A7F37':avg>=3?'#BF8700':'#CF222E';
     }).catch(()=>{elRating.textContent='?';});
   }
+
+  // Customer Satisfaction (NPS-style)
+  const elCS=document.getElementById('customer-satisfaction-score');
+  if(elCS){elCS.textContent='…';
+    const ratingGids='1c7c9057db6771d0832ead8ed396197a,ff72689247ee1e143cbfe07a216d4357,673c2170476422503cbfe07a216d430f,61d7da1edb71a450c6445457dc9619f9,52cd04fbdbe71700b3cd73e1ba961949,6c67c13bdbeb1700b3cd73e1ba9619b9,5d4cb3f1db90a050e0e15cb8dc961970,5d77053bdbeb1700b3cd73e1ba9619ca,8b3850eddb1adf00448b01a3ca9619ce,7dbeba001ba173004948ece03d4bcb7a,01d511c2db68cc10fddc7bedae9619de,3469cd95dbe9dbc0b3cd73e1ba9619b3';
+    const csQ='ai_sys_created_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()^cse_accountNOT LIKEEQUINIX^mr_metric=e7d1c39ddb56df00448b01a3ca961972^cse_assignment_groupIN'+ratingGids+ratingAssigneeF;
+    fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(csQ)+'&sysparm_group_by=mr_actual_value&sysparm_count=true&sysparm_display_value=all&sysparm_limit=20',{headers:h})
+    .then(r=>r.json()).then(d=>{
+      const rows=d.result||[];
+      let promoters=0,detractors=0,total=0;
+      rows.forEach(row=>{
+        const cnt=parseInt(row.stats?.count||0);
+        const raw=row.groupby_fields?.[0]?.value||row.groupby_fields?.[0]?.display_value||'0';
+        const rating=parseFloat(raw);
+        if(isNaN(rating)||cnt<=0) return;
+        total+=cnt;
+        if(rating>=5) promoters+=cnt;
+        else if(rating<=3) detractors+=cnt;
+      });
+      if(total<=0){elCS.textContent='—';elCS.style.color='';return;}
+      const cs=((promoters-detractors)/total)*100;
+      elCS.textContent=cs.toFixed(1)+'%';
+      elCS.style.color=cs>=80?'#1A7F37':cs>=60?'#BF8700':'#CF222E';
+    }).catch(()=>{elCS.textContent='?';});
+  }
 }
 function fetchSemTypeScore(){fetchAccordionScores();}
 
@@ -1496,7 +1528,7 @@ function startPolling(){
 
   // Layer 2: Reports/Scores (3min) — staggered
   _pollL2 = setInterval(()=>{
-    ['sem-type-score','last-interacted-score','support-attention-score'].forEach(id=>{
+    ['sem-type-score','last-interacted-score','support-attention-score','customer-satisfaction-score'].forEach(id=>{
       const e=document.getElementById(id); if(e) e.dataset.dirty='1';
     });
     const elR=document.getElementById('resolved-month-chart');
