@@ -582,9 +582,10 @@ a{text-decoration:none;}
 .acc-report-card.acc-analyst .ana-table td:first-child{width:auto;overflow:hidden;text-overflow:ellipsis;}
 .acc-report-card.acc-analyst .ana-table th.ana-num,
 .acc-report-card.acc-analyst .ana-table td.ana-num{width:42px;}
-/* 4 score cards — 2x2 grid */
-.acc-scores-wrap{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex-shrink:0;width:300px;}
-.acc-report-card.acc-score-card{width:auto;}
+/* score cards */
+.acc-scores-wrap{display:flex;flex-shrink:0;max-width:100%;}
+.acc-scores-row{display:flex;gap:8px;align-items:stretch;flex-wrap:nowrap;}
+.acc-report-card.acc-score-card{width:132px;display:flex;flex-direction:column;justify-content:center;}
 /* Resolved chart — fixed width */
 .acc-report-card.acc-resolved-card{width:280px;flex-shrink:0;}
 .acc-report-title{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;}
@@ -888,11 +889,9 @@ tr:hover td{background:#F6F8FA;}
 
 <!-- Reports Accordion -->
   <div class="board-toolbar">
-    <label for="fila-sel">Fila:</label>
-    <select id="fila-sel" onchange="switchFila(this.value)">
-      <option value="l1">L1 OpsCenter AMER (${lanesMap.l1.total})</option>
-      <option value="l2">L2 OpsCenter AMER (${lanesMap.l2.total})</option>
-      <option value="event">Event Management BR (${lanesMap.event.total})</option>
+    <label for="manager-sel">👔 Manager:</label>
+    <select id="manager-sel" onchange="switchManager(this.value)">
+      <option value="">— Todos —</option>
     </select>
     <div class="toolbar-sep"></div>
     <label for="manager-sel">👔 Manager:</label>
@@ -1014,11 +1013,9 @@ tr:hover td{background:#F6F8FA;}
 
 <div class="page" id="page-backlog">
   <div class="board-toolbar" style="padding:8px 20px;">
-    <label for="fila-sel-bl">Fila:</label>
-    <select id="fila-sel-bl" onchange="switchFilaBacklog(this.value)">
-      <option value="l1">L1 OpsCenter AMER</option>
-      <option value="l2">L2 OpsCenter AMER</option>
-      <option value="event">Event Management BR</option>
+    <label for="manager-sel-bl">👔 Manager:</label>
+    <select id="manager-sel-bl" onchange="switchManagerBacklog(this.value)">
+      <option value="">— Todos —</option>
     </select>
     <div class="toolbar-sep"></div>
     <label for="manager-sel-bl">👔 Manager:</label>
