@@ -1,0 +1,188 @@
+/* ── EMS Ops Dashboard — Popup Styles ─────────────────────────────────── */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 280px;
+  font-family: 'Segoe UI', sans-serif;
+  background: #1A1F2E;
+  color: #C9D1E0;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+.header {
+  padding: 16px;
+  background: linear-gradient(135deg, #1E3A5F 0%, #162D4A 100%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #2A3548;
+}
+
+.logo-mark {
+  width: 36px;
+  height: 36px;
+  background: rgba(100, 180, 255, 0.15);
+  border: 1px solid rgba(100, 180, 255, 0.3);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.logo-text {
+  font-size: 15px;
+  font-weight: 700;
+  color: #E8EDF5;
+}
+
+.logo-sub {
+  font-size: 11px;
+  color: #7A8BA0;
+  margin-top: 1px;
+}
+
+/* ── Body ────────────────────────────────────────────────────────────── */
+.body {
+  padding: 14px 16px;
+}
+
+.info-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #6A7A8F;
+  margin-bottom: 14px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* ── Button ──────────────────────────────────────────────────────────── */
+.btn-main {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, #1E3A5F, #162D4A);
+  color: #A8C8E8;
+  border: 1px solid #2A4A6A;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.btn-main:hover {
+  background: linear-gradient(135deg, #243F6A, #1A3355);
+  border-color: #3A5A7A;
+  color: #C8E0F0;
+}
+
+.btn-main:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-main .spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(168, 200, 232, 0.3);
+  border-top-color: #A8C8E8;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: none;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Status ──────────────────────────────────────────────────────────── */
+.status {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  display: none;
+}
+
+.status.error {
+  background: rgba(222, 53, 11, 0.15);
+  border: 1px solid rgba(222, 53, 11, 0.3);
+  color: #FF8F73;
+  display: block;
+}
+
+.status.warning {
+  background: rgba(255, 139, 0, 0.15);
+  border: 1px solid rgba(255, 139, 0, 0.3);
+  color: #FFD700;
+  display: block;
+}
+
+.status.success {
+  background: rgba(54, 179, 126, 0.15);
+  border: 1px solid rgba(54, 179, 126, 0.3);
+  color: #79F2C0;
+  display: block;
+}
+
+/* ── Divider ─────────────────────────────────────────────────────────── */
+.divider {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  margin: 14px 0;
+}
+
+/* ── Legend ───────────────────────────────────────────────────────────── */
+.legend {
+  font-size: 11px;
+  color: #556070;
+}
+
+.legend-title {
+  font-weight: 600;
+  color: #7A8BA0;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  font-size: 10px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ── Footer ──────────────────────────────────────────────────────────── */
+.footer {
+  padding: 10px 16px;
+  background: rgba(0, 0, 0, 0.2);
+  font-size: 10px;
+  color: #445566;
+  text-align: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}

@@ -1,0 +1,2187 @@
+// ── Popup UI ──────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const btn      = document.getElementById('btnOpen');
+  const spinner  = document.getElementById('spinner');
+  const btnIcon  = document.getElementById('btnIcon');
+  const btnLabel = document.getElementById('btnLabel');
+  const statusEl = document.getElementById('status');
+
+  function setLoading(on) {
+    btn.disabled          = on;
+    spinner.style.display = on ? 'block' : 'none';
+    btnIcon.style.display = on ? 'none'  : 'block';
+    btnLabel.textContent  = on ? 'Carregando dados...' : 'Abrir Painel Ops';
+  }
+
+  function showStatus(type, msg) {
+    statusEl.className   = 'status ' + type;
+    statusEl.textContent = msg;
+  }
+
+  btn.addEventListener('click', async () => {
+    setLoading(true);
+    statusEl.className = 'status';
+
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+    if (!tab?.url?.includes('service-now.com')) {
+      setLoading(false);
+      showStatus('error', '\u26A0 Abra o ServiceNow primeiro.');
+      return;
+    }
+
+    try {
+      const tokenResults = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: fetchSnToken,
+        world: 'MAIN'
+      });
+
+      const tokenData = tokenResults?.[0]?.result;
+
+      if (tokenData?.error) {
+        setLoading(false);
+        showStatus('error', '\u274C ' + tokenData.error);
+        return;
+      }
+
+      if (!tokenData?.token) {
+        setLoading(false);
+        showStatus('error', '\u274C Token n\u00E3o encontrado. Recarregue o ServiceNow (F5).');
+        return;
+      }
+
+      const currentMonth = new Date().getMonth() + 1;
+
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: runEMSOps,
+        args: [tokenData.token, currentMonth],
+        world: 'MAIN'
+      });
+
+      const result = results?.[0]?.result;
+
+      if (result?.error) {
+        showStatus('error', '\u274C ' + result.error);
+      } else {
+        showStatus('success', '\u2705 Painel aberto!');
+      }
+    } catch (e) {
+      showStatus('error', '\u274C ' + e.message);
+    }
+
+    setLoading(false);
+  });
+});
+
+// ── Token fetcher (injected into page context) ──────────────────────────
+function fetchSnToken() {
+  if (window.g_ck) return { token: window.g_ck };
+  return { error: 'g_ck n\u00E3o encontrado. Recarregue o ServiceNow (F5).' };
+}
+
+// ── Main injected function ────────────────────────────────────────────────
+function runEMSOps(userToken, userMes) {
+
+  // ── Constants ─────────────────────────────────────────────────────────
+  const headers   = { 'Accept': 'application/json', 'X-UserToken': userToken };
+  const G_IDS     = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
+  const GROUP_MEMBERS = {
+    '1c7c9057db6771d0832ead8ed396197a': [
+      {name:'Alain Lamothe',id:'42cb28908758edd4e41640cd0ebb3546'},{name:'Alexandre Maia',id:'1c1805e9db194950a7f8a334ca9619ec'},{name:'Ahmad Saeed',id:'479e82f0475b8e14b4baa8b5536d4350'},{name:'Andre Muller',id:'42c027c4dba89c10034e6e25ca96196c'},{name:'Andre Sodre',id:'41a509fc4faa0700f5e08e1f0210c73a'},{name:'Andreza Alvares',id:'3665a617dbde60143e6ee2d2ca9619b1'},{name:'Asghar Shamloo',id:'96bfea151b120158a0ab62ca234bcb89'},{name:'Barbara Serain',id:'f3da570847c172d03cbfe07a216d437d'},{name:'Bruna Artioli',id:'46380b503304f6d497e2fba45d5c7bc3'},{name:'Bruno Toledo',id:'eb71bc95dbfbac10fb5d09ccd3961971'},{name:'Bruno Vicente',id:'05a509fc4faa0700f5e08e1f0210c751'},{name:'Cainan Silveira',id:'1a5cdc969317a2506fa8fc0b6aba1003'},{name:'Carlos Nogueira',id:'51a509fc4faa0700f5e08e1f0210c766'},{name:'Carolina Giamassi',id:'7eb85df693d47194ef0af8e74dba103c'},{name:'Danilo Marques',id:'4d4689344fea0700f5e08e1f0210c74c'},{name:'Davi Santos',id:'58f8ba0bdba15550b715aa1d13961964'},{name:'David Neil',id:'eda1c45fdbaec050b9711a8c1396191d'},{name:'Diego Montes',id:'ab04bdf283068e90c149bb447daad3fe'},{name:'Diogo Caldeira',id:'c416817b1b31b410a0ab62ca234bcb0f'},{name:'Fabricio Carvalho',id:'727715dc4f14f744c58b8e1f0210c7fd'},{name:'Felipe Drumond',id:'d9a509fc4faa0700f5e08e1f0210c7b8'},{name:'Felipe Soares',id:'99a509fc4faa0700f5e08e1f0210c7b7'},{name:'Fernando Lima',id:'b3f54d704fea0700f5e08e1f0210c7bb'},{name:'Fernando Meissner',id:'239e2d57db391d50a7f8a334ca9619cd'},{name:'Fábio Brasil',id:'6c643fd44f3efbc8c58b8e1f0210c708'},{name:'Gabriel Cruz',id:'92bdf2a41b79f410a0ab62ca234bcb6c'},{name:'Gabriel Sorroche',id:'0f6c36374767ee901065fa57436d4391'},{name:'Giulia Lopes',id:'b82ff9a8836072d4c149bb447daad390'},{name:'Guilherme Mello',id:'494d8dc44f2f3780f3d33d828110c791'},{name:'Hugo Luna',id:'5335673747eba598c2fd45e8036d4360'},{name:'Jefferson Abreu',id:'5ab87e13875029105ea58628dabb3538'},{name:'Joana Enes',id:'2cac81cd87792d10c48cb845dabb35b1'},{name:'João Miranda',id:'83f109f3dbff8d90fb5d09ccd3961908'},{name:'João Victor Silva',id:'2cf8ba0bdba15550b715aa1d139619c3'},{name:'Julio Araujo',id:'3dcb06418785b514c48cb845dabb35b9'},{name:'Kauê Furtado',id:'c6380b503304f6d497e2fba45d5c7bc7'},{name:'Kevin Ma',id:'8c99bade1b231c54bb580e966e4bcb28'},{name:'Leticia Veiga',id:'46a318b88720bdd45ea58628dabb35e8'},{name:'Lia da Silva',id:'9e9aa79883068a1cc149bb447daad348'},{name:'Lorena Alves',id:'c8657f998326c258c149bb447daad363'},{name:'Luan Salviano',id:'b72e3a8e97fa31180c103486f053af65'},{name:'Lucas Henrique Rocha',id:'4a380b503304f6d497e2fba45d5c7be8'},{name:'Lucas Oliveira Silva',id:'c8e1d213973239980c103486f053af5b'},{name:'Luiz Hernandes',id:'a57afa104f0d2b00f3d33d828110c770'},{name:'Michael Manna',id:'c1993ede1b231c54bb580e966e4bcbe6'},{name:'Michael Rodrigues',id:'0aa549fc4faa0700f5e08e1f0210c7d2'},{name:'Paloma Moreira',id:'525c9c969317a2506fa8fc0b6aba10f4'},{name:'Paulo Henrique Augusto',id:'6c290269db121910a7f8a334ca9619ad'},{name:'Paulo Leal',id:'e92d179e47c22d90c2fd45e8036d43d1'},{name:'Pedro Henrique Bernoldi',id:'41c6e49f97c626149b5a7efe2153af46'},{name:'Raymond Birch',id:'6bc8721a1b231c54bb580e966e4bcb59'},{name:'Rayanne Nascimento',id:'1569409347c1ba103cbfe07a216d4340'},{name:'Renato Neves',id:'97981e64db8c4d14b715aa1d13961963'},{name:'Robert Fischer',id:'8eb501304fea0700f5e08e1f0210c763'},{name:'Roland Szczesny',id:'303afe161b631c54bb580e966e4bcbb2'},{name:'Ruan Mello',id:'e569409347c1ba103cbfe07a216d4378'},{name:'Sergio Procópio',id:'82b501304fea0700f5e08e1f0210c782'},{name:'Syed Sultan Nazar',id:'82b9fe121b631c54bb580e966e4bcbd3'},{name:'Thaina Dias',id:'050542f2c3f8e610c7341f53e40131ab'},{name:'Vernon Ko',id:'b669b29e1b231c54bb580e966e4bcbb5'},{name:'Vinicius Silva',id:'e846c4091b9571101424c8451a4bcb16'}
+    ],
+    '673c2170476422503cbfe07a216d430f': [
+      {name:'Ana Clara Azevedo',id:'358d2145872795545ea58628dabb35f7'},{name:'Barbara Serain',id:'f3da570847c172d03cbfe07a216d437d'},{name:'Cainan Silveira',id:'1a5cdc969317a2506fa8fc0b6aba1003'},{name:'Daniel Raposo',id:'86b8ba13875029105ea58628dabb35ae'},{name:'Felipe Drumond',id:'d9a509fc4faa0700f5e08e1f0210c7b8'},{name:'Felipe Soares',id:'99a509fc4faa0700f5e08e1f0210c7b7'},{name:'Fernando Lima',id:'b3f54d704fea0700f5e08e1f0210c7bb'},{name:'Gabriel Cruz',id:'92bdf2a41b79f410a0ab62ca234bcb6c'},{name:'Guilherme Mello',id:'494d8dc44f2f3780f3d33d828110c791'},{name:'Juliana Caldeira',id:'02543c1cc3be6ed0c7341f53e40131e4'},{name:'Leticia Veiga',id:'46a318b88720bdd45ea58628dabb35e8'},{name:'Luiz Hernandes',id:'a57afa104f0d2b00f3d33d828110c770'},{name:'Paulo Leal',id:'e92d179e47c22d90c2fd45e8036d43d1'},{name:'Pedro Henrique Bernoldi',id:'41c6e49f97c626149b5a7efe2153af46'},{name:'Renato Neves',id:'97981e64db8c4d14b715aa1d13961963'},{name:'Sergio Procópio',id:'82b501304fea0700f5e08e1f0210c782'}
+    ],
+    'ff72689247ee1e143cbfe07a216d4357': [
+      {name:'Abdool Halleem',id:'56393a1e1b231c54bb580e966e4bcbd3'},{name:'Adriano Brigario',id:'fca5c5fc4faa0700f5e08e1f0210c7ff'},{name:'Ahmad Saeed',id:'479e82f0475b8e14b4baa8b5536d4350'},{name:'Alain Lamothe',id:'42cb28908758edd4e41640cd0ebb3546'},{name:'Alexandre Oliveira',id:'87deeb4e1338734426d55d122244b09c'},{name:'Alexander Victorino',id:'eee2842293c74a1018e8bf2a6aba1079'},{name:'Andreza Alvares',id:'3665a617dbde60143e6ee2d2ca9619b1'},{name:'Asghar Shamloo',id:'96bfea151b120158a0ab62ca234bcb89'},{name:'Augusto Almeida Galvao',id:'e6e525ad4f447fc0c58b8e1f0210c74e'},{name:'Bruna Artioli',id:'46380b503304f6d497e2fba45d5c7bc3'},{name:'Brunno Figueiredo',id:'8da509fc4faa0700f5e08e1f0210c749'},{name:'Cainan Silveira',id:'1a5cdc969317a2506fa8fc0b6aba1003'},{name:'Carolina Sequeira',id:'da9aa79883068a1cc149bb447daad345'},{name:'Cleiton Torres',id:'bbbfd92193587ad0771238797bba1018'},{name:'Daniel Philot',id:'d5a509fc4faa0700f5e08e1f0210c776'},{name:'Diego Leite',id:'d5a509fc4faa0700f5e08e1f0210c783'},{name:'Diogo Caldeira',id:'c416817b1b31b410a0ab62ca234bcb0f'},{name:'Eduardo de Abreu',id:'d5a509fc4faa0700f5e08e1f0210c794'},{name:'Fabio Rodrigues',id:'55a509fc4faa0700f5e08e1f0210c7b0'},{name:'Fabricio Carvalho',id:'727715dc4f14f744c58b8e1f0210c7fd'},{name:'Fábio Brasil',id:'6c643fd44f3efbc8c58b8e1f0210c708'},{name:'Gabriel Sorroche',id:'0f6c36374767ee901065fa57436d4391'},{name:'Giulia Lopes',id:'b82ff9a8836072d4c149bb447daad390'},{name:'Gleidson Rocha',id:'a5a509fc4faa0700f5e08e1f0210c7ea'},{name:'Guilherme de Souza',id:'a7f9fa33dbc99150545dee0c139619ee'},{name:'Henrique Almeida',id:'47bbc00887cf9554dfdd64a09bbb354c'},{name:'Janei Araujo',id:'17debbaf13fb67c826d55d122244b0d6'},{name:'Jefferson Souza',id:'2da549fc4faa0700f5e08e1f0210c70b'},{name:'Joana Enes',id:'2cac81cd87792d10c48cb845dabb35b1'},{name:'Jone Colmenero',id:'39a549fc4faa0700f5e08e1f0210c72d'},{name:'Jorge Andrade',id:'625385aa1b61dc5c5deb4199bd4bcbb5'},{name:'José Couto',id:'bb6b8debdbaa8cd47aab710439961965'},{name:'Jose Neto',id:'f5a549fc4faa0700f5e08e1f0210c736'},{name:'Kauê Furtado',id:'c6380b503304f6d497e2fba45d5c7bc7'},{name:'Kevin Ma',id:'8c99bade1b231c54bb580e966e4bcb28'},{name:'Laylla Rangel',id:'f1a549fc4faa0700f5e08e1f0210c757'},{name:'Leonardo Trigo',id:'d647da78c3f3fdd893144f05990131c3'},{name:'Lia da Silva',id:'9e9aa79883068a1cc149bb447daad348'},{name:'Lorena Alves',id:'c8657f998326c258c149bb447daad363'},{name:'Lucas Henrique Rocha',id:'4a380b503304f6d497e2fba45d5c7be8'},{name:'Lucas Oliveira Silva',id:'c8e1d213973239980c103486f053af5b'},{name:'Luiz Hernandes',id:'a57afa104f0d2b00f3d33d828110c770'},{name:'Marco Rosina',id:'92b87e13875029105ea58628dabb3551'},{name:'Michael Manna',id:'c1993ede1b231c54bb580e966e4bcbe6'},{name:'Osvaldo Delfino',id:'46a549fc4faa0700f5e08e1f0210c7e7'},{name:'Paloma Moreira',id:'525c9c969317a2506fa8fc0b6aba10f4'},{name:'Pedro Henrique Bernoldi',id:'41c6e49f97c626149b5a7efe2153af46'},{name:'Priscila Santos',id:'3994cc71dba10d14b715aa1d13961988'},{name:'Raymond Birch',id:'6bc8721a1b231c54bb580e966e4bcb59'},{name:'Rayanne Nascimento',id:'1569409347c1ba103cbfe07a216d4340'},{name:'Roland Szczesny',id:'303afe161b631c54bb580e966e4bcbb2'},{name:'Ruan Mello',id:'e569409347c1ba103cbfe07a216d4378'},{name:'Sidinei Oliveira',id:'bbf54d704fea0700f5e08e1f0210c776'},{name:'Syed Sultan Nazar',id:'82b9fe121b631c54bb580e966e4bcbd3'},{name:'Thaina Dias',id:'050542f2c3f8e610c7341f53e40131ab'},{name:'Thercio Costa',id:'f86d0a84db58b850fb5d09ccd39619c4'},{name:'Tiago Garcia',id:'48657f998326c258c149bb447daad3cd'},{name:'Valmir de Oliveira',id:'40e1cfd04f6cbfc4c58b8e1f0210c76b'},{name:'Vernon Ko',id:'b669b29e1b231c54bb580e966e4bcbb5'},{name:'Vinicius Africo',id:'2c0890354f053b40c58b8e1f0210c74b'},{name:'Vinicius Machado',id:'9eb501304fea0700f5e08e1f0210c7b3'},{name:'Wagner Farias',id:'bd214939dbc3c5d0fb5d09ccd39619dd'},{name:'Wellington Batista',id:'d6b501304fea0700f5e08e1f0210c7c0'},{name:'Ygor Soares',id:'524d6e361ba8d154a62b20622a4bcb5c'}
+    ]
+  };
+  const G_NAMES   = { '1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER', '673c2170476422503cbfe07a216d430f':'Event Management BR', 'ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER' };
+  const G_KEYS    = { '1c7c9057db6771d0832ead8ed396197a':'l1', '673c2170476422503cbfe07a216d430f':'event', 'ff72689247ee1e143cbfe07a216d4357':'l2' };
+  const AWAIT_ST  = new Set(['18','32','5','29','30']);
+  const EXCL      = [3,6,7,24,25,33,35].map(v=>`^state!=${v}`).join('');
+  const LANE_PRIORITY = { critical:'1', high:'2', medium:'3', normal:'4' };
+  const PRIORITY_LANE = { '1':'critical','2':'high','3':'medium','4':'normal','5':'normal' };
+  const FIELDS    = 'number,short_description,priority,state,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
+  const SLA_F     = 'task,planned_end_time,has_breached,percentage,sla,original_breach_time';
+  const BATCH     = 50;
+  const BASE      = window.location.origin;
+  const MES_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+  const nowD      = new Date();
+  const YEAR      = nowD.getFullYear();
+  const mes       = userMes || (nowD.getMonth() + 1);
+
+  // ── Fetch helpers ──────────────────────────────────────────────────────
+  const chunk  = arr => Array.from({length:Math.ceil(arr.length/BATCH)},(_,i)=>arr.slice(i*BATCH,i*BATCH+BATCH));
+  const fcases = (q, lim=1000) => fetch(`${BASE}/api/now/table/sn_customerservice_case?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${FIELDS}&sysparm_display_value=all&sysparm_limit=${lim}`,{headers}).then(r=>r.json()).then(d=>d.result||[]);
+  const GID_L1='1c7c9057db6771d0832ead8ed396197a',GID_EVENT='673c2170476422503cbfe07a216d430f',GID_L2='ff72689247ee1e143cbfe07a216d4357';
+  const fcasesAllGroups = q => {
+    // Build per-group queries by replacing the groupIN clause directly
+    const mk = gid => q.replace('assignment_groupIN'+G_IDS, 'assignment_group='+gid);
+    return Promise.all([
+      fcases(mk(GID_L1),   2000),
+      fcases(mk(GID_EVENT),2000),
+      fcases(mk(GID_L2),   2000),
+    ]).then(([a,b,c])=>[...a,...b,...c]);
+  };
+  const fsla   = q => fetch(`${BASE}/api/now/table/task_sla?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${SLA_F}&sysparm_display_value=all&sysparm_limit=500`,{headers}).then(r=>r.json()).then(d=>d.result||[]);
+  const bsla   = (ids,f) => !ids.length ? Promise.resolve([]) : Promise.all(chunk(ids).map(b=>fsla(`taskIN${b.join(',')}^${f}`))).then(r=>r.flat());
+
+  const mesRange = m => {
+    const ms = String(m).padStart(2,'0');
+    const ld = new Date(YEAR,m,0).getDate();
+    return { ini:`${YEAR}-${ms}-01 00:00:00`, fim:`${YEAR}-${ms}-${ld} 23:59:59` };
+  };
+
+  // ── Build and render ───────────────────────────────────────────────────
+  const render = (ativos, postMortem, slaA, slaP, m, resolvedToday, aggData) => {
+    const now       = Date.now();
+    const fmtH      = h => h===null ? '—' : `${parseFloat(h).toFixed(1)}h`;
+    const hFrom     = d => { const x=new Date(d); return isNaN(x)?null:(now-x)/3600000; };
+    const caseUrl   = n => `${BASE}/sn_customerservice_case.do?sysparm_query=number=${n}`;
+    const prioColor = p => (['','#CF222E','#BF8700','#0550AE','#1A7F37','#57606A'][p]||'#57606A');
+    const mesNome   = MES_NAMES[m-1];
+
+    // SLA map
+    const buildMap = list => {
+      const map = {};
+      list.forEach(s => {
+        const id = s.task?.value; if (!id) return;
+        const due     = s.planned_end_time?.value ? new Date(s.planned_end_time.value) : null;
+        const breach  = s.has_breached?.value === 'true';
+        const pct     = parseFloat(s.percentage?.value||'0');
+        const name    = s.sla?.display_value||s.sla?.value||'';
+        const isEms   = name.includes('EMS-OLA-AMER');
+        const ex      = map[id];
+        if (!ex||(isEms&&!ex.isEms)||(isEms===ex.isEms&&pct>(ex.pct||0)))
+          map[id] = {due,breach,pct,name,isEms};
+      });
+      return map;
+    };
+    const mapA = buildMap(slaA);
+    const mapP = buildMap(slaP);
+
+    const slaInfo = (entry, active) => {
+      if (!entry) return {st:'none',mins:null,pct:null,name:'—'};
+      const {due,breach,pct,name} = entry;
+      const ms = due ? due-now : null;
+      let st;
+      if (active) {
+        st = (breach||(ms!==null&&ms<0)) ? 'breach' : (ms!==null&&ms<7200000) ? 'risk' : 'ok';
+      } else {
+        st = breach ? 'breach' : 'ok';
+      }
+      return {st, mins:ms?Math.round(ms/60000):null, pct:Math.round(pct), name};
+    };
+
+    // Classify
+    const classify = c => {
+      const sl    = slaInfo(mapA[c.sys_id?.value], true);
+      const prio  = parseInt(c.priority?.value||'5');
+      const noAss = !c.assigned_to?.value;
+      const isAw  = AWAIT_ST.has(c.state?.value||'');
+      let lane;
+      if      (isAw)                         lane='awaiting';
+      else if (noAss)                        lane='orphan';
+      else if (prio===1)                     lane='critical';
+      else if (prio===2&&sl.st==='breach')   lane='critical';
+      else if (prio===2)                     lane='high';
+      else if (prio===3&&sl.st==='breach')   lane='high';
+      else if (prio===3)                     lane='medium';
+      else                                   lane='normal';
+      return {
+        number  : c.number?.display_value||'',
+        sysId   : c.sys_id?.value||'',
+        url     : caseUrl(c.number?.display_value||''),
+        desc    : (c.short_description?.display_value||'').substring(0,60),
+        priority: c.priority?.display_value||'N/A',
+        prio, state:c.state?.display_value||'N/A',
+        isAw, noAss,
+        uType   : c.u_type?.display_value||'',
+        assigned: c.assigned_to?.display_value||null,
+        assignedId: c.assigned_to?.value||'',
+        gid     : c.assignment_group?.value||'',
+        gkey    : G_KEYS[c.assignment_group?.value]||'l1',
+        group   : G_NAMES[c.assignment_group?.value]||'—',
+        isInternal: c.u_internal_cases?.value==='true'||c.u_internal_cases?.value===true,
+        sl, openH:fmtH(hFrom(c.opened_at?.value)), openedAt:c.opened_at?.value||'', lane
+      };
+    };
+
+    const enrichPost = c => {
+      const sl     = slaInfo(mapP[c.sys_id?.value], false);
+      const opened = new Date(c.opened_at?.value);
+      const resol  = new Date(c.resolved_at?.value||c.closed_at?.value);
+      const mttr   = (!isNaN(opened)&&!isNaN(resol)) ? (resol-opened)/3600000 : null;
+      return {
+        number    : c.number?.display_value||'',
+        url       : caseUrl(c.number?.display_value||''),
+        desc      : (c.short_description?.display_value||'').substring(0,55),
+        priority  : c.priority?.display_value||'N/A',
+        prio      : parseInt(c.priority?.value||'5'),
+        uType     : c.u_type?.display_value||'—',
+        account   : c.account?.display_value||'—',
+        category  : c.category?.display_value||'—',
+        closeCode : c.u_close_code?.display_value||'—',
+        assigned  : c.assigned_to?.display_value||'—',
+        group     : G_NAMES[c.assignment_group?.value]||'—',
+        stateLabel: c.state?.display_value||'—',
+        resolvedAt: c.resolved_at?.display_value||c.closed_at?.display_value||'—',
+        mttr, sl,
+        slaBreach : sl.st==='breach',
+        slaLabel  : !mapP[c.sys_id?.value] ? 'Sem SLA' : sl.st==='breach' ? 'BREACH' : 'OK'
+      };
+    };
+
+    const classified = ativos.map(classify);
+    const postList   = postMortem.map(enrichPost);
+
+    // Split by age: backlog = opened >= 20 days ago
+    const BACKLOG_DAYS = 20;
+    const msPerDay     = 86400000;
+    const now20        = Date.now();
+    const isBacklog    = c => (now20 - new Date(c.openedAt||0)) >= BACKLOG_DAYS * msPerDay;
+
+    const ativosItems  = classified.filter(c => !isBacklog(c));
+    const backlogItems = classified.filter(c => isBacklog(c));
+
+    const buildLanes = (sourceItems, key) => {
+      const items = sourceItems.filter(c=>c.gkey===key);
+      return {
+        critical: items.filter(c=>c.lane==='critical'),
+        high    : items.filter(c=>c.lane==='high'),
+        medium  : items.filter(c=>c.lane==='medium'),
+        awaiting: items.filter(c=>c.lane==='awaiting'),
+        normal  : items.filter(c=>c.lane==='normal'),
+        orphan  : items.filter(c=>c.lane==='orphan'),
+        total   : items.length
+      };
+    };
+    const ativosMap  = {l1:buildLanes(ativosItems,'l1'), l2:buildLanes(ativosItems,'l2'), event:buildLanes(ativosItems,'event')};
+    const backlogMap = {l1:buildLanes(backlogItems,'l1'), l2:buildLanes(backlogItems,'l2'), event:buildLanes(backlogItems,'event')};
+    const lanesMap   = ativosMap; // kept for KPI compat
+
+    const totalBreach = classified.filter(c=>c.sl.st==='breach').length;
+    const totalRisk   = classified.filter(c=>c.sl.st==='risk').length;
+    const totalOrphan = classified.filter(c=>c.noAss).length;
+    const totalAwait  = classified.filter(c=>c.isAw).length;
+    const pctHealth   = classified.length ? Math.round(((classified.length-totalBreach)/classified.length)*100) : 0;
+    const pmBreach    = postList.filter(p=>p.slaBreach).length;
+    const mttrList    = postList.filter(p=>p.mttr!==null);
+    const avgMTTR     = mttrList.length ? (mttrList.reduce((s,p)=>s+p.mttr,0)/mttrList.length).toFixed(1) : '—';
+
+    // Card renderer
+    const renderSlaBar = sl => {
+      if (sl.st==='none') return `<div class="sla-bar-wrap"><span class="sla-bar-name" style="color:#57606A">Sem SLA</span></div>`;
+      const pct   = Math.min(sl.pct||0,100);
+      const color = sl.st==='breach' ? '#CF222E' : sl.st==='risk' ? '#BF8700' : '#1A7F37';
+      const time  = sl.st==='breach'
+        ? `<span class="sla-time" style="color:#CF222E;font-weight:700">BREACH</span>`
+        : sl.mins!==null ? `<span class="sla-time">${sl.mins>=60?(sl.mins/60).toFixed(1)+'h':sl.mins+'min'} rest.</span>` : '';
+      return `<div class="sla-bar-wrap">
+        <div class="sla-bar-label">
+          <span class="sla-bar-name">${sl.name!=='—'?sl.name:'SLA'}</span>
+          <span class="sla-bar-pct" style="color:${color}">${sl.pct}%</span>
+        </div>
+        <div class="sla-bar-track"><div class="sla-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+        ${time}</div>`;
+    };
+
+    const renderCard = c => `
+      <div class="card card-${c.lane}" data-sysid="${c.sysId}" data-assignedid="${c.assignedId||''}" data-assignedname="${c.assigned||''}" onclick="openCaseModal('${c.sysId}','${c.number}',this)">
+        <div class="card-top">
+          <a class="card-num" href="${c.url}" target="_blank">${c.number} ↗</a>
+          ${c.isAw?`<span class="badge-await">⏳ ${c.state}</span>`:''}
+          ${c.isInternal?`<span class="badge-internal">🔒 Internal</span>`:''}
+          <button class="card-reassign-btn" title="Reatribuir" data-sysid="${c.sysId}" data-gid="${c.gid}" data-assigned="${c.assigned||''}" onclick="openReassignBtn(event,this)">👤 ✎</button>
+        </div>
+        <p class="card-desc">${c.desc||'—'}</p>
+        ${renderSlaBar(c.sl)}
+        <div class="card-tags">
+          <span class="tag" style="color:${prioColor(c.prio)};background:${prioColor(c.prio)}15;border-color:${prioColor(c.prio)}40">${c.priority}</span>
+          <span class="tag tag-state">${c.state}</span>
+          ${c.uType?`<span class="tag tag-type">${c.uType}</span>`:''}
+        </div>
+        <div class="card-footer">
+          <span class="card-assigned ${c.noAss?'unassigned':''}">${c.noAss?'⚠ Sem responsável':'👤 '+c.assigned}</span>
+          <span class="card-time">⏰ ${c.openH}</span>
+        </div>
+      </div>`;
+
+    const renderLane = (label,color,icon,items) => `
+      <div class="lane">
+        <div class="lane-hdr" style="border-top:3px solid ${color}">
+          <div class="lane-title"><span class="lane-dot" style="background:${color}"></span>${icon} ${label}</div>
+          <span class="lane-count" style="color:${color}">${items.length}</span>
+        </div>
+        <div class="lane-body">${items.length?items.map(renderCard).join(''):'<div class="lane-empty">Sem chamados</div>'}</div>
+      </div>`;
+
+    // Resolved Today lane
+    const buildResolvedChart = key => {
+      const gid = G_ID_MAP[key];
+      const rt  = (resolvedToday||[]).filter(c => c.assignment_group?.value === gid);
+      const map = {};
+      rt.forEach(c => {
+        const name = c.assigned_to?.display_value || '— Sem responsável';
+        map[name] = (map[name]||0)+1;
+      });
+      return Object.entries(map)
+        .map(([name,count]) => ({ name, count }))
+        .sort((a,b) => b.count - a.count);
+    };
+
+    const COLORS_RT = ['#0969DA','#1A7F37','#BF8700','#CF222E','#8250DF','#0550AE','#116329','#7D4E00','#A40E26','#6E40C9','#1A7F37','#0969DA','#BF8700','#CF222E','#8250DF'];
+    const renderResolvedToday = key => {
+      const gid  = G_ID_MAP[key];
+      const data = buildResolvedChart(key);
+      const total = data.reduce((s,d)=>s+d.count,0);
+      const max   = data.length ? Math.max(...data.map(d=>d.count)) : 1;
+      return `
+        <div class="lane lane-rt">
+          <div class="lane-hdr" style="border-top:3px solid #6E40C9">
+            <div class="lane-title"><span class="lane-dot" style="background:#6E40C9"></span>✅ Resolvidos Hoje</div>
+            <span class="lane-count" style="color:#6E40C9">${total}</span>
+          </div>
+          <div class="lane-body">
+            ${!data.length ? '<div class="lane-empty">Nenhum hoje</div>' :
+              data.map((d,i) => `
+                <div class="rt-row">
+                  <div class="rt-name" title="${d.name}">${d.name.split(' ').slice(0,2).join(' ')}</div>
+                  <div class="rt-track">
+                    <div class="rt-fill" style="width:${Math.round((d.count/max)*100)}%;background:${COLORS_RT[i%COLORS_RT.length]}"></div>
+                  </div>
+                  <span class="rt-val">${d.count}</span>
+                </div>`).join('')}
+          </div>
+        </div>`;
+    };
+
+    const renderBoard = (key, lmap, showRT=true) => {
+      const ln = lmap[key];
+      return `
+        <div class="board-inner">
+          ${renderLane('Crítico',    '#CF222E','🔴',ln.critical)}
+          ${renderLane('Alto Risco', '#BF8700','🟠',ln.high)}
+          ${renderLane('Atenção',    '#0550AE','🔵',ln.medium)}
+          ${renderLane('Normal',     '#1A7F37','🟢',ln.normal)}
+          ${renderLane('Aguardando', '#0969DA','⏳',ln.awaiting)}
+          ${renderLane('Órfãos',     '#57606A','⚫',ln.orphan)}
+          ${showRT ? renderResolvedToday(key) : ''}
+        </div>`;
+    };
+
+    const slaBarPM = p => {
+      if (p.sl.pct===null) return '<span class="muted-val">—</span>';
+      const color = p.slaBreach ? '#CF222E' : p.sl.pct>=90 ? '#BF8700' : '#1A7F37';
+      return `<div class="pm-sla-wrap">
+        <span class="pm-sla-pct" style="color:${color}">${p.sl.pct}%</span>
+        <div class="pm-sla-track"><div class="pm-sla-fill" style="width:${Math.min(p.sl.pct,100)}%;background:${color}"></div></div>
+      </div>`;
+    };
+
+    const renderRow = p => `
+      <tr>
+        <td><a class="case-link" href="${p.url}" target="_blank">${p.number} ↗</a></td>
+        <td class="td-desc">${p.desc}</td>
+        <td><span style="color:${prioColor(p.prio)};font-weight:600">${p.priority}</span></td>
+        <td><span class="tag tag-type">${p.uType}</span></td>
+        <td><span class="tag">${p.group}</span></td>
+        <td class="td-sm">${p.account}</td>
+        <td>${p.assigned}</td>
+        <td><span class="tag tag-state">${p.stateLabel}</span></td>
+        <td class="mono">${p.resolvedAt}</td>
+        <td class="mono ${p.mttr&&p.mttr>48?'val-red':''}">${fmtH(p.mttr)}</td>
+        <td>${slaBarPM(p)}</td>
+        <td><span class="sla-pill ${p.slaBreach?'pill-breach':p.slaLabel==='Sem SLA'?'pill-none':'pill-ok'}">${p.slaLabel}</span></td>
+        <td class="td-sm">${p.category}</td>
+        <td class="td-sm">${p.closeCode}</td>
+      </tr>`;
+
+    const pmByGroup = postList.reduce((a,p)=>{ a[p.group]=(a[p.group]||0)+1; return a; },{});
+    const pmByType  = postList.reduce((a,p)=>{ a[p.uType]=(a[p.uType]||0)+1; return a; },{});
+    const ts        = new Date().toLocaleString('pt-BR');
+    const gmembersJson = JSON.stringify(GROUP_MEMBERS);
+
+    // ── Analytics: table by analyst + resolved today chart ─────────────
+    const G_ID_MAP = {
+      'l1'   : '1c7c9057db6771d0832ead8ed396197a',
+      'l2'   : 'ff72689247ee1e143cbfe07a216d4357',
+      'event': '673c2170476422503cbfe07a216d430f'
+    };
+
+    // Analyst table from Aggregate API data
+    const buildAggTable = key => {
+      const agg = aggData?.[key];
+      if (!agg || !agg.rows || !agg.rows.length) return null;
+      const map = {};
+      agg.rows.forEach(row => {
+        const analyst = row.groupby_fields?.find(f=>f.field==='assigned_to')?.display_value || '—';
+        const typeVal  = row.groupby_fields?.find(f=>f.field==='u_type')?.value || '';
+        const count    = parseInt(row.stats?.count||0);
+        if (!map[analyst]) map[analyst] = {sr:0, tt:0};
+        if (typeVal==='0') map[analyst].sr += count;
+        else if (typeVal==='1') map[analyst].tt += count;
+      });
+      return Object.entries(map)
+        .map(([name,v]) => ({name, sr:v.sr, tt:v.tt, total:v.sr+v.tt}))
+        .sort((a,b) => b.total - a.total);
+    };
+
+    const analystTableHTML = key => {
+      const rows = buildAggTable(key);
+      const gid  = G_ID_MAP[key];
+      if (!rows || !rows.length) return '<div class="ana-empty">Sem dados</div>';
+      const totSR  = rows.reduce((s,r)=>s+r.sr, 0);
+      const totTT  = rows.reduce((s,r)=>s+r.tt, 0);
+      const totAll = totSR + totTT;
+      const RODRIGO_IDS_HTML = ['1a8b95014fc1af00f3d33d828110c7cf','1d2a4cd84f347788c58b8e1f0210c767','38483f9fdbb7b0d0545dee0c139619ab','46b501304fea0700f5e08e1f0210c770','5a1ed5054fc1af00f3d33d828110c7ce'];
+      const rodrigoEx = RODRIGO_IDS_HTML.map(id=>`^assigned_to!=${id}`).join('');
+      const baseFilter = `assigned_toANYTHING^u_typeIN0,1^u_operating_country=BR^stateIN1,10,21,8,2^u_internal_cases=false${rodrigoEx}^assignment_group=${gid}`;
+      const mkUrl = (analyst, type) => {
+        let q = baseFilter;
+        if (analyst) q += `^assigned_to.display_name=${analyst}`;
+        if (type==='SR') q += `^u_type=0`;
+        if (type==='TT') q += `^u_type=1`;
+        return `${BASE}/sn_customerservice_case_list.do?sysparm_query=${encodeURIComponent(q)}`;
+      };
+      let html = '<table class="ana-table"><thead><tr>';
+      html += '<th>Analista</th>';
+      html += '<th class="ana-num">Service Request</th>';
+      html += '<th class="ana-num">Trouble</th>';
+      html += '<th class="ana-num">Total</th>';
+      html += '</tr></thead><tbody>';
+      rows.forEach(r => {
+        html += '<tr>';
+        html += '<td class="ana-name">' + r.name + '</td>';
+        html += '<td class="ana-num">' + (r.sr>0 ? '<a class="ana-link" href="' + mkUrl(r.name,'SR') + '" target="_blank">' + r.sr + '</a>' : '<span class="ana-zero">0</span>') + '</td>';
+        html += '<td class="ana-num">' + (r.tt>0 ? '<a class="ana-link" href="' + mkUrl(r.name,'TT') + '" target="_blank">' + r.tt + '</a>' : '<span class="ana-zero">0</span>') + '</td>';
+        html += '<td class="ana-num ana-total"><a class="ana-link ana-total-link" href="' + mkUrl(r.name,'') + '" target="_blank">' + r.total + '</a></td>';
+        html += '</tr>';
+      });
+      html += '</tbody><tfoot><tr class="ana-foot">';
+      html += '<td><a class="ana-link ana-total-link" href="' + mkUrl('','') + '" target="_blank">Total</a></td>';
+      html += '<td class="ana-num">' + totSR + '</td>';
+      html += '<td class="ana-num">' + totTT + '</td>';
+      html += '<td class="ana-num ana-total">' + totAll + '</td>';
+      html += '</tr></tfoot></table>';
+      return html;
+    };
+
+    const analyticsL1    = analystTableHTML('l1');
+    const analyticsL2    = analystTableHTML('l2');
+    const analyticsEvent = analystTableHTML('event');
+
+    const resolvedChartHTML = (groupKey) => {
+      const data = buildResolvedChart(groupKey);
+      if (!data.length) return '<div class="ana-empty">Nenhum caso resolvido hoje neste grupo</div>';
+      const max  = Math.max(...data.map(d=>d.count));
+      const total = data.reduce((s,d)=>s+d.count,0);
+      const COLORS = ['#0969DA','#1A7F37','#BF8700','#CF222E','#8250DF','#0550AE','#116329','#7D4E00','#A40E26','#6E40C9','#0969DA','#1A7F37','#BF8700','#CF222E','#8250DF','#0550AE','#116329','#7D4E00','#A40E26','#6E40C9','#0969DA','#1A7F37','#BF8700','#CF222E','#8250DF','#0550AE','#116329','#7D4E00','#A40E26','#6E40C9'];
+      return `
+        <div class="chart-wrap">
+          <div class="chart-header">
+            <span class="chart-title">Resolvidos Hoje</span>
+            <span class="chart-total">${total} casos</span>
+          </div>
+          <div class="chart-bars">
+            ${data.map((d,i) => `
+              <div class="chart-row">
+                <div class="chart-label" title="${d.name}">${d.name.split(' ').slice(0,2).join(' ')}</div>
+                <div class="chart-bar-track">
+                  <div class="chart-bar-fill" style="width:${Math.round((d.count/max)*100)}%;background:${COLORS[i%COLORS.length]}"></div>
+                </div>
+                <span class="chart-val">${d.count}</span>
+              </div>`).join('')}
+          </div>
+        </div>`;
+    };
+
+
+
+    return `<!DOCTYPE html><html lang="pt-BR"><head>
+<meta charset="UTF-8"><title>EMS Ops — ${mesNome} ${YEAR}</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F6F8FA;--surface:#FFFFFF;--surface2:#F6F8FA;
+  --border:#D0D7DE;--border2:#BFC8D3;
+  --text:#24292F;--text2:#57606A;--muted:#8C959F;
+  --red:#CF222E;--ora:#BF8700;--blue:#0550AE;
+  --green:#1A7F37;--gray:#57606A;--await:#0969DA;
+  --sans:'Inter',system-ui,sans-serif;--mono:'IBM Plex Mono',monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;}
+a{text-decoration:none;}
+
+/* HEADER */
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:0 1px 3px rgba(27,31,36,.04);}
+.logo{display:flex;align-items:center;gap:10px;}
+.logo-mark{width:28px;height:28px;background:#0969DA;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;}
+.logo-text{font-size:15px;font-weight:600;color:var(--text);}
+.header-right{display:flex;align-items:center;gap:12px;}
+.h-ts{font-family:var(--mono);font-size:11px;color:var(--muted);}
+.h-count{font-size:12px;font-weight:500;color:var(--text2);background:var(--bg);padding:3px 10px;border-radius:20px;border:1px solid var(--border);}
+
+/* TABS */
+.tabs{background:var(--surface);border-bottom:1px solid var(--border);display:flex;padding:0 20px;gap:2px;position:sticky;top:49px;z-index:100;}
+.tab{padding:9px 16px;font-size:13px;font-weight:500;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;}
+.tab:hover{color:var(--text);background:var(--bg);}
+.tab.active{color:#0969DA;border-bottom-color:#0969DA;font-weight:600;}
+.refresh-wrap{margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 4px;}
+.refresh-track{width:72px;height:3px;background:var(--border);border-radius:4px;overflow:hidden;}
+.refresh-fill{height:100%;width:100%;background:#0969DA;border-radius:4px;transition:width 1s linear;}
+.refresh-txt{font-family:var(--mono);font-size:11px;color:var(--muted);min-width:40px;}
+.refresh-btn{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:13px;cursor:pointer;color:var(--text2);transition:all .15s;}
+.refresh-btn:hover{background:var(--bg);border-color:var(--border2);}
+
+/* MONTH BAR */
+.month-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:7px 20px;display:flex;align-items:center;gap:10px;}
+.month-lbl{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;}
+.month-btns{display:flex;gap:4px;flex-wrap:wrap;}
+.mbtn{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:12px;font-weight:400;color:var(--text2);cursor:pointer;transition:all .15s;font-family:var(--sans);}
+.mbtn:hover:not(:disabled){background:var(--bg);border-color:var(--border2);color:var(--text);}
+.mbtn.active{background:#0969DA;color:#fff;border-color:#0969DA;font-weight:600;}
+.mbtn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* KPI */
+.kpi-bar{background:var(--surface);border-bottom:1px solid var(--border);display:flex;}
+.kpi{flex:1;padding:10px 14px;text-align:center;border-right:1px solid var(--border);}
+.kpi:last-child{border-right:none;}
+.kpi:hover{background:var(--bg);}
+.kpi-val{font-family:var(--mono);font-size:22px;font-weight:600;line-height:1.1;display:block;}
+.kpi-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:2px;display:block;}
+
+/* SLA STRIP */
+.sla-strip{background:var(--surface);border-bottom:1px solid var(--border);padding:7px 20px;display:flex;align-items:center;gap:12px;}
+.sla-strip-lbl{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;}
+.sla-track-outer{flex:1;height:5px;background:var(--border);border-radius:4px;overflow:hidden;display:flex;}
+.sla-seg{height:100%;}
+.sla-legend{display:flex;gap:10px;}
+/* ACCORDION */
+.accordion-wrap{background:var(--surface);border-bottom:1px solid var(--border);}
+.accordion-item{border-bottom:1px solid var(--border);}
+.accordion-item:last-child{border-bottom:none;}
+.accordion-hdr{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;user-select:none;transition:background .15s;}
+.accordion-hdr:hover{background:var(--bg);}
+.acc-icon{font-size:14px;}
+.acc-title{font-size:13px;font-weight:600;color:var(--text);flex:1;}
+.acc-badge{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:10px;border:1px solid var(--border);}
+.acc-arrow{font-size:12px;color:var(--muted);transition:transform .2s;margin-left:4px;}
+.accordion-body{padding:10px 16px 12px;border-top:1px solid var(--border);background:var(--bg);}
+.acc-grid{display:flex;gap:8px;align-items:flex-start;}
+.acc-report-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;flex-shrink:0;}
+/* Analyst table */
+.acc-report-card.acc-analyst{width:240px;overflow:hidden;}
+.acc-report-card.acc-analyst .ana-table{table-layout:fixed;width:100%;}
+.acc-report-card.acc-analyst .ana-table th:first-child,
+.acc-report-card.acc-analyst .ana-table td:first-child{width:auto;overflow:hidden;text-overflow:ellipsis;}
+.acc-report-card.acc-analyst .ana-table th.ana-num,
+.acc-report-card.acc-analyst .ana-table td.ana-num{width:42px;}
+/* 4 score cards — 2x2 grid */
+.acc-scores-wrap{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex-shrink:0;width:300px;}
+.acc-report-card.acc-score-card{width:auto;}
+/* Resolved chart — fixed width */
+.acc-report-card.acc-resolved-card{width:280px;flex-shrink:0;}
+.acc-report-title{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;}
+.acc-report-link{font-size:10px;color:#0969DA;text-decoration:none;font-weight:400;text-transform:none;letter-spacing:0;}
+.acc-report-link:hover{text-decoration:underline;}
+.acc-score-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 0;}
+.acc-score-num{font-size:26px;font-weight:700;color:#CF222E;line-height:1;}
+.acc-score-lbl{font-size:10px;color:var(--muted);margin-top:4px;text-align:center;}
+.acc-score-rating{color:#BF8700;}
+/* resolved handled above */
+.res-chart-wrap{display:flex;flex-direction:column;gap:5px;padding:4px 0;}
+.res-chart-row{display:flex;align-items:center;gap:6px;margin-bottom:2px;}
+.res-chart-name{font-size:10px;color:var(--text);width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
+.res-chart-bar-wrap{flex:1;background:var(--border);border-radius:2px;height:10px;overflow:hidden;}
+.res-chart-bar{height:100%;border-radius:2px;background:#2563EB;transition:width .4s ease;}
+.res-chart-count{font-size:10px;font-weight:700;color:#2563EB;min-width:20px;text-align:right;}
+.res-chart-total{font-size:10px;color:var(--muted);padding:4px 0 2px;border-top:1px solid var(--border);margin-top:4px;text-align:right;}
+.sla-li{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);}
+/* COLLAPSIBLE SECTIONS */
+.board-section{border-bottom:2px solid var(--border);}
+.section-hdr{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;background:var(--surface);user-select:none;transition:background .15s;border-bottom:1px solid var(--border);}
+.section-hdr:hover{background:#EBF0F5;}
+.section-icon{font-size:12px;color:var(--muted);transition:transform .2s;display:inline-block;width:14px;}
+.section-title{font-size:13px;font-weight:600;color:var(--text);}
+.section-badge{font-size:11px;color:var(--muted);background:var(--bg);padding:2px 10px;border-radius:10px;border:1px solid var(--border);margin-left:auto;}
+.section-body{overflow:hidden;}
+.section-body.collapsed{display:none;}
+.section-refresh-btn{margin-left:8px;background:none;border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:12px;cursor:pointer;color:var(--muted);transition:all .15s;}
+.section-refresh-btn:hover{background:var(--bg);color:var(--text);border-color:var(--border2);}
+.sla-dot{width:7px;height:7px;border-radius:50%;}
+
+/* PAGES */
+.page{display:none;}.page.active{display:block;}
+
+/* BOARD */
+.board-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:10px;}
+.board-toolbar label{font-size:12px;font-weight:500;color:var(--text2);}
+.toolbar-sep{width:1px;height:20px;background:var(--border);margin:0 4px;}
+.refresh-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:14px;cursor:pointer;color:var(--text2);transition:all .2s;line-height:1;}
+.refresh-btn:hover{background:var(--bg);color:#0969DA;border-color:#0969DA;transform:rotate(90deg);}
+.board-toolbar select{font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;font-family:var(--sans);}
+.board-toolbar select:hover{border-color:var(--border2);}
+.board-wrap{padding:14px 16px;overflow-x:auto;}
+.board-inner{display:flex;gap:10px;align-items:flex-start;min-width:max-content;}
+
+/* LANES */
+.lane{width:258px;background:var(--surface);border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;max-height:calc(100vh - 280px);}
+.lane-hdr{padding:9px 12px;border-bottom:1px solid var(--border);border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;}
+.lane-title{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text);}
+.lane-dot{width:7px;height:7px;border-radius:50%;}
+.lane-count{font-family:var(--mono);font-size:12px;font-weight:600;padding:0 7px;border-radius:10px;background:var(--bg);border:1px solid var(--border);}
+.lane-body{padding:8px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px;}
+.lane-body::-webkit-scrollbar{width:3px;}
+.lane-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.lane-empty{color:var(--muted);font-size:12px;text-align:center;padding:20px 0;}
+.analytics-wrap{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px;}
+.ana-section{min-width:0;}
+.ana-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:8px;}
+.ana-table{border-collapse:collapse;font-size:11px;width:100%;}
+.ana-table thead th{padding:4px 6px;text-align:left;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:2px solid var(--border);background:var(--bg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ana-table thead th.ana-num{text-align:right;width:44px;max-width:44px;}
+.ana-table tbody tr:hover td{background:#F0F6FF;}
+.ana-table tbody td{padding:3px 6px;border-bottom:1px solid var(--bg);vertical-align:middle;}
+.ana-table tbody td.ana-num{text-align:right;width:44px;max-width:44px;}
+.ana-table tbody td:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px;}
+.ana-name{color:var(--text);white-space:nowrap;}
+.ana-num{text-align:center;}
+.ana-zero{color:var(--muted);}
+.ana-link{color:#0969DA;font-weight:600;text-decoration:none;}
+.ana-link:hover{text-decoration:underline;}
+.ana-total{font-weight:700;color:var(--text);}
+.ana-total-link{color:var(--text)!important;font-weight:700;}
+.ana-foot td{padding:5px 10px;font-weight:700;border-top:2px solid var(--border);color:var(--text);background:var(--bg);}
+.ana-empty{font-size:12px;color:var(--muted);padding:8px 0;}
+.lane-rt{width:220px;min-width:220px;}
+.lane-bl{width:258px;min-width:258px;}
+.mbtn-backlog{background:#EDE9FE;color:#6E40C9;border-color:#C4B5FD;font-weight:600;}
+.mbtn-backlog.active{background:#6E40C9;color:#fff;border-color:#6E40C9;}
+
+/* REASSIGN BUTTON */
+.card-reassign-btn{display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:10px;cursor:pointer;color:var(--muted);margin-left:auto;transition:all .15s;}
+.card:hover .card-reassign-btn{display:inline-flex;align-items:center;}
+.card-reassign-btn:hover{background:#EFF6FF;color:#0969DA;border-color:#0969DA;}
+/* REASSIGN DROPDOWN */
+.reassign-dd{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(27,31,36,.15);z-index:2000;width:210px;max-height:280px;display:flex;flex-direction:column;}
+.reassign-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:8px 12px 4px;}
+.reassign-search{padding:6px 10px;border:none;border-bottom:1px solid var(--border);font-size:12px;outline:none;font-family:var(--sans);color:var(--text);}
+.reassign-list{overflow-y:auto;flex:1;}
+.reassign-opt{padding:7px 12px;font-size:12px;cursor:pointer;color:var(--text);}
+.reassign-opt:hover{background:var(--bg);}
+.reassign-current{color:#0969DA;font-weight:600;}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:#24292F;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;z-index:3000;opacity:0;transform:translateY(8px);transition:all .25s;}
+.toast.toast-show{opacity:1;transform:none;}
+.toast.toast-error{background:#CF222E;}
+.toast.toast-warn{background:#BF8700;}
+/* ANALYST BOARD */
+.analyst-board-wrap{background:var(--bg);border-top:2px solid var(--border);}
+.analyst-board-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:10px;}
+.analyst-board-toolbar label{font-size:12px;font-weight:500;color:var(--text2);}
+.analyst-board-toolbar select{font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:var(--sans);cursor:pointer;min-width:220px;}
+.analyst-board-header{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:var(--surface);border-bottom:1px solid var(--border);}
+.analyst-board-name{font-size:14px;font-weight:600;color:var(--text);}
+.analyst-board-count{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:10px;border:1px solid var(--border);}
+.analyst-loading,.analyst-empty{padding:24px 20px;font-size:13px;color:var(--muted);text-align:center;}
+/* CASE MODAL */
+.modal-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;}
+.modal-detail-item{display:flex;flex-direction:column;gap:2px;}
+.modal-detail-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#57606A;}
+.modal-detail-val{font-size:12px;color:#24292F;}
+.modal-section-title{font-size:11px;font-weight:600;color:#57606A;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #D0D7DE;padding-bottom:4px;margin-bottom:6px;}
+.modal-desc{font-size:12px;color:#24292F;line-height:1.5;background:#F6F8FA;border-radius:4px;padding:8px;}
+.modal-journal{border-left:4px solid #D0D7DE;padding:10px 12px;margin-bottom:8px;border-radius:0 6px 6px 0;}
+.modal-j-meta{font-size:10px;color:#57606A;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.modal-j-author{font-weight:700;color:#24292F;font-size:11px;}
+.modal-j-time{font-size:10px;color:#8B949E;}
+.modal-j-text{font-size:12px;color:#24292F;line-height:1.5;white-space:pre-wrap;margin-top:4px;}
+.modal-j-badge{font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;letter-spacing:.3px;}
+.modal-j-wn{background:#DBEAFE;color:#1D4ED8;}
+.modal-j-cm{background:#F3F4F6;color:#374151;}
+/* work note = analista interno = azul */
+.modal-journal-wn{background:#F0F7FF;border-left-color:#2563EB;}
+.modal-journal-wn .modal-j-author{color:#1D4ED8;}
+/* comment = externo/cliente = laranja quente */
+.modal-journal-client{background:#FFFBF5;border-left-color:#F97316;}
+.modal-journal-client .modal-j-author{color:#C2410C;}
+/* comment de sistema/automação = cinza */
+.modal-journal-cm{background:#F9FAFB;border-left-color:#9CA3AF;}
+.modal-state-badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:500;}
+.card.modal-active{outline:2px solid #0969DA;outline-offset:1px;}
+.rt-row{display:flex;align-items:center;gap:5px;margin-bottom:3px;}
+.rt-name{font-size:11px;color:var(--text2);width:90px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.rt-track{flex:1;height:12px;background:var(--bg);border-radius:3px;overflow:hidden;border:1px solid var(--border);}
+.rt-fill{height:100%;border-radius:3px;}
+.rt-val{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text);width:20px;text-align:right;flex-shrink:0;}
+
+
+
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-left:3px solid;border-radius:6px;padding:10px 10px 8px;transition:box-shadow .15s,transform .12s;animation:su .2s ease;}
+@keyframes su{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+.card:hover{box-shadow:0 2px 8px rgba(27,31,36,.1);transform:translateY(-1px);}
+.card-critical{border-left-color:var(--red)}.card-high{border-left-color:var(--ora)}
+.card-medium{border-left-color:var(--blue)}.card-normal{border-left-color:var(--green)}
+.card-awaiting{border-left-color:var(--await)}.card-orphan{border-left-color:var(--gray)}
+.card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:6px;}
+.card-num{font-family:var(--mono);font-size:11px;font-weight:600;color:#0969DA;}
+.card-num:hover{text-decoration:underline;}
+.badge-await{font-size:10px;background:#DBEAFE;color:#1D4ED8;border:1px solid #BFDBFE;padding:1px 6px;border-radius:4px;}
+.badge-internal{font-size:9px;padding:1px 6px;border-radius:4px;background:#F3E8FF;color:#7C3AED;font-weight:600;border:1px solid #DDD6FE;}
+.card-desc{font-size:12px;line-height:1.45;color:var(--text);margin-bottom:8px;}
+.sla-bar-wrap{margin-bottom:7px;}
+.sla-bar-label{display:flex;justify-content:space-between;margin-bottom:2px;}
+.sla-bar-name{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;}
+.sla-bar-pct{font-family:var(--mono);font-size:10px;font-weight:600;}
+.sla-bar-track{height:4px;background:var(--bg);border-radius:3px;overflow:hidden;border:1px solid var(--border);}
+.sla-bar-fill{height:100%;border-radius:3px;}
+.sla-time{font-size:10px;color:var(--muted);display:block;margin-top:2px;text-align:right;}
+.card-tags{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:7px;}
+.tag{font-size:10px;padding:1px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--text2);}
+.tag-state{background:#EFF2F5;color:#0550AE;border-color:#B6C4D1;}
+.tag-type{background:#FFF8C5;color:#7D4E00;border-color:#E3B34160;}
+.card-footer{display:flex;justify-content:space-between;align-items:center;}
+.card-assigned{font-size:10px;color:var(--muted);}
+.card-assigned.unassigned{color:var(--ora);font-weight:600;}
+.card-time{font-family:var(--mono);font-size:10px;color:var(--muted);}
+
+/* POST-MORTEM */
+.pm-wrap{padding:18px 20px;}
+.pm-title{font-size:17px;font-weight:600;margin-bottom:14px;color:var(--text);}
+.pm-stats{display:flex;gap:10px;margin-bottom:18px;}
+.pm-stat{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+.pm-stat-val{font-family:var(--mono);font-size:24px;font-weight:600;line-height:1;}
+.pm-stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:4px;}
+.pm-stat-hint{font-size:10px;color:var(--muted);margin-top:2px;font-style:italic;}
+.pm-breakdown{display:flex;gap:10px;margin-bottom:18px;}
+.pm-break{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
+.pm-break-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:8px;}
+.pm-break-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bg);font-size:12px;}
+.pm-break-row:last-child{border:none;}
+.pm-break-val{font-family:var(--mono);font-weight:600;}
+
+/* TABLE */
+.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.filter-bar{display:flex;flex-wrap:wrap;gap:5px;padding:7px 12px;background:#F0F6FF;border-bottom:1px solid #B6C4D1;}
+.filter-bar:empty{display:none;}
+.pm-pagination{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px 8px 0 0;border-bottom:none;margin-top:4px;}
+.pg-info{font-size:12px;color:var(--muted);}
+.pg-btns{display:flex;align-items:center;gap:6px;}
+.pg-btn{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 12px;font-size:12px;font-weight:500;cursor:pointer;color:var(--text2);font-family:var(--sans);}
+.pg-btn:hover:not(:disabled){background:var(--bg);border-color:var(--border2);color:var(--text);}
+.pg-btn:disabled{opacity:.4;cursor:not-allowed;}
+.pg-pages{display:flex;gap:3px;}
+.pg-page{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:12px;cursor:pointer;color:var(--text2);min-width:28px;text-align:center;}
+.pg-page:hover{background:var(--bg);}
+.pg-page.active{background:#0969DA;color:#fff;border-color:#0969DA;font-weight:600;}
+.filter-tag{display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid #B6C4D1;border-radius:4px;padding:2px 8px;color:#0550AE;font-size:11px;}
+.filter-tag button{background:none;border:none;cursor:pointer;color:#0550AE;font-size:13px;line-height:1;padding:0;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead{background:var(--bg);}
+th{padding:8px 12px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
+th[data-col]{cursor:pointer;user-select:none;}
+th[data-col]:hover{background:#EBF0F5;color:var(--text);}
+th[data-col].active-filter{color:#0969DA;}
+.th-arr{font-size:9px;color:var(--muted);margin-left:3px;}
+td{padding:8px 12px;border-bottom:1px solid var(--bg);vertical-align:middle;color:var(--text);}
+tr:last-child td{border:none;}
+tr:hover td{background:#F6F8FA;}
+.td-desc{color:var(--text2);max-width:190px;}
+.td-sm{color:var(--text2);font-size:12px;max-width:130px;}
+.mono{font-family:var(--mono);font-size:11px;}
+.val-red{color:var(--red);font-weight:600;}
+.muted-val{color:var(--muted);}
+.case-link{font-family:var(--mono);font-size:11px;font-weight:600;color:#0969DA;}
+.case-link:hover{text-decoration:underline;}
+.sla-pill{font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;}
+.pill-breach{background:#FFEBE9;color:#CF222E;border:1px solid #FFD1CC;}
+.pill-ok{background:#DAFBE1;color:#116329;border:1px solid #A7F3C0;}
+.pill-none{background:#F6F8FA;color:#57606A;border:1px solid #D0D7DE;}
+.pm-sla-wrap{min-width:70px;}
+.pm-sla-pct{font-family:var(--mono);font-size:11px;font-weight:600;display:block;margin-bottom:2px;}
+.pm-sla-track{height:3px;background:var(--bg);border-radius:2px;overflow:hidden;border:1px solid var(--border);}
+.pm-sla-fill{height:100%;border-radius:2px;}
+
+/* FILTER DROPDOWN */
+.fdd{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(27,31,36,.12);z-index:1000;min-width:200px;max-width:280px;max-height:320px;display:flex;flex-direction:column;}
+.fdd-search{padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;outline:none;width:100%;font-family:var(--sans);color:var(--text);}
+.fdd-opts{overflow-y:auto;flex:1;}
+.fdd-opt{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-size:13px;color:var(--text);}
+.fdd-opt:hover{background:var(--bg);}
+.fdd-opt input{flex-shrink:0;accent-color:#0969DA;}
+.fdd-foot{padding:7px 10px;border-top:1px solid var(--border);display:flex;gap:6px;justify-content:flex-end;}
+.fdd-foot button{font-size:12px;padding:4px 12px;border-radius:6px;cursor:pointer;border:1px solid var(--border);font-family:var(--sans);}
+.fdd-apply{background:#0969DA;color:#fff;border-color:#0969DA!important;}
+.fdd-clear{background:var(--surface);color:var(--text2);}
+
+/* TOKEN ERROR */
+#tok-err{position:fixed;inset:0;background:rgba(27,31,36,.5);z-index:9999;display:none;align-items:center;justify-content:center;}
+.tok-modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 36px;text-align:center;max-width:360px;box-shadow:0 8px 24px rgba(27,31,36,.12);}
+</style></head><body>
+
+<div id="tok-err" style="display:none">
+  <div class="tok-modal">
+    <div style="font-size:32px;margin-bottom:10px">⚠️</div>
+    <div style="font-size:15px;font-weight:600;margin-bottom:6px">Sessão expirada</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:18px">Token expirou. Clique no ícone da extensão para gerar novo painel.</div>
+    <button onclick="document.getElementById('tok-err').style.display='none'" style="background:#0969DA;color:#fff;border:none;border-radius:6px;padding:7px 18px;font-size:13px;font-weight:600;cursor:pointer">OK</button>
+  </div>
+</div>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-mark">🖥</div>
+    <div class="logo-text">EMS Ops Dashboard</div>
+  </div>
+  <div class="header-right">
+    <span class="h-ts">${ts}</span>
+    <span class="h-count">${mesNome} ${YEAR} · Ativos: ${classified.length} (${ativosItems.length} ativos / ${backlogItems.length} backlog) · Post-mortem: ${postList.length}</span>
+  </div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showPage('kanban',this)">📋 Cases Ativos</div>
+  <div class="tab" onclick="showPage('backlog',this)">📦 Backlog</div>
+  <div class="tab" onclick="showPage('postmortem',this)">🔍 Post-mortem</div>
+  <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
+    <span id="refresh-status" style="font-size:11px;color:var(--muted);"></span>
+  </div>
+</div>
+
+<div class="page active" id="page-kanban">
+  <div class="month-bar">
+  <span class="month-lbl">Mês:</span>
+  <div class="month-btns" id="mbtns">
+    <button class="mbtn active" onclick="changeMes(${mes})">${MES_NAMES[mes-1].substring(0,3)}</button>
+  </div>
+</div>
+
+<div class="kpi-bar">
+  <div class="kpi"><span class="kpi-val">${classified.length}</span><span class="kpi-lbl">Cases Ativos</span></div>
+  <div class="kpi"><span class="kpi-val" style="color:var(--red)">${totalBreach}</span><span class="kpi-lbl">SLA Breach</span></div>
+  <div class="kpi"><span class="kpi-val" style="color:var(--ora)">${totalRisk}</span><span class="kpi-lbl">SLA em Risco</span></div>
+  <div class="kpi"><span class="kpi-val" style="color:var(--await)">${totalAwait}</span><span class="kpi-lbl">Aguardando</span></div>
+  <div class="kpi"><span class="kpi-val" style="color:var(--ora)">${totalOrphan}</span><span class="kpi-lbl">Sem Responsável</span></div>
+  <div class="kpi"><span class="kpi-val" style="color:var(--green)">${pctHealth}%</span><span class="kpi-lbl">SLA Saudável</span></div>
+</div>
+
+<div class="sla-strip">
+  <span class="sla-strip-lbl">SLA Health</span>
+  <div class="sla-track-outer">
+    <div class="sla-seg" style="width:${classified.length?Math.round(totalBreach/classified.length*100):0}%;background:#CF222E"></div>
+    <div class="sla-seg" style="width:${classified.length?Math.round(totalRisk/classified.length*100):0}%;background:#BF8700"></div>
+    <div class="sla-seg" style="flex:1;background:#1A7F37"></div>
+  </div>
+  <div class="sla-legend">
+    <div class="sla-li"><div class="sla-dot" style="background:#CF222E"></div>Breach (${totalBreach})</div>
+    <div class="sla-li"><div class="sla-dot" style="background:#BF8700"></div>Risco (${totalRisk})</div>
+    <div class="sla-li"><div class="sla-dot" style="background:#1A7F37"></div>OK (${classified.length-totalBreach-totalRisk})</div>
+  </div>
+</div>
+
+<!-- Reports Accordion -->
+  <div class="board-toolbar">
+    <label for="fila-sel">Fila:</label>
+    <select id="fila-sel" onchange="switchFila(this.value)">
+      <option value="l1">L1 OpsCenter AMER (${lanesMap.l1.total})</option>
+      <option value="l2">L2 OpsCenter AMER (${lanesMap.l2.total})</option>
+      <option value="event">Event Management BR (${lanesMap.event.total})</option>
+    </select>
+    <div class="toolbar-sep"></div>
+    <label for="analyst-sel">👤 Analista:</label>
+    <select id="analyst-sel" onchange="switchAnalyst(this.value)">
+      <option value="">— Todos —</option>
+      ${(GROUP_MEMBERS['1c7c9057db6771d0832ead8ed396197a']||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
+    </select>
+    <div class="toolbar-sep"></div>
+    <div class="toolbar-search-wrap">
+      <input id="board-search" type="text" placeholder="🔍 Buscar CS... ou Account..." oninput="boardSearch(this.value)" style="font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;width:220px;font-family:var(--sans);color:var(--text);">
+      <button onclick="boardSearch('');document.getElementById('board-search').value='';" style="font-size:11px;padding:3px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--muted);cursor:pointer;margin-left:3px;">✕</button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <button onclick="refreshKanban()" class="refresh-btn" title="Atualizar Cases Ativos">↻</button>
+  </div>
+  <!-- Reports accordion (only in Cases Ativos) -->
+  <div class="accordion-wrap" id="accordion-wrap">
+  <div class="accordion-item" id="acc-analyst">
+    <div class="accordion-hdr" onclick="toggleAcc('analyst')">
+      <span class="acc-icon">📊</span>
+      <span class="acc-title">Reports</span>
+      <span class="acc-badge" id="acc-badge-analyst"></span>
+      <span class="acc-arrow" id="acc-arrow-analyst">▾</span>
+      <button class="refresh-btn" onclick="event.stopPropagation();refreshReports()" title="Atualizar Reports" style="font-size:13px;margin-left:4px;">↻</button>
+    </div>
+    <div class="accordion-body" id="acc-body-analyst" style="display:none">
+      <div class="acc-grid">
+        <div class="acc-report-card acc-analyst">
+          <div class="acc-report-title">Cases Ativos por Analista</div>
+          <div id="ana-table-wrap-acc"></div>
+        </div>
+        <div class="acc-scores-wrap">
+          <div class="acc-scores-row">
+            <div class="acc-report-card acc-score-card">
+              <div class="acc-report-title">Sem Type
+                <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=afec7b28933bb290771238797bba106e" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
+              </div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num" id="sem-type-score">—</div>
+                <div class="acc-score-lbl">sem tipo</div>
+              </div>
+            </div>
+            <div class="acc-report-card acc-score-card">
+              <div class="acc-report-title">Last Client
+                <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=132e7da233211ed497e2fba45d5c7bb5" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
+              </div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num" id="last-interacted-score">—</div>
+                <div class="acc-score-lbl">últ. interação cliente</div>
+              </div>
+            </div>
+            <div class="acc-report-card acc-score-card">
+              <div class="acc-report-title">Support Attention
+                <a href="#" target="_blank" class="acc-report-link" id="support-attention-link">Abrir no Snow ↗</a>
+              </div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num" id="support-attention-score">—</div>
+                <div class="acc-score-lbl">requerem atenção</div>
+              </div>
+            </div>
+            <div class="acc-report-card acc-score-card">
+              <div class="acc-report-title">Rating EMS (Ano)</div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num acc-score-rating" id="rating-score">—</div>
+                <div class="acc-score-lbl">nota média</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="acc-report-card acc-resolved-card">
+          <div class="acc-report-title">Resolvidos no Mês
+            <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=c1c71f5847335e543cbfe07a216d430e" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
+          </div>
+          <div id="resolved-month-chart"><div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+  <!-- Hidden data source for analytics (used by accordion + switchFila) -->
+  <div id="ana-table-wrap" style="display:none">${analyticsL1}</div>
+  <div id="_at_l1" style="display:none">${analyticsL1}</div>
+  <div id="_at_l2" style="display:none">${analyticsL2}</div>
+  <div id="_at_event" style="display:none">${analyticsEvent}</div>
+  <!-- Section 1: Ativos -->
+  <div class="board-section" id="section-ativos">
+    <div class="section-hdr" onclick="toggleSection('ativos')">
+      <span class="section-icon" id="section-icon-ativos">▾</span>
+      <span class="section-title">📋 Cases Ativos</span>
+      <span class="section-badge" id="section-badge-ativos">${ativosItems.length} cases · <20 dias</span>
+      <button class="section-refresh-btn" onclick="event.stopPropagation();refreshKanban()" title="Atualizar Cases Ativos">↺</button>
+    </div>
+    <div class="section-body" id="section-body-ativos">
+      <div class="board-wrap" id="board-wrap">
+        ${renderBoard('l1', ativosMap)}
+      </div>
+    </div>
+  </div>
+
+  <!-- Backlog moved to its own tab -->
+
+  <!-- Analyst board (no separate section — shown inline below active cases) -->
+  <div id="analyst-board-content"></div>
+
+
+</div>
+
+<div class="page" id="page-backlog">
+  <div class="board-toolbar" style="padding:8px 20px;">
+    <label for="fila-sel-bl">Fila:</label>
+    <select id="fila-sel-bl" onchange="switchFilaBacklog(this.value)">
+      <option value="l1">L1 OpsCenter AMER</option>
+      <option value="l2">L2 OpsCenter AMER</option>
+      <option value="event">Event Management BR</option>
+    </select>
+    <div class="toolbar-sep"></div>
+    <label for="analyst-sel-bl">👤 Analista:</label>
+    <select id="analyst-sel-bl" onchange="switchAnalystBacklog(this.value)">
+      <option value="">— Todos —</option>
+    </select>
+    <div class="toolbar-sep"></div>
+    <button onclick="refreshBacklog()" class="refresh-btn" title="Atualizar Backlog">↻</button>
+  </div>
+  <div class="board-section" style="border:none;">
+    <div class="section-hdr" onclick="toggleSection('backlog-tab')">
+      <span class="section-icon" id="section-icon-backlog-tab">▾</span>
+      <span class="section-title">📦 Backlog</span>
+      <span class="section-badge" id="section-badge-backlog-tab">${backlogItems.length} cases · ≥20 dias</span>
+      <button class="section-refresh-btn" onclick="event.stopPropagation();refreshBacklog()" title="Atualizar Backlog">↺</button>
+    </div>
+    <div class="section-body" id="section-body-backlog-tab">
+      <div class="board-wrap" id="board-wrap-backlog-tab">
+        ${renderBoard('l1', backlogMap, false)}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="page" id="page-postmortem">
+  <div class="pm-wrap">
+    <div class="pm-title" style="display:flex;align-items:center;justify-content:space-between;">
+      <span>Post-mortem — Resolvidos em ${mesNome} ${YEAR}</span>
+      <button class="refresh-btn" onclick="refreshPostmortem()" title="Atualizar Post-mortem" style="font-size:13px;">↻</button>
+    </div>
+    <div class="pm-stats">
+      <div class="pm-stat"><div class="pm-stat-val">${postList.length}</div><div class="pm-stat-lbl">Total Resolvidos</div></div>
+      <div class="pm-stat"><div class="pm-stat-val" style="color:var(--red)">${pmBreach}</div><div class="pm-stat-lbl">Tiveram Breach</div></div>
+      <div class="pm-stat"><div class="pm-stat-val" style="color:var(--blue)">${avgMTTR}h</div><div class="pm-stat-lbl">MTTR Médio</div><div class="pm-stat-hint">Abertura → Resolução</div></div>
+      <div class="pm-stat"><div class="pm-stat-val" style="color:var(--green)">${postList.filter(p=>p.slaLabel==='OK').length}</div><div class="pm-stat-lbl">Dentro do SLA</div></div>
+      <div class="pm-stat"><div class="pm-stat-val">${postList.length?Math.round((pmBreach/postList.length)*100):0}%</div><div class="pm-stat-lbl">% com Breach</div></div>
+    </div>
+    <div class="pm-breakdown">
+      <div class="pm-break"><div class="pm-break-title">Por Fila</div>${Object.entries(pmByGroup).map(([k,v])=>`<div class="pm-break-row"><span>${k}</span><span class="pm-break-val">${v}</span></div>`).join('')||'<span style="color:var(--muted);font-size:12px">Sem dados</span>'}</div>
+      <div class="pm-break"><div class="pm-break-title">Por Tipo</div>${Object.entries(pmByType).map(([k,v])=>`<div class="pm-break-row"><span>${k}</span><span class="pm-break-val">${v}</span></div>`).join('')||'<span style="color:var(--muted);font-size:12px">Sem dados</span>'}</div>
+    </div>
+    ${postList.length?`
+    <div class="pm-pagination" id="pm-pg-wrap">
+      <div class="pg-info" id="pg-info">Mostrando 1-50 de ${postList.length}</div>
+      <div class="pg-btns">
+        <button class="pg-btn" id="pg-prev" onclick="pgNav(-1)" disabled>‹ Anterior</button>
+        <span class="pg-pages" id="pg-pages"></span>
+        <button class="pg-btn" id="pg-next" onclick="pgNav(1)">Próximo ›</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <div class="filter-bar" id="fbar"></div>
+      <table><thead><tr>
+        <th data-col="0">Número <span class="th-arr">▾</span></th>
+        <th data-col="1">Descrição <span class="th-arr">▾</span></th>
+        <th data-col="2">Prioridade <span class="th-arr">▾</span></th>
+        <th data-col="3">Tipo <span class="th-arr">▾</span></th>
+        <th data-col="4">Fila <span class="th-arr">▾</span></th>
+        <th data-col="5">Cliente <span class="th-arr">▾</span></th>
+        <th data-col="6">Resolvido por <span class="th-arr">▾</span></th>
+        <th data-col="7">Status <span class="th-arr">▾</span></th>
+        <th data-col="8">Resolvido em <span class="th-arr">▾</span></th>
+        <th data-col="9">MTTR <span class="th-arr">▾</span></th>
+        <th data-col="10">% SLA <span class="th-arr">▾</span></th>
+        <th data-col="11">SLA <span class="th-arr">▾</span></th>
+        <th data-col="12">Categoria <span class="th-arr">▾</span></th>
+        <th data-col="13">Motivo <span class="th-arr">▾</span></th>
+      </tr></thead>
+      <tbody id="pmtbody">${postList.map(renderRow).join('')}</tbody></table>
+    </div>`:`<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:60px;text-align:center;color:var(--muted);">Nenhum caso resolvido em ${mesNome} ${YEAR}</div>`}
+  </div>
+</div>
+
+<script>
+const _TOK='${userToken}',_BASE='${BASE}',_IDS='${G_IDS}',_MES=${m};
+const _MN=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const _GN={'1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER','673c2170476422503cbfe07a216d430f':'Event Management BR','ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER'};
+const _GK={'1c7c9057db6771d0832ead8ed396197a':'l1','673c2170476422503cbfe07a216d430f':'event','ff72689247ee1e143cbfe07a216d4357':'l2'};
+// Per-module refresh (no auto-refresh)
+function refreshKanban(){
+  setRefreshStatus('↻ Atualizando...');
+  if(window.opener&&!window.opener.closed&&typeof window.opener._emsOpsRender==='function'){
+    window.opener._emsOpsRender(_TOK,_MES,window);
+  } else {
+    changeMes(_MES);
+  }
+}
+function refreshBacklog(){
+  refreshKanban();
+}
+function refreshPostmortem(){
+  setRefreshStatus('↻ Atualizando post-mortem...');
+  if(window.opener&&!window.opener.closed&&typeof window.opener._emsOpsRender==='function'){
+    window.opener._emsOpsRender(_TOK,_MES,window);
+  } else {
+    changeMes(_MES);
+  }
+}
+function refreshReports(){
+  setRefreshStatus('↻ Atualizando reports...');
+  ['sem-type-score','last-interacted-score','support-attention-score','rating-score'].forEach(id=>{const e=document.getElementById(id);if(e){e.textContent='—';e.style.color='';}});
+  const elR=document.getElementById('resolved-month-chart');
+  if(elR)elR.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
+  // Also reload analyst table
+  const tbl=document.getElementById('_at_'+currentFila)?.innerHTML||'';
+  initAccordion(tbl);
+}
+function refreshMyCases(){
+  initMyCases();
+}
+
+let currentFila='l1';
+window._GMEMBERS=${gmembersJson};
+window._GID_MAP={'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
+
+function showPage(id,el){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  el.classList.add('active');
+  if(id==='postmortem') pgInit();
+  if(id==='backlog'){
+    const selBl=document.getElementById('analyst-sel-bl');
+    if(selBl&&selBl.options.length<=1) buildBacklogAnalystDropdown();
+  }
+  if(id==='kanban'){
+    // Re-init accordion in case it wasn't loaded yet
+    const anaAcc=document.getElementById('ana-table-wrap-acc');
+    if(!anaAcc||!anaAcc.innerHTML||anaAcc.innerHTML.trim().length<10){
+      const src=document.getElementById('_at_'+currentFila)?.innerHTML||document.getElementById('_at_l1')?.innerHTML||'';
+      if(src&&src.trim().length>10) initAccordion(src);
+    }
+  }
+}
+
+function switchFila(key){
+  currentFila=key;
+  const ativosBoards={'l1':${JSON.stringify(renderBoard('l1',ativosMap))},'l2':${JSON.stringify(renderBoard('l2',ativosMap))},'event':${JSON.stringify(renderBoard('event',ativosMap))}};
+  const backlogBoards={'l1':${JSON.stringify(renderBoard('l1',backlogMap,false))},'l2':${JSON.stringify(renderBoard('l2',backlogMap,false))},'event':${JSON.stringify(renderBoard('event',backlogMap,false))}};
+  const bAtivos=document.getElementById('board-wrap');
+  const bBacklog=document.getElementById('board-wrap-backlog');
+  if(bAtivos)bAtivos.innerHTML=ativosBoards[key]||'';
+  if(bBacklog)bBacklog.innerHTML=backlogBoards[key]||'';
+  const ba=document.getElementById('section-badge-ativos');
+  if(ba){const c=(ativosBoards[key]||'').match(/data-count="(\d+)"/g)||[];const tot=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,'')),0);ba.textContent=tot+' cases · <20 dias';}
+  const tbl=document.getElementById('_at_'+key)?.innerHTML||'';
+  document.getElementById('ana-table-wrap').innerHTML=tbl;
+  initAccordion(tbl);
+  const sel=document.getElementById('analyst-sel');
+  if(sel){
+    const gid=window._GID_MAP[key]||'';
+    const members=(window._GMEMBERS[gid]||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+    sel.innerHTML='<option value="">— Selecione —</option>'+members.map(a=>'<option value="'+a.id+'">'+a.name+'</option>').join('');
+  }
+  document.getElementById('analyst-board-content').innerHTML='';
+  const elResolved=document.getElementById('resolved-month-chart');
+  if(elResolved)elResolved.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
+  ['sem-type-score','last-interacted-score','support-attention-score'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
+  fetchAccordionScores();
+}
+
+function buildBacklogAnalystDropdown(){
+  const bb=document.getElementById('board-wrap-backlog-tab');
+  const selBl=document.getElementById('analyst-sel-bl');
+  if(!bb||!selBl)return;
+  const seen={};
+  bb.querySelectorAll('.card[data-assignedid]').forEach(card=>{
+    const id=card.dataset.assignedid;
+    const name=card.dataset.assignedname;
+    if(id&&name&&!seen[id]) seen[id]=name;
+  });
+  const sorted=Object.entries(seen).sort((a,b)=>a[1].localeCompare(b[1],'pt'));
+  selBl.innerHTML='<option value="">— Todos —</option>'+sorted.map(([id,name])=>'<option value="'+id+'">'+name+'</option>').join('');
+}
+
+function switchFilaBacklog(key){
+  const backlogBoards={'l1':${JSON.stringify(renderBoard('l1',backlogMap,false))},'l2':${JSON.stringify(renderBoard('l2',backlogMap,false))},'event':${JSON.stringify(renderBoard('event',backlogMap,false))}};
+  const bb=document.getElementById('board-wrap-backlog-tab');
+  if(bb)bb.innerHTML=backlogBoards[key]||'';
+  const badge=document.getElementById('section-badge-backlog-tab');
+  if(badge){const c=(backlogBoards[key]||'').match(/data-count="(\d+)"/g)||[];const tot=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,'')),0);badge.textContent=tot+' cases · ≥20 dias';}
+  buildBacklogAnalystDropdown();
+}
+
+function switchAnalystBacklog(analystId){
+  const bb=document.getElementById('board-wrap-backlog-tab');
+  if(!bb)return;
+  const cards=bb.querySelectorAll('.card');
+  cards.forEach(card=>{
+    if(!analystId||card.dataset.assignedid===analystId){
+      card.style.display='';
+    } else {
+      card.style.display='none';
+    }
+  });
+  // Update lane counts and empty states
+  bb.querySelectorAll('.lane').forEach(lane=>{
+    const laneCards=lane.querySelectorAll('.card');
+    const visible=Array.from(laneCards).filter(c=>c.style.display!=='none').length;
+    const countEl=lane.querySelector('.lane-count');
+    if(countEl)countEl.textContent=visible;
+    let emptyEl=lane.querySelector('.lane-empty');
+    const bodyEl=lane.querySelector('.lane-body');
+    if(visible===0){
+      if(!emptyEl&&bodyEl){
+        emptyEl=document.createElement('div');
+        emptyEl.className='lane-empty lane-empty-filter';
+        emptyEl.textContent='Sem chamados';
+        bodyEl.appendChild(emptyEl);
+      }
+    } else {
+      if(emptyEl&&emptyEl.classList.contains('lane-empty-filter'))emptyEl.remove();
+    }
+  });
+  // Update section badge
+  const totalVisible=Array.from(cards).filter(c=>c.style.display!=='none').length;
+  const badge=document.getElementById('section-badge-backlog-tab');
+  if(badge){
+    const suffix=analystId?' (filtrado)':'';
+    badge.textContent=totalVisible+' cases · ≥20 dias'+suffix;
+  }
+}
+
+function changeMes(m){
+  document.querySelectorAll('.mbtn').forEach((b,i)=>{b.classList.toggle('active',i+1===m);b.disabled=true;});
+  if(window.opener&&!window.opener.closed&&typeof window.opener._emsOpsRender==='function'){
+    window.opener._emsOpsRender(_TOK,m,window);
+  } else {
+    // Fallback: reload via changeMes in parent context
+    fetch(_BASE+'/api/now/table/sn_customerservice_case?sysparm_limit=1',{headers:{'Accept':'application/json','X-UserToken':_TOK}})
+    .then(r=>{
+      if(r.status===401||r.status===403){
+        document.getElementById('tok-err')?.style && (document.getElementById('tok-err').style.display='flex');
+      } else {
+        location.reload();
+      }
+    }).catch(()=>location.reload());
+  }
+}
+
+function toggleAcc(key){
+  const body=document.getElementById('acc-body-'+key);
+  const arrow=document.getElementById('acc-arrow-'+key);
+  if(!body)return;
+  const open=body.style.display!=='none';
+  body.style.display=open?'none':'block';
+  if(arrow)arrow.style.transform=open?'':'rotate(180deg)';
+  if(!open)fetchAccordionScores();
+}
+
+function initAccordion(html){
+  const anaAcc=document.getElementById('ana-table-wrap-acc');
+  // Try passed html, then current fila hidden div, then l1 fallback
+  const src=html||document.getElementById('_at_'+currentFila)?.innerHTML||document.getElementById('_at_l1')?.innerHTML||'';
+  if(anaAcc){
+    if(src&&src.trim()!=='') anaAcc.innerHTML=src;
+    else anaAcc.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px;">Sem dados disponíveis para esta fila.</div>';
+  }
+  const badge=document.getElementById('acc-badge-analyst');
+  if(badge){const rows=document.querySelectorAll('#ana-table-wrap-acc .ana-table tbody tr');badge.textContent=rows.length?rows.length+' analistas':'';}
+  fetchAccordionScores();
+}
+
+function setRefreshStatus(msg){const el=document.getElementById('refresh-status');if(el)el.textContent=msg;setTimeout(()=>{if(el&&el.textContent===msg)el.textContent='';},3000);}
+
+function fetchAccordionScores(){
+  const h={'Accept':'application/json','X-UserToken':_TOK};
+  const gid=window._GID_MAP?.[currentFila]||'1c7c9057db6771d0832ead8ed396197a';
+
+  // Sem Type
+  const elST=document.getElementById('sem-type-score');
+  if(elST){elST.textContent='…';
+    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('stateIN1,10,21^u_typeISEMPTY^assignment_group='+gid)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elST.textContent=c;elST.style.color=c===0?'#1A7F37':'#CF222E';}).catch(()=>{elST.textContent='?';});
+  }
+
+  // Last Interacted by Client
+  const elLI=document.getElementById('last-interacted-score');
+  if(elLI){elLI.textContent='…';
+    const liQ='stateIN32,1,10,21,90,18,8,5,29,30,2^u_customer_last_interactionISNOTEMPTY^u_type!=7^assignment_group='+gid;
+    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(liQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elLI.textContent=c;elLI.style.color=c>0?'#0969DA':'#1A7F37';}).catch(()=>{elLI.textContent='?';});
+  }
+
+  // Resolvidos no Mês — bar chart por analista
+  const elRM=document.getElementById('resolved-month-chart');
+  if(elRM&&(elRM.innerHTML.includes('Carregando')||elRM.innerHTML==='')){
+    elRM.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
+    const rmQ='resolved_atONThis month@javascript:gs.beginningOfThisMonth()@javascript:gs.endOfThisMonth()^assignment_group='+gid+'^stateIN33,34,6,3^contact_typeNOT INautomation^u_recurrence_case=false^u_operating_countryINBR';
+    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(rmQ)+'&sysparm_group_by=resolved_by&sysparm_count=true&sysparm_display_value=all&sysparm_limit=50',{headers:h})
+    .then(r=>r.json()).then(d=>{
+      const rows=(d.result||[]).map(r=>({name:r.groupby_fields?.[0]?.display_value||'—',cnt:parseInt(r.stats?.count||0)})).filter(r=>r.cnt>0).sort((a,b)=>b.cnt-a.cnt);
+      const total=rows.reduce((s,r)=>s+r.cnt,0);
+      const maxCnt=rows[0]?.cnt||1;
+      if(!rows.length){elRM.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sem dados este mês</div>';return;}
+      const COLORS=['#2563EB','#059669','#D97706','#DC2626','#7C3AED','#0891B2','#BE185D','#65A30D','#EA580C','#6366F1'];
+      const bars=rows.slice(0,12).map((r,i)=>{
+        const pct=Math.round((r.cnt/maxCnt)*100);
+        const color=COLORS[i%COLORS.length];
+        return '<div class="res-chart-row">'+
+          '<span class="res-chart-name" title="'+r.name+'">'+r.name+'</span>'+
+          '<div class="res-chart-bar-wrap"><div class="res-chart-bar" style="width:'+pct+'%;background:'+color+'"></div></div>'+
+          '<span class="res-chart-count" style="color:'+color+'">'+r.cnt+'</span>'+
+        '</div>';
+      }).join('');
+      elRM.innerHTML='<div class="res-chart-wrap">'+bars+'<div class="res-chart-total">Total: <strong>'+total+'</strong> resolvidos este mês</div></div>';
+    }).catch(()=>{elRM.innerHTML='<div style="color:#CF222E;font-size:12px;">Erro ao carregar</div>';});
+  }
+
+  // Support Attention — segmentado por fila
+  const elSA=document.getElementById('support-attention-score');
+  if(elSA){elSA.textContent='…';
+    const saQ='u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^assignment_group='+gid;
+    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(saQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    .then(r=>r.json()).then(d=>{
+      const c=parseInt(d.result?.stats?.count||0);
+      elSA.textContent=c;
+      elSA.style.color=c>0?'#BF8700':'#1A7F37';
+      // Update link with correct gid
+      const link=document.getElementById('support-attention-link');
+      if(link){
+        const qEnc=encodeURIComponent('u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^assignment_group='+gid);
+        link.href=_BASE+'/sn_customerservice_case_list.do?sysparm_query='+qEnc;
+      }
+    }).catch(()=>{elSA.textContent='?';});
+  }
+
+  // Rating EMS Year
+  const elRating=document.getElementById('rating-score');
+  if(elRating&&(elRating.textContent==='—'||elRating.textContent==='')){elRating.textContent='…';
+    const ratingGids='1c7c9057db6771d0832ead8ed396197a,ff72689247ee1e143cbfe07a216d4357,673c2170476422503cbfe07a216d430f,61d7da1edb71a450c6445457dc9619f9,52cd04fbdbe71700b3cd73e1ba961949,6c67c13bdbeb1700b3cd73e1ba9619b9,5d4cb3f1db90a050e0e15cb8dc961970,5d77053bdbeb1700b3cd73e1ba9619ca,8b3850eddb1adf00448b01a3ca9619ce,7dbeba001ba173004948ece03d4bcb7a,01d511c2db68cc10fddc7bedae9619de,3469cd95dbe9dbc0b3cd73e1ba9619b3';
+    const rQ='ai_sys_created_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()^cse_accountNOT LIKEEQUINIX^mr_metric=e7d1c39ddb56df00448b01a3ca961972^cse_assignment_groupIN'+ratingGids;
+    fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(rQ)+'&sysparm_avg_fields=mr_actual_value&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    .then(r=>r.json()).then(d=>{
+      const avg=parseFloat(d.result?.stats?.avg?.mr_actual_value||0);
+      elRating.textContent=avg>0?avg.toFixed(2):'—';
+      elRating.style.color=avg>=4?'#1A7F37':avg>=3?'#BF8700':'#CF222E';
+    }).catch(()=>{elRating.textContent='?';});
+  }
+}
+function fetchSemTypeScore(){fetchAccordionScores();}
+
+// ── Layered Polling ──────────────────────────────────────────────────────────
+let _pollL1=null, _pollL2=null, _pollL3=null;
+let _lastActivesCount = -1;
+
+function startPolling(){
+  stopPolling();
+
+  // Layer 1: KPIs (60s) — 3 lightweight aggregate calls
+  _pollL1 = setInterval(()=>pollKPIs(), 60000);
+
+  // Layer 2: Reports/Scores (3min) — staggered
+  _pollL2 = setInterval(()=>{
+    ['sem-type-score','last-interacted-score','support-attention-score'].forEach(id=>{
+      const e=document.getElementById(id); if(e) e.dataset.dirty='1';
+    });
+    const elR=document.getElementById('resolved-month-chart');
+    if(elR) elR.dataset.dirty='1';
+    // Only refresh if accordion is open
+    const body=document.getElementById('acc-body-analyst');
+    if(body&&body.style.display!=='none') fetchAccordionScores();
+  }, 180000);
+
+  // Layer 3: Full board (10min) — disabled re-render, using delta polling instead
+  // _pollL3 = setInterval(()=>{
+  //   if(_lastActivesCount>=0){
+  //     pollKPIs(true);
+  //   }
+  // }, 600000);
+}
+
+function stopPolling(){
+  if(_pollL1)clearInterval(_pollL1);
+  if(_pollL2)clearInterval(_pollL2);
+  if(_pollL3)clearInterval(_pollL3);
+  _pollL1=_pollL2=_pollL3=null;
+}
+
+function pollKPIs(checkDelta){
+  const h={'Accept':'application/json','X-UserToken':_TOK};
+  const gid=window._GID_MAP?.[currentFila]||'1c7c9057db6771d0832ead8ed396197a';
+  const EXCL=[3,6,7,24,25,33,35].map(v=>'^state!='+v).join('');
+
+  // 1. Active count
+  fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('assignment_groupIN'+_IDS+EXCL)+'&sysparm_count=true',{headers:h})
+  .then(r=>r.json()).then(d=>{
+    const count=parseInt(d.result?.stats?.count||0);
+    const el=document.querySelector('.kpi-val'); // first KPI = Cases Ativos
+    if(el&&el.textContent!==String(count)) el.textContent=count;
+    if(checkDelta&&_lastActivesCount>=0){
+      const delta=Math.abs(count-_lastActivesCount);
+      const pct=_lastActivesCount>0?(delta/_lastActivesCount):0;
+      if(pct>=0.05||delta>=10){
+        // Significant change — trigger full refresh
+        if(window.opener&&!window.opener.closed&&typeof window.opener._emsOpsRender==='function'){
+          window.opener._emsOpsRender(_TOK,_MES,window);
+        }
+      }
+    }
+    _lastActivesCount=count;
+  }).catch(()=>{});
+
+  // 2. SLA Breach count
+  fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('assignment_group='+gid+EXCL)+'&sysparm_count=true',{headers:h})
+  .then(r=>r.json()).then(d=>{}).catch(()=>{});
+
+  // 3. Orphan count (assigned_to empty)
+  fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('assignment_groupIN'+_IDS+'^assigned_toISEMPTY'+EXCL)+'&sysparm_count=true',{headers:h})
+  .then(r=>r.json()).then(d=>{
+    const count=parseInt(d.result?.stats?.count||0);
+    // Update orphan KPI if visible
+    document.querySelectorAll('.kpi-val').forEach((el,i)=>{
+      if(i===4&&el.textContent!==String(count)) el.textContent=count;
+    });
+  }).catch(()=>{});
+}
+
+function toggleSection(key) {
+  const body  = document.getElementById('section-body-' + key);
+  const icon  = document.getElementById('section-icon-' + key);
+  if (!body) return;
+  const collapsed = body.classList.toggle('collapsed');
+  if (icon) icon.style.transform = collapsed ? 'rotate(-90deg)' : '';
+}
+
+
+// ── Reassign Dropdown ──────────────────────────────────────────────────────
+let _reassignDd=null;
+function openReassignBtn(e,btn){
+  e.stopPropagation();
+  openReassign(e,btn.dataset.sysid||'',btn.dataset.gid||'',btn.dataset.assigned||'');
+}
+
+const _ALL_GROUPS = [
+  {id:'1c7c9057db6771d0832ead8ed396197a', name:'L1 OpsCenter AMER'},
+  {id:'ff72689247ee1e143cbfe07a216d4357', name:'L2 OpsCenter AMER'},
+  {id:'673c2170476422503cbfe07a216d430f', name:'Event Management BR'},
+];
+
+function openReassign(e,sysId,gid,currentAssigned){
+  e.stopPropagation();e.preventDefault();
+  if(_reassignDd){_reassignDd.remove();_reassignDd=null;return;}
+
+  const dd=document.createElement('div');dd.className='reassign-dd';dd.style.width='260px';
+
+  // Title
+  const title=document.createElement('div');title.className='reassign-title';title.textContent='Reatribuir caso';dd.appendChild(title);
+
+  // Group selector
+  const grpLbl=document.createElement('div');grpLbl.style.cssText='font-size:10px;font-weight:600;color:#57606A;text-transform:uppercase;padding:6px 12px 2px;';grpLbl.textContent='Fila';dd.appendChild(grpLbl);
+  const grpSel=document.createElement('select');grpSel.style.cssText='margin:0 12px 8px;width:calc(100% - 24px);font-size:12px;padding:4px 6px;border:1px solid #D0D7DE;border-radius:4px;';
+  // Only show groups the analyst belongs to (based on _GMEMBERS)
+  const analystGroups=_ALL_GROUPS.filter(g=>(window._GMEMBERS?.[g.id]||[]).some(m=>m.name===currentAssigned||g.id===gid));
+  (analystGroups.length?analystGroups:_ALL_GROUPS).forEach(g=>{
+    const opt=document.createElement('option');opt.value=g.id;opt.textContent=g.name;if(g.id===gid)opt.selected=true;grpSel.appendChild(opt);
+  });
+  dd.appendChild(grpSel);
+
+  // Analyst list
+  const analystLbl=document.createElement('div');analystLbl.style.cssText='font-size:10px;font-weight:600;color:#57606A;text-transform:uppercase;padding:0 12px 4px;';analystLbl.textContent='Analista';dd.appendChild(analystLbl);
+  const inp=document.createElement('input');inp.className='reassign-search';inp.placeholder='Buscar analista...';inp.oninput=function(){filterReassign(this);};dd.appendChild(inp);
+  const list=document.createElement('div');list.className='reassign-list';list.id='reassign-list';dd.appendChild(list);
+
+  const populateList=selectedGid=>{
+    list.innerHTML='';
+    const members=(window._GMEMBERS?.[selectedGid]||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+    members.forEach(m=>{
+      const opt=document.createElement('div');
+      opt.className='reassign-opt'+(m.name===currentAssigned?' reassign-current':'');
+      opt.textContent=(m.name===currentAssigned?'✓ ':'')+m.name;
+      opt.dataset.uid=m.id;opt.dataset.uname=m.name;opt.dataset.sysid=sysId;opt.dataset.gid=selectedGid;
+      opt.onclick=function(){doReassign(this.dataset.sysid,this.dataset.uid,this.dataset.uname,this.dataset.gid,this);};
+      list.appendChild(opt);
+    });
+  };
+
+  populateList(gid);
+  grpSel.onchange=function(e){e.stopPropagation();populateList(this.value);inp.value='';};
+
+  document.body.appendChild(dd);_reassignDd=dd;
+  const rect=e.target?.getBoundingClientRect?.()|| {bottom:window.innerHeight/2,left:window.innerWidth/2};
+  dd.style.top=Math.min(rect.bottom+4,window.innerHeight-320)+'px';
+  dd.style.left=Math.min(rect.left,window.innerWidth-270)+'px';
+  setTimeout(()=>{inp.focus();document.addEventListener('click',closeReassignOutside);},0);
+}
+function filterReassign(input){
+  const q=input.value.toLowerCase();
+  document.querySelectorAll('.reassign-opt').forEach(o=>{o.style.display=o.textContent.toLowerCase().includes(q)?'':'none';});
+}
+function closeReassignOutside(e){
+  if(_reassignDd&&!_reassignDd.contains(e.target)){_reassignDd.remove();_reassignDd=null;document.removeEventListener('click',closeReassignOutside);}
+}
+function doReassign(sysId,userId,userName,groupId,el){
+  if(_reassignDd){_reassignDd.remove();_reassignDd=null;}
+  document.removeEventListener('click',closeReassignOutside);
+  const payload={assigned_to:userId};
+  if(groupId) payload.assignment_group=groupId;
+  patchCase(sysId,payload).then(ok=>{
+    if(ok){
+      const groupName=_ALL_GROUPS.find(g=>g.id===groupId)?.name||'';
+      showToast('✅ Reatribuído para '+userName+(groupName?' ('+groupName+')':''));
+      document.querySelectorAll('[data-sysid="'+sysId+'"] .card-assigned').forEach(el2=>{
+        el2.textContent='👤 '+userName;el2.classList.remove('unassigned');
+      });
+      // Update reassign btn data
+      document.querySelectorAll('[data-sysid="'+sysId+'"] .card-reassign-btn').forEach(b=>{
+        b.dataset.assigned=userName;if(groupId)b.dataset.gid=groupId;
+      });
+      // Update modal if open
+      if(_modalSysId===sysId){
+        const numEl=document.getElementById('modal-num');
+        if(numEl) setTimeout(()=>openCaseModal(sysId,numEl.textContent,_modalActiveCard||document.createElement('div')),300);
+      }
+    } else { showToast('❌ Erro ao reatribuir','error'); }
+  });
+}
+
+// ── API patch ──────────────────────────────────────────────────────────────
+async function patchCase(sysId,data){
+  try{
+    const r=await fetch(_BASE+'/api/now/table/sn_customerservice_case/'+sysId,{
+      method:'PATCH',
+      headers:{'Accept':'application/json','Content-Type':'application/json','X-UserToken':_TOK},
+      body:JSON.stringify(data)
+    });
+    return r.status===200;
+  }catch(e){console.error('patchCase:',e);return false;}
+}
+
+// ── Toast notification ─────────────────────────────────────────────────────
+function showToast(msg,type='success'){
+  const t=document.createElement('div');
+  t.className='toast toast-'+type;
+  t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.classList.add('toast-show'),10);
+  setTimeout(()=>{t.classList.remove('toast-show');setTimeout(()=>t.remove(),300);},2500);
+}
+
+// ── Analyst board ──────────────────────────────────────────────────────────
+function switchAnalyst(userId){
+  // Filter existing boards by analyst instead of rendering separate section
+  const analystContent=document.getElementById('analyst-board-content');
+  if(analystContent) analystContent.innerHTML='';
+
+  // Filter all cards in both boards
+  const boards=['board-wrap','board-wrap-backlog'];
+  boards.forEach(bid=>{
+    const bw=document.getElementById(bid); if(!bw)return;
+    bw.querySelectorAll('.card').forEach(card=>{
+      if(!userId){card.style.display='';return;}
+      const sysId=card.dataset.sysid||'';
+      // Check if card belongs to selected analyst by looking at card-assigned text
+      const assignedEl=card.querySelector('.card-assigned');
+      const assignedText=assignedEl?assignedEl.textContent:'';
+      // Match by userId stored in reassign button data-assigned
+      const cardAssignedId=card.dataset.assignedid||'';
+      card.style.display=(cardAssignedId===userId)?'':'none';
+    });
+    // Hide empty lanes
+    bw.querySelectorAll('.lane').forEach(lane=>{
+      const visible=lane.querySelectorAll('.card[style=""], .card:not([style])').length +
+                    Array.from(lane.querySelectorAll('.card')).filter(c=>c.style.display!=='none').length;
+      // Just dim instead of hide so layout stays stable
+    });
+  });
+
+  if(!userId){return;}
+  const gid=window._GID_MAP[currentFila]||'';
+  const name=(window._GMEMBERS[gid]||[]).find(m=>m.id===userId)?.name||'Analista';
+  // Don't fetch separately — boards are filtered
+  return;
+
+  // DEAD CODE BELOW (kept for reference)
+  const content=document.getElementById('analyst-board-content');
+  if(!content)return;
+  content.innerHTML='<div class="analyst-loading">⏳ Carregando casos de '+name+'...</div>';
+  // Fetch cases for this analyst in current group
+  const excl=[3,6,7,24,25,33,35].map(v=>'^state!='+v).join('');
+  const q='assignment_group='+gid+'^assigned_to='+userId+excl;
+  fetch(_BASE+'/api/now/table/sn_customerservice_case?sysparm_query='+encodeURIComponent(q)+'&sysparm_fields=number,short_description,priority,state,assigned_to,assignment_group,opened_at,u_type,sys_id&sysparm_display_value=all&sysparm_limit=500',{
+    headers:{'Accept':'application/json','X-UserToken':_TOK}
+  }).then(r=>r.json()).then(d=>{
+    const cases=d.result||[];
+    if(!cases.length){content.innerHTML='<div class="analyst-empty">Nenhum caso ativo para '+name+'</div>';return;}
+    renderAnalystBoard(cases,name,gid,content);
+  }).catch(()=>{content.innerHTML='<div class="analyst-empty">Erro ao carregar casos</div>';});
+}
+
+function renderAnalystBoard(cases,analystName,gid,container){
+  const now=Date.now();
+  const AWAIT_S=new Set(['18','32','5','29','30']);
+  const prioColor=p=>(['','#CF222E','#BF8700','#0550AE','#1A7F37','#57606A'][p]||'#57606A');
+  const fmtH=h=>h===null?'—':parseFloat(h).toFixed(1)+'h';
+  const hFrom=d=>{const x=new Date(d);return isNaN(x)?null:(now-x)/3600000;};
+  const caseUrl=n=>_BASE+'/sn_customerservice_case.do?sysparm_query=number='+n;
+  const PRIO_LANE={'1':'critical','2':'high','3':'medium','4':'normal','5':'normal'};
+  const classify=c=>{
+    const prio=parseInt(c.priority?.value||'5');
+    const isAw=AWAIT_S.has(c.state?.value||'');
+    const lane=isAw?'awaiting':PRIO_LANE[c.priority?.value]||'normal';
+    return{number:c.number?.display_value||'',sysId:c.sys_id?.value||'',url:caseUrl(c.number?.display_value||''),
+      desc:(c.short_description?.display_value||'').substring(0,60),priority:c.priority?.display_value||'N/A',
+      prio,state:c.state?.display_value||'N/A',isAw,uType:c.u_type?.display_value||'',
+      assigned:c.assigned_to?.display_value||null,gid,
+      openH:fmtH(hFrom(c.opened_at?.value)),sl:{st:'none',mins:null,pct:null,name:'—'},lane};
+  };
+  const classified=cases.map(classify);
+  const lanes={critical:classified.filter(c=>c.lane==='critical'),high:classified.filter(c=>c.lane==='high'),
+    medium:classified.filter(c=>c.lane==='medium'),normal:classified.filter(c=>c.lane==='normal'),
+    awaiting:classified.filter(c=>c.lane==='awaiting')};
+  const renderSlaA=sl=>{
+    if(!sl||sl.st==='none')return '<div class="sla-bar-wrap"><span class="sla-bar-name" style="color:#57606A">Sem SLA</span></div>';
+    const pct=Math.min(sl.pct||0,100);
+    const color=sl.st==='breach'?'#CF222E':sl.st==='risk'?'#BF8700':'#1A7F37';
+    const time=sl.st==='breach'?'<span class="sla-time" style="color:#CF222E;font-weight:700">BREACH</span>'
+      :(sl.mins!==null?'<span class="sla-time">'+(sl.mins>=60?(sl.mins/60).toFixed(1)+'h':sl.mins+'min')+' rest.</span>':'');
+    return '<div class="sla-bar-wrap"><div class="sla-bar-label"><span class="sla-bar-name">'+(sl.name||'SLA')+'</span><span class="sla-bar-pct" style="color:'+color+'">'+sl.pct+'%</span></div><div class="sla-bar-track"><div class="sla-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>'+time+'</div>';
+  };
+  const renderC=c=>'<div class="card card-'+c.lane+'" data-sysid="'+c.sysId+'" data-num="'+c.number+'" onclick="openCaseModalBtn(this)">'+
+    '<div class="card-top"><a class="card-num" href="'+c.url+'" target="_blank" onclick="event.stopPropagation()">'+c.number+' ↗</a>'+
+    (c.isAw?'<span class="badge-await">⏳ '+c.state+'</span>':'')+
+    '<button class="card-reassign-btn" title="Reatribuir" data-sysid="'+c.sysId+'" data-gid="'+c.gid+'" data-assigned="'+(c.assigned||'')+'" onclick="event.stopPropagation();openReassignBtn(event,this)">👤 ✎</button></div>'+
+    '<p class="card-desc">'+c.desc+'</p>'+
+    (c.sl?renderSlaA(c.sl):'')+
+    '<div class="card-tags"><span class="tag" style="color:'+prioColor(c.prio)+'">'+c.priority+'</span>'+
+    '<span class="tag tag-state">'+c.state+'</span>'+
+    (c.uType?'<span class="tag tag-type">'+c.uType+'</span>':'')+
+    '</div><div class="card-footer">'+
+    '<span class="card-assigned">👤 '+analystName+'</span>'+
+    '<span class="card-time">⏰ '+c.openH+'</span></div></div>';
+  const renderL=(label,color,icon,items)=>'<div class="lane">'+
+    '<div class="lane-hdr" style="border-top:3px solid '+color+'">'+
+    '<div class="lane-title"><span class="lane-dot" style="background:'+color+'"></span>'+icon+' '+label+'</div>'+
+    '<span class="lane-count" style="color:'+color+'">'+items.length+'</span></div>'+
+    '<div class="lane-body">'+
+    (items.length?items.map(renderC).join(''):'<div class="lane-empty">Sem chamados</div>')+
+    '</div></div>';
+  container.innerHTML='<div class="analyst-board-header"><span class="analyst-board-name">👤 '+analystName+'</span><span class="analyst-board-count">'+classified.length+' casos</span></div>'+
+    '<div class="board-wrap"><div class="board-inner">'+
+    renderL('Crítico','#CF222E','🔴',lanes.critical)+
+    renderL('Alto Risco','#BF8700','🟠',lanes.high)+
+    renderL('Atenção','#0550AE','🔵',lanes.medium)+
+    renderL('Normal','#1A7F37','🟢',lanes.normal)+
+    renderL('Aguardando','#0969DA','⏳',lanes.awaiting)+
+    '</div></div>';
+}
+
+// ── Post-mortem Pagination ────────────────────────────────────────────────
+const _PG=50; let _pgPage=0,_pgRows=[];
+function pgInit(){const tb=document.getElementById('pmtbody');if(!tb)return;_pgRows=Array.from(tb.rows);_pgPage=0;pgRender();}
+function pgRender(){
+  const total=_pgRows.length,pages=Math.ceil(total/_PG);
+  const s=_pgPage*_PG,e=Math.min(s+_PG,total);
+  _pgRows.forEach((r,i)=>{r.style.display=(i>=s&&i<e)?'':'none';});
+  const info=document.getElementById('pg-info');
+  if(info)info.textContent=total?'Mostrando '+(s+1)+'–'+e+' de '+total:'Sem resultados';
+  const prev=document.getElementById('pg-prev'),next=document.getElementById('pg-next');
+  if(prev)prev.disabled=_pgPage===0;
+  if(next)next.disabled=_pgPage>=pages-1;
+  const pgp=document.getElementById('pg-pages');
+  if(!pgp)return;
+  let arr=[];
+  if(pages<=7){arr=Array.from({length:pages},(_,i)=>i);}
+  else{arr=[0];let ss=Math.max(1,_pgPage-2),ee=Math.min(pages-2,_pgPage+2);if(ss>1)arr.push('…');for(let i=ss;i<=ee;i++)arr.push(i);if(ee<pages-2)arr.push('…');arr.push(pages-1);}
+  pgp.innerHTML=arr.map(p=>p==='…'?'<span class="pg-page" style="border:none;cursor:default">…</span>':'<span class="pg-page'+(p===_pgPage?' active':'')+'" onclick="pgGoTo('+p+')">'+(p+1)+'</span>').join('');
+}
+function pgNav(d){const t=_pgRows.length,p=Math.ceil(t/_PG);_pgPage=Math.max(0,Math.min(_pgPage+d,p-1));pgRender();document.getElementById('pm-pg-wrap')?.scrollIntoView({behavior:'smooth',block:'start'});}
+function pgGoTo(p){_pgPage=p;pgRender();document.getElementById('pm-pg-wrap')?.scrollIntoView({behavior:'smooth',block:'start'});}
+
+// ── Case Modal ────────────────────────────────────────────────────────────
+let _modalSysId = null;
+let _modalActiveCard = null;
+
+function renderContactInfo(contact, caseData) {
+  const el = document.getElementById('modal-contact-info');
+  if (!el) return;
+  if (!contact) {
+    const contactName = caseData?.contact?.display_value || '—';
+    el.innerHTML = '<span class="modal-detail-lbl">Contato</span><span class="modal-detail-val">'+contactName+'</span>';
+    return;
+  }
+  const name  = contact.name?.display_value  || contact.name?.value  || caseData?.contact?.display_value || '—';
+  const phone = contact.phone?.display_value || contact.phone?.value || '';
+  const mobile= contact.mobile_phone?.display_value || contact.mobile_phone?.value || '';
+  const tel   = phone || mobile || '—';
+  el.innerHTML = '<span class="modal-detail-lbl">Contato</span>' +
+    '<span class="modal-detail-val">'+name+'</span>' +
+    (tel !== '—' ? '<span class="modal-detail-val" style="font-size:11px;color:#57606A;">📞 '+tel+'</span>' : '');
+}
+
+function openCaseModalBtn(el) {
+  openCaseModal(el.dataset.sysid||'', el.dataset.num||'', el);
+}
+function openCaseModal(sysId, number, cardEl) {
+  _modalSysId = sysId;
+  if (_modalActiveCard) _modalActiveCard.classList.remove('modal-active');
+  _modalActiveCard = cardEl;
+  cardEl.classList.add('modal-active');
+
+  const overlay = document.getElementById('case-modal-overlay');
+  const modal   = document.getElementById('case-modal');
+  const numEl   = document.getElementById('modal-num');
+  const link    = document.getElementById('modal-snow-link');
+  const body    = document.getElementById('modal-body');
+  const title   = document.getElementById('modal-title');
+
+  const noteTA  = document.getElementById('modal-note-ta');
+
+  overlay.style.display = 'block';
+  overlay.style.pointerEvents = 'none';
+  modal.style.transform = 'translateX(0)';
+  numEl.textContent = number;
+  link.href = _BASE + '/sn_customerservice_case.do?sysparm_query=number=' + number;
+  if (noteTA) noteTA.value = '';
+  body.innerHTML = '<div style="text-align:center;color:#57606A;font-size:13px;padding:40px 0;">Carregando...</div>';
+  title.textContent = '';
+
+  // Fetch case details + journal in parallel
+  const h = {'Accept':'application/json','X-UserToken':_TOK};
+  const fields = 'number,short_description,description,assigned_to,priority,state,impact,urgency,opened_at,account,contact,u_type,category,sys_id';
+  Promise.all([
+    fetch(_BASE+'/api/now/table/sn_customerservice_case/'+sysId+'?sysparm_fields='+fields+'&sysparm_display_value=all', {headers:h}).then(r=>r.json()),
+    fetch(_BASE+'/api/now/table/sys_journal_field?sysparm_query=element_id='+sysId+'&sysparm_display_value=all&sysparm_limit=20', {headers:h}).then(r=>r.json()),
+  ]).then(([caseData, journalData]) => {
+    const c = caseData.result;
+    const j = journalData.result || [];
+    if (!c) { body.innerHTML = '<div style="color:#CF222E;padding:20px;">Erro ao carregar caso.</div>'; return; }
+
+    // Fetch contact phone in background (non-blocking)
+    const contactId = c.contact?.value;
+    let contactInfo = null;
+    const contactPromise = contactId
+      ? fetch(_BASE+'/api/now/table/customer_contact/'+contactId+'?sysparm_fields=name,phone,mobile_phone,email&sysparm_display_value=all', {headers:h})
+          .then(r=>r.json()).then(d=>{ contactInfo = d.result; renderContactInfo(contactInfo, c); }).catch(()=>{})
+      : Promise.resolve();
+
+    title.textContent = c.short_description?.display_value || '';
+
+    const prioColor = {'1':'#CF222E','2':'#BF8700','3':'#0550AE','4':'#1A7F37','5':'#57606A'};
+    const stateColors = {'1':'background:#EFF6FF;color:#0550AE','10':'background:#EFF6FF;color:#0550AE','21':'background:#DBEAFE;color:#1D4ED8','8':'background:#DCFCE7;color:#166534','18':'background:#FEF9C3;color:#854D0E','32':'background:#FEF9C3;color:#854D0E','5':'background:#F3E8FF;color:#6B21A8','29':'background:#FEE2E2;color:#991B1B','30':'background:#FEE2E2;color:#991B1B'};
+    const sc = stateColors[c.state?.value] || 'background:#F6F8FA;color:#57606A';
+
+    const fmtDate = d => d ? new Date(d).toLocaleString('pt-BR') : '—';
+    const val = f => f?.display_value || f?.value || '—';
+
+    // Show current state badge
+    const stateBadge=document.getElementById('modal-state-badge'); if(stateBadge) stateBadge.textContent='Estado atual: '+val(c.state);
+
+    // Sort journal newest first
+    const sorted = j.sort((a,b) => new Date(b.sys_created_on?.value||0) - new Date(a.sys_created_on?.value||0));
+
+    body.innerHTML =
+      '<div>' +
+        '<div class="modal-detail-grid">' +
+          detailItem('State', '<span class="modal-state-badge" style="'+sc+'">'+val(c.state)+'</span>') +
+          detailItem('Prioridade', '<span style="color:'+( prioColor[c.priority?.value]||'#57606A')+';font-weight:600">'+val(c.priority)+'</span>') +
+          detailItem('Analista', val(c.assigned_to)) +
+          detailItem('Account', val(c.account)) +
+          '<div class="modal-detail-item" id="modal-contact-info"><span class="modal-detail-lbl">Contato</span><span class="modal-detail-val" style="color:#57606A;font-size:11px;">Carregando...</span></div>' +
+          detailItem('Impact', val(c.impact)) +
+          detailItem('Urgency', val(c.urgency)) +
+          detailItem('Tipo', val(c.u_type)) +
+          detailItem('Aberto em', fmtDate(c.opened_at?.value)) +
+        '</div>' +
+      '</div>' +
+      '<div>' +
+        '<div class="modal-section-title">Descrição</div>' +
+        '<div class="modal-desc">'+(c.description?.display_value||c.description?.value||'Sem descrição.')+'</div>' +
+      '</div>' +
+      '<div>' +
+        '<div class="modal-section-title">Notas de Trabalho ('+(sorted.length)+')</div>' +
+        (sorted.length ? sorted.map(e => {
+          // element 'work_notes' = analista (interno), 'comments' = cliente (externo)
+          // work_notes = analista interno
+          // comments = analista (@equinix.com) ou cliente (outro domínio)
+          const isWN = e.element?.value === 'work_notes';
+          const isComment = e.element?.value === 'comments';
+          const rawAuthor = e.sys_created_by?.display_value || e.sys_created_by?.value || '?';
+          const isEquinix = rawAuthor.toLowerCase().includes('@equinix.com');
+          const isSystem = isComment && (rawAuthor==='system'||rawAuthor==='guest'||rawAuthor==='admin'||rawAuthor.startsWith('svc_'));
+          const isAnalystComment = isComment && isEquinix && !isSystem;
+          const isClient = isComment && !isEquinix && !isSystem;
+          let author = rawAuthor;
+          // For client comments: enrich with contact name+phone if available
+          if (isClient && contactInfo) {
+            const cEmail = contactInfo.email?.display_value || contactInfo.email?.value || '';
+            if (cEmail && rawAuthor.toLowerCase().includes(cEmail.split('@')[0].toLowerCase())) {
+              const cName  = contactInfo.name?.display_value  || contactInfo.name?.value  || '';
+              const cPhone = contactInfo.phone?.display_value || contactInfo.mobile_phone?.display_value || '';
+              author = (cName||rawAuthor.split('@')[0]) + (cPhone ? ' · ' + cPhone : '');
+            } else if (rawAuthor.includes('@')) {
+              author = rawAuthor.split('@')[0];
+            }
+          } else if (isClient && rawAuthor.includes('@')) {
+            author = rawAuthor.split('@')[0];
+          }
+          const when = fmtDate(e.sys_created_on?.value);
+          const txt = e.value?.display_value || e.value?.value || '';
+          const jClass=isWN?' modal-journal-wn':isSystem?' modal-journal-cm':isClient?' modal-journal-client':isAnalystComment?' modal-journal-wn':' modal-journal-cm';
+          const typeLabel=isWN?'Work Note':isSystem?'Sistema':isClient?'Cliente':isAnalystComment?'Comentário Analista':'Comentário';
+          return '<div class="modal-journal'+jClass+'">' +
+            '<div class="modal-j-meta"><span class="modal-j-author">'+author+'</span><span class="modal-j-badge modal-j-'+(isWN?'wn':'cm')+'">'+typeLabel+'</span><span class="modal-j-time">'+when+'</span>'+
+            '</div>' +
+            '<div class="modal-j-text">'+txt+'</div>' +
+          '</div>';
+        }).join('') : '<div style="color:#57606A;font-size:12px;">Nenhuma nota ainda.</div>') +
+      '</div>';
+  }).catch(e => {
+    body.innerHTML = '<div style="color:#CF222E;padding:20px;">Erro: '+e.message+'</div>';
+  });
+}
+
+function detailItem(label, valueHtml) {
+  return '<div class="modal-detail-item"><span class="modal-detail-lbl">'+label+'</span><span class="modal-detail-val">'+valueHtml+'</span></div>';
+}
+
+function closeCaseModal() {
+  const modal = document.getElementById('case-modal');
+  const overlay = document.getElementById('case-modal-overlay');
+  modal.style.transform = 'translateX(100%)';
+  setTimeout(() => { overlay.style.display = 'none'; }, 260);
+  if (_modalActiveCard) { _modalActiveCard.classList.remove('modal-active'); _modalActiveCard = null; }
+  _modalSysId = null;
+}
+
+let _modalNoteType = 'work_notes';
+function modalTabSwitch(type) {
+  _modalNoteType = type === 'wn' ? 'work_notes' : 'comments';
+  const ta = document.getElementById('modal-note-ta');
+  const btnWN = document.getElementById('tab-wn');
+  const btnCM = document.getElementById('tab-cm');
+  if (ta) ta.placeholder = type === 'wn' ? 'Adicionar work note (interno)...' : 'Adicionar comentário (visível ao cliente)...';
+  if (btnWN) { btnWN.style.background=type==='wn'?'#0969DA':'#fff'; btnWN.style.color=type==='wn'?'#fff':'#24292F'; btnWN.style.borderColor=type==='wn'?'#0969DA':'#D0D7DE'; }
+  if (btnCM) { btnCM.style.background=type==='cm'?'#0969DA':'#fff'; btnCM.style.color=type==='cm'?'#fff':'#24292F'; btnCM.style.borderColor=type==='cm'?'#0969DA':'#D0D7DE'; }
+}
+function saveModal() {
+  if (!_modalSysId) return;
+  const note = document.getElementById('modal-note-ta')?.value?.trim();
+  if (!note) { showToast('Adicione uma nota para salvar','warn'); return; }
+
+  const body = {};
+  body[_modalNoteType] = note;
+
+  fetch(_BASE+'/api/now/table/sn_customerservice_case/'+_modalSysId, {
+    method:'PATCH',
+    headers:{'Accept':'application/json','Content-Type':'application/json','X-UserToken':_TOK},
+    body:JSON.stringify(body)
+  }).then(r => {
+    if (r.status === 200) {
+      showToast('✅ Salvo no Snow');
+      document.getElementById('modal-note-ta').value = '';
+      // Refresh modal content
+      const numEl = document.getElementById('modal-num');
+      if (numEl) openCaseModal(_modalSysId, numEl.textContent, _modalActiveCard||document.createElement('div'));
+    } else {
+      showToast('❌ Erro ao salvar','error');
+    }
+  }).catch(() => showToast('❌ Erro de conexão','error'));
+}
+
+function modalReassign() {
+  if (!_modalSysId) return;
+  const gid = window._GID_MAP?.[currentFila] || '';
+  const btn = document.querySelector('#case-modal button[onclick="modalReassign()"]');
+  const fakeEvent = {
+    stopPropagation:()=>{},
+    preventDefault:()=>{},
+    target: btn || document.getElementById('modal-footer')
+  };
+  openReassign(fakeEvent, _modalSysId, gid, '');
+}
+
+// ── Board Search ────────────────────────────────────────────────────────────
+function boardSearch(q) {
+  const term = q.trim().toLowerCase();
+  const boards = ['board-wrap','board-wrap-backlog'];
+  boards.forEach(bid => {
+    const bw = document.getElementById(bid); if (!bw) return;
+    bw.querySelectorAll('.card').forEach(card => {
+      if (!term) { card.style.display = ''; return; }
+      const num  = (card.querySelector('.card-num')?.textContent||'').toLowerCase();
+      const desc = (card.querySelector('.card-desc')?.textContent||'').toLowerCase();
+      const assi = (card.querySelector('.card-assigned')?.textContent||'').toLowerCase();
+      card.style.display = (num.includes(term)||desc.includes(term)||assi.includes(term)) ? '' : 'none';
+    });
+  });
+}
+
+// Close modal on overlay click
+document.addEventListener('click', e => {
+  const overlay = document.getElementById('case-modal-overlay');
+  const modal   = document.getElementById('case-modal');
+  if (overlay && overlay.style.display !== 'none' && modal && !modal.contains(e.target) && !e.target.closest('.card')) {
+    closeCaseModal();
+  }
+});
+
+// ── Column filters ─────────────────────────────────────────────────────────
+const _fil={};let _dd=null;
+function getCT(row,col){const c=row.cells[col];return c?(c.innerText||c.textContent||'').trim():'';}
+function applyFil(){
+  const tb=document.getElementById('pmtbody');if(!tb)return;
+  Array.from(tb.rows).forEach(r=>{r.style.display=Object.entries(_fil).every(([c,v])=>!v||v.size===0||v.has(getCT(r,parseInt(c))))?'':'none';});
+  renderFTags();
+}
+function renderFTags(){
+  const bar=document.getElementById('fbar');if(!bar)return;
+  bar.innerHTML='';
+  Object.entries(_fil).forEach(([col,vals])=>{
+    if(!vals||vals.size===0)return;
+    const th=document.querySelector('th[data-col="'+col+'"]');
+    const lbl=th?th.innerText.replace('▾','').trim():'Col '+col;
+    vals.forEach(v=>{const t=document.createElement('div');t.className='filter-tag';t.innerHTML='<span><b>'+lbl+':</b> '+v+'</span><button onclick="remFil('+col+',this)" data-val="'+v+'">×</button>';bar.appendChild(t);});
+  });
+  document.querySelectorAll('th[data-col]').forEach(th=>{th.classList.toggle('active-filter',_fil[th.getAttribute('data-col')]?.size>0);});
+}
+function remFil(col,btn){if(_fil[col])_fil[col].delete(btn.getAttribute('data-val'));applyFil();closeDd();}
+function closeDd(){if(_dd){_dd.remove();_dd=null;}}
+function openFil(th,ci){
+  closeDd();
+  const tb=document.getElementById('pmtbody');if(!tb)return;
+  const vals=[...new Set(Array.from(tb.rows).map(r=>getCT(r,ci)).filter(Boolean))].sort();
+  const cur=_fil[ci]||new Set();
+  const dd=document.createElement('div');dd.className='fdd';
+  dd.innerHTML='<input class="fdd-search" placeholder="Buscar..." oninput="filtOpts(this)"><div class="fdd-opts" id="ddopts">'+
+    vals.map(v=>'<label class="fdd-opt"><input type="checkbox" value="'+v.replace(/"/g,'&quot;')+'"'+(cur.has(v)?' checked':'')+' ><span>'+v+'</span></label>').join('')+
+    '</div><div class="fdd-foot"><button class="fdd-clear" onclick="clrCol('+ci+')">Limpar</button><button class="fdd-apply" onclick="applyCol('+ci+')">Aplicar</button></div>';
+  document.body.appendChild(dd);_dd=dd;
+  const rect=th.getBoundingClientRect(),dw=240;
+  let lft=rect.left;if(lft+dw>window.innerWidth)lft=window.innerWidth-dw-8;
+  dd.style.top=(rect.bottom+2)+'px';dd.style.left=lft+'px';dd.style.width=dw+'px';
+  setTimeout(()=>document.addEventListener('click',oc),0);
+}
+function oc(e){if(_dd&&!_dd.contains(e.target)){closeDd();document.removeEventListener('click',oc);}}
+function filtOpts(i){const q=i.value.toLowerCase();document.querySelectorAll('#ddopts .fdd-opt').forEach(o=>{o.style.display=o.querySelector('span').textContent.toLowerCase().includes(q)?'':'none';});}
+function applyCol(ci){const ch=Array.from(document.querySelectorAll('#ddopts input:checked')).map(i=>i.value);_fil[ci]=ch.length?new Set(ch):new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
+function clrCol(ci){_fil[ci]=new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
+document.addEventListener('visibilitychange',()=>{
+  if(document.hidden) stopPolling();
+  else startPolling();
+});
+document.addEventListener('DOMContentLoaded',()=>{
+  document.querySelectorAll('th[data-col]').forEach(th=>{th.addEventListener('click',e=>{e.stopPropagation();openFil(th,parseInt(th.getAttribute('data-col')));});});
+  pgInit();
+  // Load analyst table — try immediately, then watch for content via MutationObserver
+  function tryInitAccordion(){
+    const src=document.getElementById('_at_'+currentFila)?.innerHTML||document.getElementById('_at_l1')?.innerHTML||'';
+    if(src&&src.trim().length>10){initAccordion(src);return true;}
+    return false;
+  }
+  if(!tryInitAccordion()){
+    const obs=new MutationObserver(()=>{if(tryInitAccordion())obs.disconnect();});
+    const target=document.getElementById('_at_l1');
+    if(target)obs.observe(target,{childList:true,subtree:true,characterData:true});
+    else setTimeout(tryInitAccordion,500);
+  }
+  // Start layered polling
+	  startPolling();
+	});
+
+  // ── Delta Polling (Real-time updates) ──────────────────────────────────
+  (function() {
+    if (window.__deltaPollingActive) return;
+    window.__deltaPollingActive = true;
+    console.log('[DeltaPolling] Inicializando...');
+
+    const POLLING_INTERVAL = 30000; // 30 segundos
+    let lastSyncTime = new Date().toISOString().split('.')[0].replace('T', ' ');
+    
+    const _HEADERS = { 'Accept': 'application/json', 'X-UserToken': _TOK };
+    const _G_IDS = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
+    const _FIELDS = 'number,short_description,priority,state,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
+
+    async function fetchDeltas() {
+      const query = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>' + lastSyncTime;
+      const url = _BASE + '/api/now/table/sn_customerservice_case?sysparm_query=' + encodeURIComponent(query) + '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all&sysparm_limit=100';
+
+      try {
+        const response = await fetch(url, { headers: _HEADERS });
+        const data = await response.json();
+        const cases = data.result || [];
+
+        if (cases.length > 0) {
+          console.log('[DeltaPolling] ' + cases.length + ' casos alterados.');
+          cases.forEach(c => {
+            const card = document.querySelector('.card[data-sysid="' + c.sys_id.value + '"]');
+            if (card) updateCard(card, c);
+            else console.log('[DeltaPolling] Novo caso detectado: ' + c.number.display_value);
+          });
+          lastSyncTime = cases.reduce((p, c) => (c.sys_updated_on.value > p ? c.sys_updated_on.value : p), lastSyncTime);
+        }
+      } catch (err) { console.error('[DeltaPolling] Erro:', err); }
+    }
+
+    function updateCard(card, data) {
+      const isAw = ['18','32','5','29','30'].includes(data.state.value);
+      const badge = card.querySelector('.badge-await');
+      if (isAw) {
+        if (badge) badge.textContent = '⏳ ' + data.state.display_value;
+        else {
+          const b = document.createElement('span'); b.className = 'badge-await'; b.textContent = '⏳ ' + data.state.display_value;
+          card.querySelector('.card-top').insertBefore(b, card.querySelector('.card-reassign-btn'));
+        }
+      } else if (badge) badge.remove();
+
+      const tags = card.querySelector('.card-tags');
+      if (tags) {
+        const pTag = tags.querySelector('.tag:first-child');
+        if (pTag) {
+          pTag.textContent = data.priority.display_value;
+          const colors = ['', '#CF222E', '#BF8700', '#0550AE', '#1A7F37', '#57606A'];
+          const c = colors[parseInt(data.priority.value)] || '#57606A';
+          pTag.style.color = c; pTag.style.background = c + '15'; pTag.style.borderColor = c + '40';
+        }
+        const sTag = tags.querySelector('.tag-state');
+        if (sTag) sTag.textContent = data.state.display_value;
+      }
+      
+      const footer = card.querySelector('.card-footer');
+      if (footer) {
+        const ass = footer.querySelector('.card-assigned');
+        if (ass) {
+          const name = data.assigned_to.display_value;
+          ass.textContent = name ? '👤 ' + name : '⚠ Sem responsável';
+          ass.className = 'card-assigned' + (name ? '' : ' unassigned');
+        }
+      }
+    }
+
+    setInterval(fetchDeltas, POLLING_INTERVAL);
+  })();
+	<\/script>
+<!-- Case Modal -->
+<div id="case-modal-overlay" style="display:none;position:fixed;inset:0;z-index:500;pointer-events:none;">
+  <div id="case-modal" style="position:absolute;top:0;right:0;height:100%;width:440px;background:#fff;border-left:1px solid #D0D7DE;display:flex;flex-direction:column;pointer-events:all;transform:translateX(100%);transition:transform .25s ease;">
+    <div id="modal-hdr" style="padding:12px 14px;border-bottom:1px solid #D0D7DE;background:#F6F8FA;display:flex;align-items:center;gap:8px;">
+      <div style="flex:1">
+        <div style="font-size:10px;color:#57606A;margin-bottom:2px;">Case</div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span id="modal-num" style="font-family:monospace;font-size:13px;font-weight:700;color:#0969DA;"></span>
+          <a id="modal-snow-link" href="#" target="_blank" style="font-size:10px;background:#0969DA;color:#fff;border:none;border-radius:4px;padding:3px 8px;text-decoration:none;">Abrir no Snow ↗</a>
+        </div>
+      </div>
+      <button onclick="closeCaseModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#57606A;width:28px;height:28px;display:flex;align-items:center;justify-content:center;border-radius:4px;line-height:1;">✕</button>
+    </div>
+    <div id="modal-title" style="padding:10px 14px;font-size:13px;font-weight:600;color:#24292F;border-bottom:1px solid #D0D7DE;"></div>
+    <div id="modal-body" style="flex:1;overflow-y:auto;padding:12px 14px;display:flex;flex-direction:column;gap:12px;">
+      <div style="text-align:center;color:#57606A;font-size:13px;padding:40px 0;">Carregando...</div>
+    </div>
+    <div id="modal-footer" style="padding:10px 14px;border-top:1px solid #D0D7DE;display:flex;flex-direction:column;gap:6px;">
+      <div style="display:flex;gap:6px;align-items:center;">
+        <span id="modal-state-badge" style="font-size:11px;color:#57606A;flex:1;"></span>
+        <button onclick="modalReassign()" style="font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;white-space:nowrap;">👤 Reatribuir</button>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:2px;">
+        <button id="tab-wn" onclick="modalTabSwitch('wn')" style="font-size:11px;padding:3px 10px;border-radius:4px;cursor:pointer;border:1px solid #0969DA;background:#0969DA;color:#fff;font-weight:600;">Work Note</button>
+        <button id="tab-cm" onclick="modalTabSwitch('cm')" style="font-size:11px;padding:3px 10px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;">Comentário</button>
+      </div>
+      <textarea id="modal-note-ta" rows="2" placeholder="Adicionar work note (interno)..." style="width:100%;font-size:11px;padding:6px 8px;border:1px solid #D0D7DE;border-radius:4px;resize:none;color:#24292F;font-family:inherit;"></textarea>
+      <div style="display:flex;justify-content:flex-end;gap:6px;">
+        <button onclick="closeCaseModal()" style="font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;">Cancelar</button>
+        <button onclick="saveModal()" style="font-size:11px;padding:4px 14px;border-radius:4px;cursor:pointer;border:1px solid #0969DA;background:#0969DA;color:#fff;font-weight:600;">Salvar no Snow</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+</body></html>`;
+  };
+
+  // ── Fetch and build ────────────────────────────────────────────────────
+  const {ini, fim} = mesRange(mes);
+  const qA = `assignment_groupIN${G_IDS}${EXCL}`; // All active — backlog split done client-side by age
+  const qP = `assignment_groupIN${G_IDS}^stateIN3,6^resolved_at>=${ini}^resolved_at<=${fim}`;
+
+  // Aggregate API — filtro exato dos reports do Snow por fila
+  const G_ID_MAP_FETCH = {
+    l1   : '1c7c9057db6771d0832ead8ed396197a',
+    l2   : 'ff72689247ee1e143cbfe07a216d4357',
+    event: '673c2170476422503cbfe07a216d430f'
+  };
+  const RODRIGO_IDS = ['1a8b95014fc1af00f3d33d828110c7cf','1d2a4cd84f347788c58b8e1f0210c767','38483f9fdbb7b0d0545dee0c139619ab','46b501304fea0700f5e08e1f0210c770','5a1ed5054fc1af00f3d33d828110c7ce'];
+  const rodrigoExclude = RODRIGO_IDS.map(id=>`^assigned_to!=${id}`).join('');
+  const REPORT_IDS = {'1c7c9057db6771d0832ead8ed396197a':'c0b342f797c5e6547509fd971153aff2'};
+  const FALLBACK_FILTER = gid => `assigned_toANYTHING^u_typeIN0,1^u_operating_country=BR^stateIN1,10,21,8,2^u_internal_cases=false${rodrigoExclude}^assignment_group=${gid}`;
+  const getReportFilter = async gid => {
+    const rid = REPORT_IDS[gid]; if (!rid) return FALLBACK_FILTER(gid);
+    try {
+      const r = await fetch(`${BASE}/api/now/table/sys_report?sysparm_query=sys_id=${rid}&sysparm_fields=filter&sysparm_limit=1`,{headers});
+      const d = await r.json(); const f = d.result?.[0]?.filter?.value;
+      return f || FALLBACK_FILTER(gid);
+    } catch(e) { return FALLBACK_FILTER(gid); }
+  };
+  const fagg = async gid => {
+    const filter = await getReportFilter(gid);
+    return fetch(`${BASE}/api/now/stats/sn_customerservice_case?sysparm_query=${encodeURIComponent(filter)}&sysparm_group_by=assigned_to,u_type&sysparm_count=true&sysparm_display_value=all&sysparm_limit=200`,{headers}).then(r=>r.json()).then(d=>({gid,rows:d.result||[]}));
+  };
+  // Resolved today query (independent of month filter)
+  const todayStr = (() => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+  const qRT = `assignment_groupIN${G_IDS}^stateIN3,6^resolved_at>=${todayStr} 00:00:00^resolved_at<=${todayStr} 23:59:59`;
+
+  // No separate backlog query — backlog is determined by age (>20 days) client-side
+
+  // Expose re-render hook so changeMes can call back
+  window._emsOpsRender = (tok, m2, targetWin, uid2) => {
+    const h2 = {'Accept':'application/json','X-UserToken':tok};
+    const snBase = BASE;
+    // Override fcases/bsla to use new token h2
+    const fcases = q => fetch(`${BASE}/api/now/table/sn_customerservice_case?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${FIELDS}&sysparm_display_value=all&sysparm_limit=1000`,{headers:h2}).then(r=>r.json()).then(d=>d.result||[]);
+    const fsla2  = q => fetch(`${BASE}/api/now/table/task_sla?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${SLA_F}&sysparm_display_value=all&sysparm_limit=500`,{headers:h2}).then(r=>r.json()).then(d=>d.result||[]);
+    const bsla   = (ids,f) => !ids.length ? Promise.resolve([]) : Promise.all(chunk(ids).map(b=>fsla2(`taskIN${b.join(',')}^${f}`))).then(r=>r.flat());
+    const {ini:i2,fim:f2} = mesRange(m2);
+    const qA2=`assignment_groupIN${G_IDS}${EXCL}`; // All active cases
+    const qP2=`assignment_groupIN${G_IDS}^stateIN3,6^resolved_at>=${i2}^resolved_at<=${f2}`;
+    const todayStr2=(()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;})();
+    const qRT2=`assignment_groupIN${G_IDS}^u_escalation_typeISEMPTY^stateIN3,6^resolved_at>=${todayStr2} 00:00:00^resolved_at<=${todayStr2} 23:59:59`;
+    const rodrigoEx2=['1a8b95014fc1af00f3d33d828110c7cf','1d2a4cd84f347788c58b8e1f0210c767','38483f9fdbb7b0d0545dee0c139619ab','46b501304fea0700f5e08e1f0210c770','5a1ed5054fc1af00f3d33d828110c7ce'].map(id=>`^assigned_to!=${id}`).join('');
+    const aggF2=gid=>`assigned_toANYTHING^u_typeIN0,1^u_operating_country=BR^stateIN1,10,21,8,2^u_internal_cases=false${rodrigoEx2}^assignment_group=${gid}`;
+    const fa2=gid=>fetch(`${snBase}/api/now/stats/sn_customerservice_case?sysparm_query=${encodeURIComponent(aggF2(gid))}&sysparm_group_by=assigned_to,u_type&sysparm_count=true&sysparm_display_value=all&sysparm_limit=200`,{headers:h2}).then(r=>r.json()).then(d=>({gid,rows:d.result||[]}));
+    Promise.all([fcases(qA2),fcasesAllGroups(qP2),fcases(qRT2),
+      fa2('1c7c9057db6771d0832ead8ed396197a'),fa2('ff72689247ee1e143cbfe07a216d4357'),fa2('673c2170476422503cbfe07a216d430f')
+    ])
+    .then(([a,p,rt2,ag1,ag2,ag3])=>{
+      const ia=a.map(c=>c.sys_id?.value).filter(Boolean);
+      const ip=p.map(c=>c.sys_id?.value).filter(Boolean);
+      return Promise.all([Promise.resolve(a),Promise.resolve(p),Promise.resolve(rt2),Promise.resolve(ag1),Promise.resolve(ag2),Promise.resolve(ag3),
+        bsla(ia,'sla.nameLIKEEMS-OLA-AMER^sla.nameLIKEResolve'),
+        bsla(ip,'sla.nameLIKEEMS-OLA-AMER^sla.nameLIKEResolve'),
+        bsla(ia,'sla.nameLIKEResolution^sla.nameNOTLIKEResponse'),
+        bsla(ip,'sla.nameLIKEResolution^sla.nameNOTLIKEResponse'),
+      ]);
+    })
+    .then(([a,p,rt2,ag1,ag2,ag3,eA,eP,xA,xP])=>{
+      const html = render(a,p,[...xA,...eA],[...xP,...eP],m2,rt2,{l1:ag1,l2:ag2,event:ag3});
+      if(targetWin&&!targetWin.closed){targetWin.document.open();targetWin.document.write(html);targetWin.document.close();}
+    })
+    .catch(e=>console.error('_emsOpsRender:',e));
+  };
+
+  const outWin = window.open('','_blank');
+  if (outWin) {
+    outWin.document.write('<html><body style="background:#F6F8FA;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:system-ui"><div style="text-align:center;color:#57606A"><div style="font-size:40px;margin-bottom:12px">🖥</div><div style="font-size:16px;font-weight:600;color:#24292F">EMS Ops Dashboard</div><div style="font-size:13px;margin-top:6px">Carregando dados...</div></div></body></html>');
+  }
+
+  // Stagger agg calls to reduce server load (performance improvement)
+  Promise.all([
+    fcases(qA), fcasesAllGroups(qP), fcases(qRT),
+    fagg(G_ID_MAP_FETCH.l1),
+    new Promise(r=>setTimeout(()=>fagg(G_ID_MAP_FETCH.l2).then(r),300)),
+    new Promise(r=>setTimeout(()=>fagg(G_ID_MAP_FETCH.event).then(r),600)),
+  ])
+  .then(([ativos, postMortem, resolvedToday, aggL1, aggL2, aggEvent]) => {
+    const ia = ativos.map(c=>c.sys_id?.value).filter(Boolean);
+    const ip = postMortem.map(c=>c.sys_id?.value).filter(Boolean);
+    return Promise.all([
+      Promise.resolve(ativos), Promise.resolve(postMortem), Promise.resolve(resolvedToday),
+      Promise.resolve(aggL1), Promise.resolve(aggL2), Promise.resolve(aggEvent),
+      bsla(ia,'sla.nameLIKEEMS-OLA-AMER^sla.nameLIKEResolve'),
+      bsla(ip,'sla.nameLIKEEMS-OLA-AMER^sla.nameLIKEResolve'),
+      bsla(ia,'sla.nameLIKEResolution^sla.nameNOTLIKEResponse'),
+      bsla(ip,'sla.nameLIKEResolution^sla.nameNOTLIKEResponse'),
+    ]);
+  })
+  .then(([ativos, postMortem, resolvedToday, aggL1, aggL2, aggEvent, emsA, emsP, eqixA, eqixP]) => {
+    const html = render(ativos, postMortem, [...eqixA,...emsA], [...eqixP,...emsP], mes, resolvedToday, {l1:aggL1,l2:aggL2,event:aggEvent});
+    if (outWin && !outWin.closed) { outWin.document.open(); outWin.document.write(html); outWin.document.close(); }
+    else { const b=new Blob([html],{type:'text/html'}); window.open(URL.createObjectURL(b),'_blank'); }
+  })
+  .catch(e => {
+    console.error('EMS Ops error:', e);
+    if (outWin && !outWin.closed) outWin.document.write(`<html><body style="background:#F6F8FA;padding:40px;font-family:system-ui"><h2 style="color:#CF222E">Erro ao carregar painel</h2><pre style="color:#57606A">${e.message}</pre></body></html>`);
+  });
+
+  return { ok: true };
+}

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="header">
+    <div class="logo-mark">&#x1F5A5;</div>
+    <div>
+      <div class="logo-text">EMS Ops Dashboard</div>
+      <div class="logo-sub">Ops Monitor - 1.0</div>
+    </div>
+  </div>
+
+  <div class="body">
+    <div class="info-row">
+      <span>&#x2139;&#xFE0F;</span>
+      Casos sem Escalation Type &middot; L1 / L2 / Event BR
+    </div>
+
+    <button class="btn-main" id="btnOpen">
+      <div class="spinner" id="spinner"></div>
+      <span id="btnIcon">&#x1F4CA;</span>
+      <span id="btnLabel">Abrir Painel Ops</span>
+    </button>
+
+    <div class="status" id="status"></div>
+
+    <hr class="divider">
+
+    <div class="legend">
+      <div class="legend-title">Classifica&ccedil;&atilde;o de lanes</div>
+      <div class="legend-row"><div class="dot" style="background:#DE350B"></div> Cr&iacute;tico &mdash; Priority 1</div>
+      <div class="legend-row"><div class="dot" style="background:#FF8B00"></div> Alto Risco &mdash; Priority 2</div>
+      <div class="legend-row"><div class="dot" style="background:#0052CC"></div> Aten&ccedil;&atilde;o &mdash; Priority 3</div>
+      <div class="legend-row"><div class="dot" style="background:#00B8D9"></div> Aguardando &mdash; Awaiting / Scheduled</div>
+      <div class="legend-row"><div class="dot" style="background:#36B37E"></div> Normal &mdash; Priority 4</div>
+      <div class="legend-row"><div class="dot" style="background:#97A0AF"></div> &Oacute;rf&atilde;os &mdash; Sem respons&aacute;vel</div>
+    </div>
+  </div>
+
+  <div class="footer">SLA: EMS-OLA-AMER* + EQIX_BR &middot; L1 / L2 OpsCenter &middot; Event Mgmt BR</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
