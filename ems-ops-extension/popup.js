@@ -1554,16 +1554,11 @@ function switchAnalyst(userId){
   if(analystContent) analystContent.innerHTML='';
 
   // Filter all cards in both boards
-  const boards=['board-wrap','board-wrap-backlog'];
+  const boards=['board-wrap','board-wrap-backlog-tab'];
   boards.forEach(bid=>{
     const bw=document.getElementById(bid); if(!bw)return;
     bw.querySelectorAll('.card').forEach(card=>{
       if(!userId){card.style.display='';return;}
-      const sysId=card.dataset.sysid||'';
-      // Check if card belongs to selected analyst by looking at card-assigned text
-      const assignedEl=card.querySelector('.card-assigned');
-      const assignedText=assignedEl?assignedEl.textContent:'';
-      // Match by userId stored in reassign button data-assigned
       const cardAssignedId=card.dataset.assignedid||'';
       card.style.display=(cardAssignedId===userId)?'':'none';
     });
@@ -1595,6 +1590,13 @@ function switchAnalyst(userId){
     if(!cases.length){content.innerHTML='<div class="analyst-empty">Nenhum caso ativo para '+name+'</div>';return;}
     renderAnalystBoard(cases,name,gid,content);
   }).catch(()=>{content.innerHTML='<div class="analyst-empty">Erro ao carregar casos</div>';});
+}
+
+function reapplyAnalystFilters(){
+  const activeSel=document.getElementById('analyst-sel');
+  if(activeSel) switchAnalyst(activeSel.value||'');
+  const backlogSel=document.getElementById('analyst-sel-bl');
+  if(backlogSel) switchAnalystBacklog(backlogSel.value||'');
 }
 
 function renderAnalystBoard(cases,analystName,gid,container){
@@ -2075,6 +2077,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       if (prevLane) card.classList.remove(prevLane);
       card.classList.add('card-' + nextLane);
       moveCardToLane(card, nextLane);
+      // Mantém consistência quando a visão está filtrada por analista.
+      reapplyAnalystFilters();
     }
 
     setInterval(fetchDeltas, POLLING_INTERVAL);
