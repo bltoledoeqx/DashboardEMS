@@ -1582,14 +1582,18 @@ function fetchAccordionScores(){
     }).catch(()=>{elRating.textContent='?';});
   }
 
-  // Customer Satisfaction (NPS-style)
+  // Customer Satisfaction (NPS-style) — cálculo via contagem por nota/analista
   const elCS=elCSPre;
   if(elCS){
     const ratingGids='1c7c9057db6771d0832ead8ed396197a,ff72689247ee1e143cbfe07a216d4357,673c2170476422503cbfe07a216d430f,61d7da1edb71a450c6445457dc9619f9,52cd04fbdbe71700b3cd73e1ba961949,6c67c13bdbeb1700b3cd73e1ba9619b9,5d4cb3f1db90a050e0e15cb8dc961970,5d77053bdbeb1700b3cd73e1ba9619ca,8b3850eddb1adf00448b01a3ca9619ce,7dbeba001ba173004948ece03d4bcb7a,01d511c2db68cc10fddc7bedae9619de,3469cd95dbe9dbc0b3cd73e1ba9619b3';
     ensureMshNocGroupId().then(mshGid=>{
     const gids=[ratingGids,mshGid].filter(Boolean).join(',');
-    const csQ='ai_sys_created_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()^cse_accountNOT LIKEEQUINIX^mr_metric=e7d1c39ddb56df00448b01a3ca961972^cse_assignment_groupIN'+gids+ratingAssigneeF;
-    fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(csQ)+'&sysparm_group_by=mr_actual_value&sysparm_count=true&sysparm_display_value=all&sysparm_limit=20',{headers:h})
+    const analystId=document.getElementById('analyst-sel')?.value||'';
+    const managerId=document.getElementById('manager-sel')?.value||'';
+    let csAssigneeF=ratingAssigneeF;
+    if(!analystId&&managerId) csAssigneeF='^cse_assigned_to.manager='+managerId;
+    const csQ='ai_sys_created_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()^cse_accountNOT LIKEEQUINIX^mr_metric=e7d1c39ddb56df00448b01a3ca961972^cse_assignment_groupIN'+gids+csAssigneeF;
+    fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(csQ)+'&sysparm_group_by=mr_actual_value,cse_assigned_to&sysparm_count=true&sysparm_display_value=all&sysparm_limit=50',{headers:h})
     .then(r=>r.json()).then(d=>{
       const rows=d.result||[];
       let promoters=0,detractors=0,total=0;
