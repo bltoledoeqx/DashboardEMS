@@ -649,7 +649,8 @@ a{text-decoration:none;}
 .acc-score-num{font-size:26px;font-weight:700;color:#CF222E;line-height:1;}
 .acc-score-lbl{font-size:10px;color:var(--muted);margin-top:4px;text-align:center;}
 .acc-score-rating{color:#BF8700;}
-/* resolved handled above */
+/* resolved month score cards */
+.acc-score-month{color:#0969DA;}
 .res-chart-wrap{display:flex;flex-direction:column;gap:5px;padding:4px 0;}
 .res-chart-row{display:flex;align-items:center;gap:6px;margin-bottom:2px;}
 .res-chart-name{font-size:10px;color:var(--text);width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
@@ -1028,18 +1029,29 @@ tr:hover td{background:#F6F8FA;}
             </div>
           </div>
         </div>
-        <div style="display:flex;flex-direction:row;gap:8px;align-items:flex-start;">
-          <div class="acc-report-card acc-resolved-card">
+        <div class="acc-scores-wrap" style="margin-top:8px;">
+          <div class="acc-scores-row">
+            <div class="acc-report-card acc-score-card">
             <div class="acc-report-title">Resolvidos no Mês · L1</div>
-            <div id="resolved-month-chart-l1"><div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div></div>
-          </div>
-          <div class="acc-report-card acc-resolved-card">
+              <div class="acc-score-wrap">
+                <div class="acc-score-num acc-score-month" id="resolved-month-score-l1">—</div>
+                <div class="acc-score-lbl">resolvidos no mês</div>
+              </div>
+            </div>
+            <div class="acc-report-card acc-score-card">
             <div class="acc-report-title">Resolvidos no Mês · L2</div>
-            <div id="resolved-month-chart-l2"><div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div></div>
-          </div>
-          <div class="acc-report-card acc-resolved-card">
+              <div class="acc-score-wrap">
+                <div class="acc-score-num acc-score-month" id="resolved-month-score-l2">—</div>
+                <div class="acc-score-lbl">resolvidos no mês</div>
+              </div>
+            </div>
+            <div class="acc-report-card acc-score-card">
             <div class="acc-report-title">Resolvidos no Mês · Event</div>
-            <div id="resolved-month-chart-event"><div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div></div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num acc-score-month" id="resolved-month-score-event">—</div>
+                <div class="acc-score-lbl">resolvidos no mês</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1510,36 +1522,24 @@ function fetchAccordionScores(){
     .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elLI.textContent=c;elLI.style.color=c>0?'#0969DA':'#1A7F37';}).catch(()=>{elLI.textContent='?';});
   }
 
-  // Resolvidos no Mês — 3 cards (L1/L2/Event)
+  // Resolvidos no Mês — 3 blocos (L1/L2/Event)
   const rmTargets = [
-    {key:'l1', id:'resolved-month-chart-l1'},
-    {key:'l2', id:'resolved-month-chart-l2'},
-    {key:'event', id:'resolved-month-chart-event'}
+    {key:'l1', id:'resolved-month-score-l1'},
+    {key:'l2', id:'resolved-month-score-l2'},
+    {key:'event', id:'resolved-month-score-event'}
   ];
   rmTargets.forEach(t=>{
     const elRM=document.getElementById(t.id);
     if(!elRM) return;
-    elRM.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
+    elRM.textContent='…';
     const qGid=window._GID_MAP?.[t.key]||'';
     const rmQ='resolved_atONThis month@javascript:gs.beginningOfThisMonth()@javascript:gs.endOfThisMonth()^assignment_group='+qGid+assigneeF+'^stateIN33,34,6,3^contact_typeNOT INautomation^u_recurrence_case=false^u_operating_countryINBR';
-    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(rmQ)+'&sysparm_group_by=resolved_by&sysparm_count=true&sysparm_display_value=all&sysparm_limit=50',{headers:h})
+    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(rmQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{
-      const rows=(d.result||[]).map(r=>({name:r.groupby_fields?.[0]?.display_value||'—',cnt:parseInt(r.stats?.count||0)})).filter(r=>r.cnt>0).sort((a,b)=>b.cnt-a.cnt);
-      const total=rows.reduce((s,r)=>s+r.cnt,0);
-      const maxCnt=rows[0]?.cnt||1;
-      if(!rows.length){elRM.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Sem dados este mês</div>';return;}
-      const COLORS=['#2563EB','#059669','#D97706','#DC2626','#7C3AED','#0891B2','#BE185D','#65A30D','#EA580C','#6366F1'];
-      const bars=rows.slice(0,12).map((r,i)=>{
-        const pct=Math.round((r.cnt/maxCnt)*100);
-        const color=COLORS[i%COLORS.length];
-        return '<div class="res-chart-row">'+
-          '<span class="res-chart-name" title="'+r.name+'">'+r.name+'</span>'+
-          '<div class="res-chart-bar-wrap"><div class="res-chart-bar" style="width:'+pct+'%;background:'+color+'"></div></div>'+
-          '<span class="res-chart-count" style="color:'+color+'">'+r.cnt+'</span>'+
-        '</div>';
-      }).join('');
-      elRM.innerHTML='<div class="res-chart-wrap">'+bars+'<div class="res-chart-total">Total: <strong>'+total+'</strong> resolvidos este mês</div></div>';
-    }).catch(()=>{elRM.innerHTML='<div style="color:#CF222E;font-size:12px;">Erro ao carregar</div>';});
+      const total=parseInt(d.result?.stats?.count||0);
+      elRM.textContent=total;
+      elRM.style.color=total>0?'#0969DA':'#1A7F37';
+    }).catch(()=>{elRM.textContent='?';elRM.style.color='#CF222E';});
   });
 
   // Support Attention — segmentado por fila
