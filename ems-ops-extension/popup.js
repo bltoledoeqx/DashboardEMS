@@ -629,7 +629,6 @@ a{text-decoration:none;}
 .accordion-body{padding:10px 16px 12px;border-top:1px solid var(--border);background:var(--bg);}
 .acc-grid{display:flex;gap:8px;align-items:flex-start;}
 .acc-report-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;flex-shrink:0;}
-.acc-scores-stack{display:flex;flex-direction:column;gap:8px;}
 /* Analyst table */
 .acc-report-card.acc-analyst{width:240px;overflow:hidden;}
 .acc-report-card.acc-analyst .ana-table{table-layout:fixed;width:100%;}
@@ -650,8 +649,8 @@ a{text-decoration:none;}
 .acc-score-num{font-size:26px;font-weight:700;color:#CF222E;line-height:1;}
 .acc-score-lbl{font-size:10px;color:var(--muted);margin-top:4px;text-align:center;}
 .acc-score-rating{color:#BF8700;}
-/* resolved month score cards */
 .acc-score-month{color:#0969DA;}
+/* resolved handled above */
 .res-chart-wrap{display:flex;flex-direction:column;gap:5px;padding:4px 0;}
 .res-chart-row{display:flex;align-items:center;gap:6px;margin-bottom:2px;}
 .res-chart-name{font-size:10px;color:var(--text);width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
@@ -985,74 +984,72 @@ tr:hover td{background:#F6F8FA;}
           </div>
           <div id="ana-table-wrap-acc"></div>
         </div>
-        <div class="acc-scores-stack">
-          <div class="acc-scores-wrap">
-            <div class="acc-scores-row">
-              <div class="acc-report-card acc-score-card">
-                <div class="acc-report-title">Sem Type
-                  <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=afec7b28933bb290771238797bba106e" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
-                </div>
-                <div class="acc-score-wrap">
-                  <div class="acc-score-num" id="sem-type-score">—</div>
-                  <div class="acc-score-lbl">sem tipo</div>
-                </div>
+        <div class="acc-scores-wrap">
+          <div class="acc-scores-row">
+            <div class="acc-report-card acc-score-card">
+              <div class="acc-report-title">Sem Type
+                <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=afec7b28933bb290771238797bba106e" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
               </div>
-              <div class="acc-report-card acc-score-card">
-                <div class="acc-report-title">Last Client
-                  <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=132e7da233211ed497e2fba45d5c7bb5" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
-                </div>
-                <div class="acc-score-wrap">
-                  <div class="acc-score-num" id="last-interacted-score">—</div>
-                  <div class="acc-score-lbl">últ. interação cliente</div>
-                </div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num" id="sem-type-score">—</div>
+                <div class="acc-score-lbl">sem tipo</div>
               </div>
-              <div class="acc-report-card acc-score-card">
-                <div class="acc-report-title">Support Attention
-                  <a href="#" target="_blank" class="acc-report-link" id="support-attention-link">Abrir no Snow ↗</a>
-                </div>
-                <div class="acc-score-wrap">
-                  <div class="acc-score-num" id="support-attention-score">—</div>
-                  <div class="acc-score-lbl">requerem atenção</div>
-                </div>
+            </div>
+            <div class="acc-report-card acc-score-card">
+              <div class="acc-report-title">Last Client
+                <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=132e7da233211ed497e2fba45d5c7bb5" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
               </div>
-              <div class="acc-report-card acc-score-card">
-                <div class="acc-report-title">Rating EMS (Ano)</div>
-                <div class="acc-score-wrap">
-                  <div class="acc-score-num acc-score-rating" id="rating-score">—</div>
-                  <div class="acc-score-lbl">nota média</div>
-                </div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num" id="last-interacted-score">—</div>
+                <div class="acc-score-lbl">últ. interação cliente</div>
               </div>
-              <div class="acc-report-card acc-score-card">
-                <div class="acc-report-title">Customer Satisfaction</div>
-                <div class="acc-score-wrap">
-                  <div class="acc-score-num acc-score-rating" id="customer-satisfaction-score">—</div>
-                  <div class="acc-score-lbl">(% promotors - detractors) / total</div>
-                </div>
+            </div>
+            <div class="acc-report-card acc-score-card">
+              <div class="acc-report-title">Support Attention
+                <a href="#" target="_blank" class="acc-report-link" id="support-attention-link">Abrir no Snow ↗</a>
+              </div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num" id="support-attention-score">—</div>
+                <div class="acc-score-lbl">requerem atenção</div>
+              </div>
+            </div>
+            <div class="acc-report-card acc-score-card">
+              <div class="acc-report-title">Rating EMS (Ano)</div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num acc-score-rating" id="rating-score">—</div>
+                <div class="acc-score-lbl">nota média</div>
+              </div>
+            </div>
+            <div class="acc-report-card acc-score-card">
+              <div class="acc-report-title">Customer Satisfaction</div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num acc-score-rating" id="customer-satisfaction-score">—</div>
+                <div class="acc-score-lbl">(% promotors - detractors) / total</div>
               </div>
             </div>
           </div>
-          <div class="acc-scores-wrap">
-            <div class="acc-scores-row">
-              <div class="acc-report-card acc-score-card">
+        </div>
+        <div class="acc-scores-wrap" style="margin-top:6px;">
+          <div class="acc-scores-row">
+            <div class="acc-report-card acc-score-card">
               <div class="acc-report-title">Resolvidos no Mês · L1</div>
-                <div class="acc-score-wrap">
-                  <div class="acc-score-num acc-score-month" id="resolved-month-score-l1">—</div>
-                  <div class="acc-score-lbl">resolvidos no mês</div>
-                </div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num acc-score-month" id="resolved-month-score-l1">—</div>
+                <div class="acc-score-lbl">casos resolvidos</div>
               </div>
-              <div class="acc-report-card acc-score-card">
+            </div>
+            <div class="acc-report-card acc-score-card">
               <div class="acc-report-title">Resolvidos no Mês · L2</div>
-                <div class="acc-score-wrap">
-                  <div class="acc-score-num acc-score-month" id="resolved-month-score-l2">—</div>
-                  <div class="acc-score-lbl">resolvidos no mês</div>
-                </div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num acc-score-month" id="resolved-month-score-l2">—</div>
+                <div class="acc-score-lbl">casos resolvidos</div>
               </div>
-              <div class="acc-report-card acc-score-card">
+            </div>
+            <div class="acc-report-card acc-score-card">
               <div class="acc-report-title">Resolvidos no Mês · Event</div>
-                <div class="acc-score-wrap">
-                  <div class="acc-score-num acc-score-month" id="resolved-month-score-event">—</div>
-                  <div class="acc-score-lbl">resolvidos no mês</div>
-                </div>
+              <div class="acc-score-wrap">
+                <div class="acc-score-num acc-score-month" id="resolved-month-score-event">—</div>
+                <div class="acc-score-lbl">casos resolvidos</div>
               </div>
             </div>
           </div>
@@ -1188,7 +1185,7 @@ function refreshPostmortem(){
 function refreshReports(){
   setRefreshStatus('↻ Atualizando reports...');
   ['sem-type-score','last-interacted-score','support-attention-score','rating-score','customer-satisfaction-score'].forEach(id=>{const e=document.getElementById(id);if(e){e.textContent='—';e.style.color='';}});
-  ['resolved-month-chart-l1','resolved-month-chart-l2','resolved-month-chart-event'].forEach(id=>{
+  ['resolved-month-score-l1','resolved-month-score-l2','resolved-month-score-event'].forEach(id=>{
     const elR=document.getElementById(id);
     if(elR)elR.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
   });
@@ -1312,15 +1309,12 @@ function getReportAssigneeFilter(gid){
   return '';
 }
 
-function getRatingAssigneeFilter(gid){
+function getRatingAssigneeFilter(){
   const analystId=document.getElementById('analyst-sel')?.value||'';
   const managerId=document.getElementById('manager-sel')?.value||'';
-  if(analystId) return '^cse_assigned_to='+analystId;
-  if(managerId){
-    const ids=getMembersByManager(gid,managerId).map(m=>m.id).filter(Boolean);
-    return ids.length?'^cse_assigned_toIN'+ids.join(','):'^sys_id=-1';
-  }
-  return '';
+  if(analystId) return {type:'analyst',id:analystId};
+  if(managerId) return {type:'manager',id:managerId};
+  return {type:'none'};
 }
 
 function applyAnalystTableFilter(){
@@ -1400,7 +1394,7 @@ function switchFila(key){
     applyAnalystTableFilter();
   });
   document.getElementById('analyst-board-content').innerHTML='';
-  ['resolved-month-chart-l1','resolved-month-chart-l2','resolved-month-chart-event'].forEach(id=>{
+  ['resolved-month-score-l1','resolved-month-score-l2','resolved-month-score-event'].forEach(id=>{
     const elResolved=document.getElementById(id);
     if(elResolved)elResolved.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
   });
@@ -1525,7 +1519,7 @@ function fetchAccordionScores(){
     .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elLI.textContent=c;elLI.style.color=c>0?'#0969DA':'#1A7F37';}).catch(()=>{elLI.textContent='?';});
   }
 
-  // Resolvidos no Mês — 3 blocos (L1/L2/Event)
+  // Resolvidos no Mês — 3 cards KPI (L1/L2/Event)
   const rmTargets = [
     {key:'l1', id:'resolved-month-score-l1'},
     {key:'l2', id:'resolved-month-score-l2'},
@@ -1537,12 +1531,11 @@ function fetchAccordionScores(){
     elRM.textContent='…';
     const qGid=window._GID_MAP?.[t.key]||'';
     const rmQ='resolved_atONThis month@javascript:gs.beginningOfThisMonth()@javascript:gs.endOfThisMonth()^assignment_group='+qGid+assigneeF+'^stateIN33,34,6,3^contact_typeNOT INautomation^u_recurrence_case=false^u_operating_countryINBR';
-    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(rmQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(rmQ)+'&sysparm_count=true',{headers:h})
     .then(r=>r.json()).then(d=>{
       const total=parseInt(d.result?.stats?.count||0);
       elRM.textContent=total;
-      elRM.style.color=total>0?'#0969DA':'#1A7F37';
-    }).catch(()=>{elRM.textContent='?';elRM.style.color='#CF222E';});
+    }).catch(()=>{elRM.textContent='?';});
   });
 
   // Support Attention — segmentado por fila
@@ -1569,11 +1562,23 @@ function fetchAccordionScores(){
   const elCSPre=document.getElementById('customer-satisfaction-score');
   if(elRating) elRating.textContent='…';
   if(elCSPre) elCSPre.textContent='…';
-  ensureManagerData(allGid).catch(()=>{}).then(()=>{
-  const ratingAssigneeF=getRatingAssigneeFilter(allGid);
+  const _ratingF=getRatingAssigneeFilter();
+  const _ratingBase='mr_sys_created_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()^cse_accountNOT LIKEEQUINIX^mr_metric=e7d1c39ddb56df00448b01a3ca961972';
+  const _ratingGids='1c7c9057db6771d0832ead8ed396197a,ff72689247ee1e143cbfe07a216d4357,673c2170476422503cbfe07a216d430f,61d7da1edb71a450c6445457dc9619f9,52cd04fbdbe71700b3cd73e1ba961949,6c67c13bdbeb1700b3cd73e1ba9619b9,5d4cb3f1db90a050e0e15cb8dc961970,5d77053bdbeb1700b3cd73e1ba9619ca,8b3850eddb1adf00448b01a3ca9619ce,7dbeba001ba173004948ece03d4bcb7a,01d511c2db68cc10fddc7bedae9619de,3469cd95dbe9dbc0b3cd73e1ba9619b3';
+  // Build assignee+group suffix:
+  // - manager → dot-walk only (no group filter, avoids excluding cross-group evaluations)
+  // - analyst → group filter + exact assignee
+  // - none    → group filter only
+  function _buildRatingSuffix(extraGids){
+    const gids=extraGids?_ratingGids+','+extraGids:_ratingGids;
+    if(_ratingF.type==='manager') return '^cse_assigned_to.manager='+_ratingF.id;
+    if(_ratingF.type==='analyst') return '^cse_assignment_groupIN'+gids+'^cse_assigned_to='+_ratingF.id;
+    return '^cse_assignment_groupIN'+gids;
+  }
+
+  // Rating EMS Year
   if(elRating){
-    const ratingGids='1c7c9057db6771d0832ead8ed396197a,ff72689247ee1e143cbfe07a216d4357,673c2170476422503cbfe07a216d430f,61d7da1edb71a450c6445457dc9619f9,52cd04fbdbe71700b3cd73e1ba961949,6c67c13bdbeb1700b3cd73e1ba9619b9,5d4cb3f1db90a050e0e15cb8dc961970,5d77053bdbeb1700b3cd73e1ba9619ca,8b3850eddb1adf00448b01a3ca9619ce,7dbeba001ba173004948ece03d4bcb7a,01d511c2db68cc10fddc7bedae9619de,3469cd95dbe9dbc0b3cd73e1ba9619b3';
-    const rQ='ai_sys_created_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()^cse_accountNOT LIKEEQUINIX^mr_metric=e7d1c39ddb56df00448b01a3ca961972^cse_assignment_groupIN'+ratingGids+ratingAssigneeF;
+    const rQ=_ratingBase+_buildRatingSuffix(null);
     fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(rQ)+'&sysparm_avg_fields=mr_actual_value&sysparm_count=true&sysparm_display_value=all',{headers:h})
     .then(r=>r.json()).then(d=>{
       const avg=parseFloat(d.result?.stats?.avg?.mr_actual_value||0);
@@ -1582,29 +1587,24 @@ function fetchAccordionScores(){
     }).catch(()=>{elRating.textContent='?';});
   }
 
-  // Customer Satisfaction (NPS-style) — cálculo via contagem por nota/analista
+  // Customer Satisfaction
   const elCS=elCSPre;
   if(elCS){
-    const ratingGids='1c7c9057db6771d0832ead8ed396197a,ff72689247ee1e143cbfe07a216d4357,673c2170476422503cbfe07a216d430f,61d7da1edb71a450c6445457dc9619f9,52cd04fbdbe71700b3cd73e1ba961949,6c67c13bdbeb1700b3cd73e1ba9619b9,5d4cb3f1db90a050e0e15cb8dc961970,5d77053bdbeb1700b3cd73e1ba9619ca,8b3850eddb1adf00448b01a3ca9619ce,7dbeba001ba173004948ece03d4bcb7a,01d511c2db68cc10fddc7bedae9619de,3469cd95dbe9dbc0b3cd73e1ba9619b3';
     ensureMshNocGroupId().then(mshGid=>{
-    const gids=[ratingGids,mshGid].filter(Boolean).join(',');
-    const analystId=document.getElementById('analyst-sel')?.value||'';
-    const managerId=document.getElementById('manager-sel')?.value||'';
-    let csAssigneeF=ratingAssigneeF;
-    if(!analystId&&managerId) csAssigneeF='^cse_assigned_to.manager='+managerId;
-    const csQ='ai_sys_created_onONThis year@javascript:gs.beginningOfThisYear()@javascript:gs.endOfThisYear()^cse_accountNOT LIKEEQUINIX^mr_metric=e7d1c39ddb56df00448b01a3ca961972^cse_assignment_groupIN'+gids+csAssigneeF;
-    fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(csQ)+'&sysparm_group_by=mr_actual_value,cse_assigned_to&sysparm_count=true&sysparm_display_value=all&sysparm_limit=50',{headers:h})
+    const csQ=_ratingBase+_buildRatingSuffix(mshGid||'');
+    // group_by=mr_actual_value,cse_assigned_to — note: SN returns fields in order [assigned_to, value]
+    fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(csQ)+'&sysparm_group_by=mr_actual_value,cse_assigned_to&sysparm_count=true&sysparm_display_value=all&sysparm_limit=200',{headers:h})
     .then(r=>r.json()).then(d=>{
       const rows=d.result||[];
       let promoters=0,detractors=0,total=0;
       rows.forEach(row=>{
         const cnt=parseInt(row.stats?.count||0);
-        const raw=row.groupby_fields?.[0]?.value||row.groupby_fields?.[0]?.display_value||'0';
-        const rating=parseFloat(raw);
-        if(isNaN(rating)||cnt<=0) return;
+        if(cnt<=0) return;
+        // SN returns groupby_fields[0]=cse_assigned_to, [1]=mr_actual_value
+        const val=Number(row.groupby_fields?.[1]?.value??row.groupby_fields?.[0]?.value);
         total+=cnt;
-        if(rating>=5) promoters+=cnt;
-        else if(rating<=3) detractors+=cnt;
+        if(val===5) promoters+=cnt;
+        else if(val===1||val===2||val===3) detractors+=cnt;
       });
       if(total<=0){elCS.textContent='—';elCS.style.color='';return;}
       const cs=((promoters-detractors)/total)*100;
@@ -1613,7 +1613,6 @@ function fetchAccordionScores(){
     }).catch(()=>{elCS.textContent='?';});
     }).catch(()=>{elCS.textContent='?';});
   }
-  }); // end ensureManagerData.then
 }
 function fetchSemTypeScore(){fetchAccordionScores();}
 
@@ -1632,7 +1631,7 @@ function startPolling(){
     ['sem-type-score','last-interacted-score','support-attention-score','customer-satisfaction-score'].forEach(id=>{
       const e=document.getElementById(id); if(e) e.dataset.dirty='1';
     });
-    ['resolved-month-chart-l1','resolved-month-chart-l2','resolved-month-chart-event'].forEach(id=>{
+    ['resolved-month-score-l1','resolved-month-score-l2','resolved-month-score-event'].forEach(id=>{
       const elR=document.getElementById(id);
       if(elR) elR.dataset.dirty='1';
     });
