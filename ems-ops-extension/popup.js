@@ -288,6 +288,8 @@ function runEMSOps(userToken, userMes) {
       }
     });
     const avgMTTR = mttrCount ? (mttrTotal / mttrCount).toFixed(1) : '—';
+    const ativosCount = ativosMap.all.total;
+    const backlogCount = backlogMap.all.total;
 
     // Card renderer
     const renderSlaBar = sl => {
@@ -895,7 +897,7 @@ tr:hover td{background:#F6F8FA;}
   </div>
   <div class="header-right">
     <span class="h-ts">${ts}</span>
-    <span class="h-count">${mesNome} ${YEAR} · Ativos: ${classified.length} (${ativosItems.length} ativos / ${backlogItems.length} backlog) · Post-mortem: ${postList.length}</span>
+    <span class="h-count">${mesNome} ${YEAR} · Ativos: ${classified.length} (${ativosCount} ativos / ${backlogCount} backlog) · Post-mortem: ${postList.length}</span>
   </div>
 </div>
 
@@ -1066,7 +1068,7 @@ tr:hover td{background:#F6F8FA;}
     <div class="section-hdr" onclick="toggleSection('ativos')">
       <span class="section-icon" id="section-icon-ativos">▾</span>
       <span class="section-title">📋 Cases Ativos</span>
-      <span class="section-badge" id="section-badge-ativos">${ativosItems.length} cases · <20 dias</span>
+      <span class="section-badge" id="section-badge-ativos">${ativosCount} cases · <20 dias</span>
       <button class="section-refresh-btn" onclick="event.stopPropagation();refreshKanban()" title="Atualizar Cases Ativos">↺</button>
     </div>
     <div class="section-body" id="section-body-ativos">
@@ -1094,7 +1096,7 @@ tr:hover td{background:#F6F8FA;}
     <div class="section-hdr" onclick="toggleSection('backlog-tab')">
       <span class="section-icon" id="section-icon-backlog-tab">▾</span>
       <span class="section-title">📦 Backlog</span>
-      <span class="section-badge" id="section-badge-backlog-tab">${backlogItems.length} cases · ≥20 dias</span>
+      <span class="section-badge" id="section-badge-backlog-tab">${backlogCount} cases · ≥20 dias</span>
       <button class="section-refresh-btn" onclick="event.stopPropagation();refreshBacklog()" title="Atualizar Backlog">↺</button>
     </div>
     <div class="section-body" id="section-body-backlog-tab">
