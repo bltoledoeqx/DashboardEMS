@@ -104,7 +104,7 @@ function runEMSOps(userToken, userMes) {
   const EXCL      = [3,6,7,24,25,33,35].map(v=>`^state!=${v}`).join('');
   const LANE_PRIORITY = { critical:'1', high:'2', medium:'3', normal:'4' };
   const PRIORITY_LANE = { '1':'critical','2':'high','3':'medium','4':'normal','5':'normal' };
-  const FIELDS    = 'number,short_description,priority,state,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
+  const FIELDS    = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
   const SLA_F     = 'task,planned_end_time,has_breached,percentage,sla,original_breach_time';
   const BATCH     = 50;
   const BASE      = window.location.origin;
@@ -203,6 +203,10 @@ function runEMSOps(userToken, userMes) {
         uType   : c.u_type?.display_value||'',
         assigned: c.assigned_to?.display_value||null,
         assignedId: c.assigned_to?.value||'',
+        impact  : c.impact?.display_value||c.impact?.value||'—',
+        impactVal: c.impact?.value||'',
+        urgency : c.urgency?.display_value||c.urgency?.value||'—',
+        urgencyVal: c.urgency?.value||'',
         gid     : c.assignment_group?.value||'',
         gkey    : G_KEYS[c.assignment_group?.value]||'l1',
         group   : G_NAMES[c.assignment_group?.value]||'—',
@@ -309,11 +313,12 @@ function runEMSOps(userToken, userMes) {
     };
 
     const renderCard = c => `
-      <div class="card card-${c.lane}" data-sysid="${c.sysId}" data-assignedid="${c.assignedId||''}" data-assignedname="${c.assigned||''}" onclick="openCaseModal('${c.sysId}','${c.number}',this)">
+      <div class="card card-${c.lane}" data-sysid="${c.sysId}" data-assignedid="${c.assignedId||''}" data-assignedname="${c.assigned||''}" data-impact="${c.impactVal||''}" data-urgency="${c.urgencyVal||''}" onclick="openCaseModal('${c.sysId}','${c.number}',this)">
         <div class="card-top">
           <a class="card-num" href="${c.url}" target="_blank">${c.number} ↗</a>
           ${c.isAw?`<span class="badge-await">⏳ ${c.state}</span>`:''}
           ${c.isInternal?`<span class="badge-internal">🔒 Internal</span>`:''}
+          <button class="card-iu-btn" title="Alterar Impact/Urgency" data-sysid="${c.sysId}" data-impact="${c.impactVal||''}" data-urgency="${c.urgencyVal||''}" onclick="openImpactUrgencyBtn(event,this)">⚡ I/U</button>
           <button class="card-reassign-btn" title="Reatribuir" data-sysid="${c.sysId}" data-gid="${c.gid}" data-assigned="${c.assigned||''}" onclick="openReassignBtn(event,this)">👤 ✎</button>
         </div>
         <p class="card-desc">${c.desc||'—'}</p>
@@ -322,6 +327,7 @@ function runEMSOps(userToken, userMes) {
           <span class="tag" style="color:${prioColor(c.prio)};background:${prioColor(c.prio)}15;border-color:${prioColor(c.prio)}40">${c.priority}</span>
           <span class="tag tag-state">${c.state}</span>
           ${c.uType?`<span class="tag tag-type">${c.uType}</span>`:''}
+          <span class="tag tag-iu">I:${c.impactVal||'—'} · U:${c.urgencyVal||'—'}</span>
         </div>
         <div class="card-footer">
           <span class="card-assigned ${c.noAss?'unassigned':''}">${c.noAss?'⚠ Sem responsável':'👤 '+c.assigned}</span>
@@ -720,11 +726,17 @@ a{text-decoration:none;}
 .mbtn-backlog.active{background:#6E40C9;color:#fff;border-color:#6E40C9;}
 
 /* REASSIGN BUTTON */
-.card-reassign-btn{display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:10px;cursor:pointer;color:var(--muted);margin-left:auto;transition:all .15s;}
-.card:hover .card-reassign-btn{display:inline-flex;align-items:center;}
-.card-reassign-btn:hover{background:#EFF6FF;color:#0969DA;border-color:#0969DA;}
+.card-reassign-btn,.card-iu-btn{display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:10px;cursor:pointer;color:var(--muted);transition:all .15s;}
+.card-iu-btn{margin-left:auto;}
+.card:hover .card-reassign-btn,.card:hover .card-iu-btn{display:inline-flex;align-items:center;}
+.card-reassign-btn:hover,.card-iu-btn:hover{background:#EFF6FF;color:#0969DA;border-color:#0969DA;}
+.tag-iu{font-variant-numeric:tabular-nums;}
 /* REASSIGN DROPDOWN */
 .reassign-dd{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(27,31,36,.15);z-index:2000;width:210px;max-height:280px;display:flex;flex-direction:column;}
+.iu-dd{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(27,31,36,.15);z-index:2000;width:230px;padding:10px;display:flex;flex-direction:column;gap:8px;}
+.iu-dd label{font-size:10px;font-weight:600;color:#57606A;text-transform:uppercase;}
+.iu-dd select{width:100%;font-size:12px;padding:5px 6px;border:1px solid #D0D7DE;border-radius:4px;}
+.iu-dd-actions{display:flex;justify-content:flex-end;gap:6px;}
 .reassign-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:8px 12px 4px;}
 .reassign-search{padding:6px 10px;border:none;border-bottom:1px solid var(--border);font-size:12px;outline:none;font-family:var(--sans);color:var(--text);}
 .reassign-list{overflow-y:auto;flex:1;}
@@ -1838,6 +1850,77 @@ function doReassign(sysId,userId,userName,groupId,el){
   });
 }
 
+
+let _iuDd=null;
+function openImpactUrgencyBtn(e,btn){
+  e.stopPropagation();
+  openImpactUrgencyEditor(e,btn.dataset.sysid||'',btn.dataset.impact||'',btn.dataset.urgency||'');
+}
+
+function openImpactUrgencyEditor(e,sysId,currentImpact,currentUrgency){
+  e.stopPropagation();e.preventDefault();
+  if(_iuDd){_iuDd.remove();_iuDd=null;return;}
+
+  const dd=document.createElement('div');dd.className='iu-dd';
+  dd.innerHTML =
+    '<label>Impact</label>' +
+    '<select id="iu-impact"><option value="1">1 - Alto</option><option value="2">2 - Médio</option><option value="3">3 - Baixo</option></select>' +
+    '<label>Urgency</label>' +
+    '<select id="iu-urgency"><option value="1">1 - Alto</option><option value="2">2 - Médio</option><option value="3">3 - Baixo</option></select>' +
+    '<div class="iu-dd-actions">' +
+      '<button type="button" onclick="closeImpactUrgencyEditor()" style="font-size:11px;padding:4px 8px;border:1px solid #D0D7DE;background:#fff;border-radius:4px;cursor:pointer;">Cancelar</button>' +
+      '<button type="button" id="iu-save-btn" style="font-size:11px;padding:4px 8px;border:1px solid #0969DA;background:#0969DA;color:#fff;border-radius:4px;cursor:pointer;">Salvar</button>' +
+    '</div>';
+
+  document.body.appendChild(dd);_iuDd=dd;
+  const rect=e.target?.getBoundingClientRect?.()|| {bottom:window.innerHeight/2,left:window.innerWidth/2};
+  dd.style.top=Math.min(rect.bottom+4,window.innerHeight-220)+'px';
+  dd.style.left=Math.min(rect.left,window.innerWidth-240)+'px';
+
+  const impactSel=dd.querySelector('#iu-impact');
+  const urgencySel=dd.querySelector('#iu-urgency');
+  if(impactSel) impactSel.value=(currentImpact||'3');
+  if(urgencySel) urgencySel.value=(currentUrgency||'3');
+  dd.querySelector('#iu-save-btn').onclick=()=>saveImpactUrgency(sysId,impactSel?.value||'3',urgencySel?.value||'3');
+
+  setTimeout(()=>{document.addEventListener('click',closeImpactUrgencyOutside);},0);
+}
+
+function closeImpactUrgencyOutside(e){
+  if(_iuDd&&!_iuDd.contains(e.target)){closeImpactUrgencyEditor();}
+}
+
+function closeImpactUrgencyEditor(){
+  if(_iuDd){_iuDd.remove();_iuDd=null;}
+  document.removeEventListener('click',closeImpactUrgencyOutside);
+}
+
+function syncImpactUrgencyInUI(sysId,impact,urgency){
+  document.querySelectorAll('.card[data-sysid="'+sysId+'"]').forEach(card=>{
+    card.dataset.impact=impact;card.dataset.urgency=urgency;
+    const tag=card.querySelector('.tag-iu');
+    if(tag) tag.textContent='I:'+impact+' · U:'+urgency;
+    const iuBtn=card.querySelector('.card-iu-btn');
+    if(iuBtn){iuBtn.dataset.impact=impact;iuBtn.dataset.urgency=urgency;}
+  });
+}
+
+function saveImpactUrgency(sysId,impact,urgency){
+  patchCase(sysId,{impact,urgency}).then(ok=>{
+    if(ok){
+      syncImpactUrgencyInUI(sysId,impact,urgency);
+      showToast('✅ Impact/Urgency atualizado');
+      closeImpactUrgencyEditor();
+      if(_modalSysId===sysId){
+        const numEl=document.getElementById('modal-num');
+        if(numEl) setTimeout(()=>openCaseModal(sysId,numEl.textContent,_modalActiveCard||document.createElement('div')),250);
+      }
+    } else {
+      showToast('❌ Erro ao atualizar Impact/Urgency','error');
+    }
+  });
+}
+
 // ── API patch ──────────────────────────────────────────────────────────────
 async function patchCase(sysId,data){
   try{
@@ -2088,8 +2171,27 @@ function openCaseModal(sysId, number, cardEl) {
           detailItem('Analista', val(c.assigned_to)) +
           detailItem('Account', val(c.account)) +
           '<div class="modal-detail-item" id="modal-contact-info"><span class="modal-detail-lbl">Contato</span><span class="modal-detail-val" style="color:#57606A;font-size:11px;">Carregando...</span></div>' +
-          detailItem('Impact', val(c.impact)) +
-          detailItem('Urgency', val(c.urgency)) +
+          '<div class="modal-detail-item">'+
+            '<span class="modal-detail-lbl">Impact</span>'+
+            '<div style="display:flex;gap:6px;align-items:center;">'+
+              '<select id="modal-impact" style="font-size:12px;padding:4px 6px;border:1px solid #D0D7DE;border-radius:4px;">'+
+                '<option value="1" '+((c.impact?.value==='1')?'selected':'')+'>1 - Alto</option>'+
+                '<option value="2" '+((c.impact?.value==='2')?'selected':'')+'>2 - Médio</option>'+
+                '<option value="3" '+((c.impact?.value==='3')?'selected':'')+'>3 - Baixo</option>'+
+              '</select>'+
+            '</div>'+
+          '</div>' +
+          '<div class="modal-detail-item">'+
+            '<span class="modal-detail-lbl">Urgency</span>'+
+            '<div style="display:flex;gap:6px;align-items:center;">'+
+              '<select id="modal-urgency" style="font-size:12px;padding:4px 6px;border:1px solid #D0D7DE;border-radius:4px;">'+
+                '<option value="1" '+((c.urgency?.value==='1')?'selected':'')+'>1 - Alto</option>'+
+                '<option value="2" '+((c.urgency?.value==='2')?'selected':'')+'>2 - Médio</option>'+
+                '<option value="3" '+((c.urgency?.value==='3')?'selected':'')+'>3 - Baixo</option>'+
+              '</select>'+
+              '<button type="button" onclick="saveModalImpactUrgency()" style="font-size:11px;padding:4px 8px;border:1px solid #0969DA;background:#0969DA;color:#fff;border-radius:4px;cursor:pointer;">Salvar</button>'+
+            '</div>'+
+          '</div>' +
           detailItem('Tipo', val(c.u_type)) +
           detailItem('Aberto em', fmtDate(c.opened_at?.value)) +
         '</div>' +
@@ -2187,6 +2289,22 @@ function saveModal() {
       showToast('❌ Erro ao salvar','error');
     }
   }).catch(() => showToast('❌ Erro de conexão','error'));
+}
+
+
+function saveModalImpactUrgency(){
+  if(!_modalSysId) return;
+  const impact=document.getElementById('modal-impact')?.value;
+  const urgency=document.getElementById('modal-urgency')?.value;
+  if(!impact||!urgency){showToast('Selecione Impact e Urgency','warn');return;}
+  patchCase(_modalSysId,{impact,urgency}).then(ok=>{
+    if(ok){
+      syncImpactUrgencyInUI(_modalSysId,impact,urgency);
+      showToast('✅ Impact/Urgency salvo');
+      const numEl=document.getElementById('modal-num');
+      if(numEl) setTimeout(()=>openCaseModal(_modalSysId,numEl.textContent,_modalActiveCard||document.createElement('div')),250);
+    }else showToast('❌ Erro ao salvar Impact/Urgency','error');
+  });
 }
 
 function modalReassign() {
@@ -2305,7 +2423,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     
     const _HEADERS = { 'Accept': 'application/json', 'X-UserToken': _TOK };
     const _G_IDS = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
-    const _FIELDS = 'number,short_description,priority,state,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
+    const _FIELDS = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
 
     async function fetchDeltas() {
       const query = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>' + lastSyncTime;
@@ -2381,8 +2499,15 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
         const sTag = tags.querySelector('.tag-state');
         if (sTag) sTag.textContent = data.state.display_value;
+        const iuTag = tags.querySelector('.tag-iu');
+        if (iuTag) iuTag.textContent = 'I:' + (data.impact?.value||'—') + ' · U:' + (data.urgency?.value||'—');
       }
       
+      const iuBtn = card.querySelector('.card-iu-btn');
+      if (iuBtn) { iuBtn.dataset.impact = data.impact?.value || ''; iuBtn.dataset.urgency = data.urgency?.value || ''; }
+      card.dataset.impact = data.impact?.value || '';
+      card.dataset.urgency = data.urgency?.value || '';
+
       const footer = card.querySelector('.card-footer');
       if (footer) {
         const ass = footer.querySelector('.card-assigned');
