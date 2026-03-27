@@ -787,6 +787,14 @@ a{text-decoration:none;}
 .account-products-list{display:flex;flex-direction:column;gap:8px;max-height:42vh;overflow:auto;padding-right:4px;}
 .account-product-item{padding:8px 10px;background:#F6F8FA;border:1px solid #D0D7DE;border-radius:6px;font-size:12px;color:#24292F;}
 .account-product-empty{font-size:12px;color:#57606A;padding:8px;border:1px dashed #D0D7DE;border-radius:6px;background:#fff;}
+.acc-sec{margin-bottom:12px;border:1px solid #D0D7DE;border-radius:8px;overflow:hidden;background:#fff;}
+.acc-sec-h{padding:8px 10px;background:#F6F8FA;border-bottom:1px solid #D0D7DE;font-size:12px;font-weight:700;color:#1f2937;display:flex;justify-content:space-between;align-items:center;}
+.acc-sec-sub{font-size:11px;font-weight:500;color:#57606A;}
+.acc-table-wrap{max-height:260px;overflow:auto;}
+.acc-table{width:100%;border-collapse:collapse;font-size:12px;}
+.acc-table th{position:sticky;top:0;background:#fff;border-bottom:1px solid #D0D7DE;text-align:left;padding:8px;color:#57606A;font-size:11px;text-transform:uppercase;letter-spacing:.3px;}
+.acc-table td{padding:8px;border-bottom:1px solid #EEF2F7;color:#1f2937;vertical-align:top;}
+.acc-cell-muted{color:#57606A;font-size:11px;}
 .modal-state-badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:500;}
 .card.modal-active{outline:2px solid #0969DA;outline-offset:1px;}
 .rt-row{display:flex;align-items:center;gap:5px;margin-bottom:3px;}
@@ -2354,121 +2362,87 @@ function openAccountProductsModal(accountId, accountName){
   }
 
   const h={'Accept':'application/json','X-UserToken':_TOK};
-  const candidates=[
-    {
-      table:'sn_customerservice_contract_item',
-      query:'account='+accountId,
-      fields:'name,short_description,service_offering,u_service,u_product,product_model,contract',
-      pick:row=>[
-        row.name?.display_value||row.name?.value||'',
-        row.short_description?.display_value||row.short_description?.value||'',
-        row.service_offering?.display_value||row.service_offering?.value||'',
-        row.u_service?.display_value||row.u_service?.value||'',
-        row.u_product?.display_value||row.u_product?.value||'',
-        row.product_model?.display_value||row.product_model?.value||'',
-        row.contract?.display_value||row.contract?.value||'',
-      ]
-    },
-    {
-      table:'sn_customerservice_contract_item',
-      query:'customer_account='+accountId,
-      fields:'name,short_description,service_offering,u_service,u_product,product_model,contract',
-      pick:row=>[
-        row.name?.display_value||row.name?.value||'',
-        row.short_description?.display_value||row.short_description?.value||'',
-        row.service_offering?.display_value||row.service_offering?.value||'',
-        row.u_service?.display_value||row.u_service?.value||'',
-        row.u_product?.display_value||row.u_product?.value||'',
-        row.product_model?.display_value||row.product_model?.value||'',
-        row.contract?.display_value||row.contract?.value||'',
-      ]
-    },
-    {
-      table:'sn_customerservice_contract_item',
-      query:'u_account='+accountId,
-      fields:'name,short_description,service_offering,u_service,u_product,product_model,contract',
-      pick:row=>[
-        row.name?.display_value||row.name?.value||'',
-        row.short_description?.display_value||row.short_description?.value||'',
-        row.service_offering?.display_value||row.service_offering?.value||'',
-        row.u_service?.display_value||row.u_service?.value||'',
-        row.u_product?.display_value||row.u_product?.value||'',
-        row.product_model?.display_value||row.product_model?.value||'',
-        row.contract?.display_value||row.contract?.value||'',
-      ]
-    },
-    {
-      table:'sold_product',
-      query:'account='+accountId,
-      fields:'display_name,name,product_model,model,service_offering,u_product,u_service',
-      pick:row=>[
-        row.display_name?.display_value||row.display_name?.value||'',
-        row.name?.display_value||row.name?.value||'',
-        row.product_model?.display_value||row.product_model?.value||'',
-        row.model?.display_value||row.model?.value||'',
-        row.service_offering?.display_value||row.service_offering?.value||'',
-        row.u_product?.display_value||row.u_product?.value||'',
-        row.u_service?.display_value||row.u_service?.value||'',
-      ]
-    },
-    {
-      table:'cmdb_ci_service',
-      query:'company='+accountId+'^install_status!=7',
-      fields:'name,business_service,service_classification',
-      pick:row=>[
-        row.name?.display_value||row.name?.value||'',
-        row.business_service?.display_value||row.business_service?.value||'',
-        row.service_classification?.display_value||row.service_classification?.value||'',
-      ]
-    },
-    {
-      table:'u_account_product',
-      query:'u_account='+accountId,
-      fields:'name,u_product,u_service,short_description',
-      pick:row=>[
-        row.name?.display_value||row.name?.value||'',
-        row.u_product?.display_value||row.u_product?.value||'',
-        row.u_service?.display_value||row.u_service?.value||'',
-        row.short_description?.display_value||row.short_description?.value||'',
-      ]
-    }
-  ];
-
-  const tryCandidate=idx=>{
-    if(idx>=candidates.length){
-      listEl.innerHTML='<div class="account-product-empty">Não foi possível localizar a tabela de produtos/serviços nesta instância.</div>';
-      return;
-    }
-    const c=candidates[idx];
-    const url=_BASE+'/api/now/table/'+c.table+'?sysparm_query='+encodeURIComponent(c.query)+'&sysparm_fields='+c.fields+'&sysparm_display_value=all&sysparm_limit=100';
-    fetch(url,{headers:h})
-      .then(async r=>{
-        if(!r.ok){
-          const txt=await r.text().catch(()=>'');
-          const err=new Error('HTTP '+r.status);
-          err.status=r.status;
-          err.body=txt;
-          throw err;
-        }
-        return r.json();
-      })
-      .then(d=>{
-        const rows=d.result||[];
-        const items=[];
-        rows.forEach(row=>{(c.pick(row)||[]).filter(Boolean).forEach(v=>items.push(v));});
-        const uniq=[...new Set(items)];
-        if(!uniq.length){ tryCandidate(idx+1); return; }
-        listEl.innerHTML='<div style="font-size:11px;color:#57606A;margin-bottom:8px;">Fonte: '+c.table+'</div><div class="account-products-list">'+uniq.map(v=>'<div class="account-product-item">'+v+'</div>').join('')+'</div>';
-      })
-      .catch(err=>{
-        // 400/404 usually means table doesn't exist in this instance; continue with next candidate
-        if(err?.status===400||err?.status===404){ tryCandidate(idx+1); return; }
-        // ACL/auth/network errors: stop and show message
-        listEl.innerHTML='<div class="account-product-empty">Sem acesso para consultar produtos/serviços ('+(err?.status||'erro')+').</div>';
-      });
+  const fetchTable = (table, query, fields) => {
+    const url=_BASE+'/api/now/table/'+table+'?sysparm_query='+encodeURIComponent(query)+'&sysparm_fields='+fields+'&sysparm_display_value=all&sysparm_limit=500';
+    return fetch(url,{headers:h}).then(async r=>{
+      if(!r.ok){
+        const err=new Error('HTTP '+r.status);
+        err.status=r.status;
+        err.body=await r.text().catch(()=>'');
+        throw err;
+      }
+      return r.json();
+    }).then(d=>d.result||[]);
   };
 
-  tryCandidate(0);
+  const fetchFirst = async (table, queries, fields) => {
+    for(const q of queries){
+      try{
+        const rows=await fetchTable(table,q,fields);
+        return rows;
+      }catch(err){
+        if(err?.status===400||err?.status===404) continue;
+        throw err;
+      }
+    }
+    return [];
+  };
+
+  const renderCmdbSection = rows => {
+    const filtered = rows
+      .filter(r=>(r.serial_number?.display_value||r.serial_number?.value||'').trim()!=='')
+      .map(r=>({
+        hostname: r.name?.display_value||r.name?.value||'—',
+        serial: r.serial_number?.display_value||r.serial_number?.value||'—',
+        mgmt: r.u_management_type?.display_value||r.u_management_type?.value||r.management_type?.display_value||r.management_type?.value||'—'
+      }));
+    if(!filtered.length){
+      return '<div class="acc-sec"><div class="acc-sec-h">cmdb_ci: Itens Gerenciados <span class="acc-sec-sub">0 itens</span></div><div style="padding:10px;"><div class="account-product-empty">Nenhum item com Serial Number preenchido.</div></div></div>';
+    }
+    return '<div class="acc-sec">'+
+      '<div class="acc-sec-h">cmdb_ci: Itens Gerenciados <span class="acc-sec-sub">'+filtered.length+' itens</span></div>'+
+      '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>Hostname</th><th>Serial Number</th><th>Management Type</th></tr></thead><tbody>'+
+      filtered.map(i=>'<tr><td>'+i.hostname+'</td><td class="acc-cell-muted">'+i.serial+'</td><td>'+i.mgmt+'</td></tr>').join('')+
+      '</tbody></table></div></div>';
+  };
+
+  const renderSwSection = rows => {
+    const filtered = rows
+      .filter(r=>(r.active?.value===true||r.active?.value==='true'||r.active===true))
+      .map(r=>({
+        toInstall: r.software_to_install?.display_value||r.software_to_install?.value||'—',
+        manufacturer: r.manufacturer?.display_value||r.manufacturer?.value||'—',
+        licensingModel: r.software_licensing_model?.display_value||r.software_licensing_model?.value||'—',
+        quantity: r.software_quantity?.display_value||r.software_quantity?.value||'—'
+      }));
+    if(!filtered.length){
+      return '<div class="acc-sec"><div class="acc-sec-h">u_cmdb_ci_dedicated_software: Licenças de software contratadas <span class="acc-sec-sub">0 itens</span></div><div style="padding:10px;"><div class="account-product-empty">Nenhuma licença ativa encontrada.</div></div></div>';
+    }
+    return '<div class="acc-sec">'+
+      '<div class="acc-sec-h">u_cmdb_ci_dedicated_software: Licenças de software contratadas <span class="acc-sec-sub">'+filtered.length+' itens</span></div>'+
+      '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>Software to Install</th><th>Manufacturer</th><th>Licensing Model</th><th>Software Quantity</th></tr></thead><tbody>'+
+      filtered.map(i=>'<tr><td>'+i.toInstall+'</td><td>'+i.manufacturer+'</td><td>'+i.licensingModel+'</td><td class="acc-cell-muted">'+i.quantity+'</td></tr>').join('')+
+      '</tbody></table></div></div>';
+  };
+
+  Promise.all([
+    fetchFirst(
+      'cmdb_ci',
+      ['company='+accountId,'account='+accountId,'u_account='+accountId],
+      'name,serial_number,u_management_type,management_type'
+    ),
+    fetchFirst(
+      'u_cmdb_ci_dedicated_software',
+      ['u_account='+accountId,'account='+accountId,'customer_account='+accountId],
+      'active,software_to_install,manufacturer,software_licensing_model,software_quantity'
+    )
+  ])
+  .then(([cmdbRows, swRows])=>{
+    listEl.innerHTML = renderCmdbSection(cmdbRows) + renderSwSection(swRows);
+  })
+  .catch(err=>{
+    listEl.innerHTML='<div class="account-product-empty">Não foi possível carregar os dados segmentados do account ('+(err?.status||'erro')+').</div>';
+  });
 }
 
 function closeAccountProductsModal(){
@@ -2661,7 +2635,11 @@ document.addEventListener('DOMContentLoaded',()=>{
     const _FIELDS = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
 
     async function fetchDeltas() {
-      const query = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>' + lastSyncTime;
+      const visibleIds = Array.from(document.querySelectorAll('.card[data-sysid]')).map(c=>c.dataset.sysid).filter(Boolean);
+      let query = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>' + lastSyncTime;
+      if (visibleIds.length) {
+        query += '^NQsys_idIN' + visibleIds.join(',') + '^sys_updated_on>' + lastSyncTime;
+      }
       const url = _BASE + '/api/now/table/sn_customerservice_case?sysparm_query=' + encodeURIComponent(query) + '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all&sysparm_limit=100';
 
       try {
@@ -2713,6 +2691,19 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
 
     function updateCard(card, data) {
+      const newGroupId = data.assignment_group?.value || '';
+      const managedGroups = _G_IDS.split(',');
+      const expectedGroup = (window._GID_MAP?.[currentFila] || '').split(',')[0];
+
+      // Remove cards that left monitored groups or no longer belong to the selected queue.
+      if (!managedGroups.includes(newGroupId) || (currentFila !== 'all' && expectedGroup && newGroupId !== expectedGroup)) {
+        const board = card.closest('.board-inner');
+        card.remove();
+        updateLaneCounters(board);
+        reapplyAnalystFilters();
+        return;
+      }
+
       const isAw = ['18','32','5','29','30'].includes(data.state.value);
       const badge = card.querySelector('.badge-await');
       if (isAw) {
