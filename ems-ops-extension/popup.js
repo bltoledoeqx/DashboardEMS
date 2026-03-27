@@ -2362,6 +2362,8 @@ function openAccountProductsModal(accountId, accountName){
   }
 
   const h={'Accept':'application/json','X-UserToken':_TOK};
+  const cmdbSerialFilter='^serial_numberISNOTEMPTY^serial_number!=NA^serial_number!=N/A^serial_number!=null^install_status!=7';
+  const swActiveFilter='^active=true';
   const fetchTable = (table, query, fields) => {
     const url=_BASE+'/api/now/table/'+table+'?sysparm_query='+encodeURIComponent(query)+'&sysparm_fields='+fields+'&sysparm_display_value=all&sysparm_limit=500';
     return fetch(url,{headers:h}).then(async r=>{
@@ -2390,31 +2392,28 @@ function openAccountProductsModal(accountId, accountName){
 
   const renderCmdbSection = rows => {
     const filtered = rows
-      .filter(r=>(r.serial_number?.display_value||r.serial_number?.value||'').trim()!=='')
+      .filter(r=>{
+        const s=(r.serial_number?.display_value||r.serial_number?.value||'').trim().toLowerCase();
+        if(!s || ['na','n/a','null','none'].includes(s)) return false;
+        const mg=(r.u_management_type?.display_value||r.u_management_type?.value||r.management_type?.display_value||r.management_type?.value||'').trim().toLowerCase();
+        return mg==='total management (tm)' || mg==='total management (tm) 2.0';
+      })
       .map(r=>({
         hostname: r.name?.display_value||r.name?.value||'—',
-        serial: r.serial_number?.display_value||r.serial_number?.value||'—',
-        mgmt: r.u_management_type?.display_value||r.u_management_type?.value||r.management_type?.display_value||r.management_type?.value||'—'
+        serial: (r.serial_number?.display_value||r.serial_number?.value||'—').trim()
       }));
     if(!filtered.length){
-      return '<div class="acc-sec"><div class="acc-sec-h">cmdb_ci: Itens Gerenciados <span class="acc-sec-sub">0 itens</span></div><div style="padding:10px;"><div class="account-product-empty">Nenhum item com Serial Number preenchido.</div></div></div>';
+      return '<div class="acc-sec"><div class="acc-sec-h">cmdb_ci: Itens Gerenciados <span class="acc-sec-sub">0 itens</span></div><div style="padding:10px;"><div class="account-product-empty">Nenhum item TM/TM 2.0 com Serial Number válido.</div></div></div>';
     }
     return '<div class="acc-sec">'+
       '<div class="acc-sec-h">cmdb_ci: Itens Gerenciados <span class="acc-sec-sub">'+filtered.length+' itens</span></div>'+
-      '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>Hostname</th><th>Serial Number</th><th>Management Type</th></tr></thead><tbody>'+
-      filtered.map(i=>'<tr><td>'+i.hostname+'</td><td class="acc-cell-muted">'+i.serial+'</td><td>'+i.mgmt+'</td></tr>').join('')+
+      '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>Hostname</th><th>Serial Number</th></tr></thead><tbody>'+
+      filtered.map(i=>'<tr><td>'+i.hostname+'</td><td class="acc-cell-muted">'+i.serial+'</td></tr>').join('')+
       '</tbody></table></div></div>';
   };
 
   const renderSwSection = rows => {
-    const isActive = row => {
-      const raw = row.active?.value ?? row.active?.display_value ?? row.active;
-      if (raw === true) return true;
-      const norm = String(raw || '').trim().toLowerCase();
-      return norm === 'true' || norm === '1' || norm === 'yes';
-    };
     const filtered = rows
-      .filter(isActive)
       .map(r=>({
         toInstall: r.software_to_install?.display_value||r.software_to_install?.value||r.u_software_to_install?.display_value||r.u_software_to_install?.value||'—',
         manufacturer: r.manufacturer?.display_value||r.manufacturer?.value||r.u_manufacturer?.display_value||r.u_manufacturer?.value||'—',
@@ -2435,25 +2434,25 @@ function openAccountProductsModal(accountId, accountName){
     fetchFirst(
       'cmdb_ci',
       [
-        'company='+accountId,
-        'account='+accountId,
-        'u_account='+accountId,
-        'company.name='+accountName,
-        'account.name='+accountName,
-        'u_account.name='+accountName
+        'company='+accountId+cmdbSerialFilter,
+        'account='+accountId+cmdbSerialFilter,
+        'u_account='+accountId+cmdbSerialFilter,
+        'company.name='+accountName+cmdbSerialFilter,
+        'account.name='+accountName+cmdbSerialFilter,
+        'u_account.name='+accountName+cmdbSerialFilter
       ],
       'name,serial_number,u_management_type,management_type'
     ),
     fetchFirst(
       'u_cmdb_ci_dedicated_software',
       [
-        'u_account='+accountId,
-        'account='+accountId,
-        'customer_account='+accountId,
-        'u_account.name='+accountName,
-        'account.name='+accountName,
-        'customer_account.name='+accountName,
-        'cmdb_ci.company.name='+accountName
+        'u_account='+accountId+swActiveFilter,
+        'account='+accountId+swActiveFilter,
+        'customer_account='+accountId+swActiveFilter,
+        'u_account.name='+accountName+swActiveFilter,
+        'account.name='+accountName+swActiveFilter,
+        'customer_account.name='+accountName+swActiveFilter,
+        'cmdb_ci.company.name='+accountName+swActiveFilter
       ],
       'active,software_to_install,u_software_to_install,manufacturer,u_manufacturer,software_licensing_model,u_software_licensing_model,software_quantity,u_software_quantity,quantity'
     )
