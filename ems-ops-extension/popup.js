@@ -104,7 +104,7 @@ function runEMSOps(userToken, userMes) {
   const EXCL      = [3,6,7,24,25,33,35].map(v=>`^state!=${v}`).join('');
   const LANE_PRIORITY = { critical:'1', high:'2', medium:'3', normal:'4' };
   const PRIORITY_LANE = { '1':'critical','2':'high','3':'medium','4':'normal','5':'normal' };
-  const FIELDS    = 'number,short_description,priority,state,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
+  const FIELDS    = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
   const SLA_F     = 'task,planned_end_time,has_breached,percentage,sla,original_breach_time';
   const BATCH     = 50;
   const BASE      = window.location.origin;
@@ -203,6 +203,10 @@ function runEMSOps(userToken, userMes) {
         uType   : c.u_type?.display_value||'',
         assigned: c.assigned_to?.display_value||null,
         assignedId: c.assigned_to?.value||'',
+        impact  : c.impact?.display_value||c.impact?.value||'—',
+        impactVal: c.impact?.value||'',
+        urgency : c.urgency?.display_value||c.urgency?.value||'—',
+        urgencyVal: c.urgency?.value||'',
         gid     : c.assignment_group?.value||'',
         gkey    : G_KEYS[c.assignment_group?.value]||'l1',
         group   : G_NAMES[c.assignment_group?.value]||'—',
@@ -239,58 +243,57 @@ function runEMSOps(userToken, userMes) {
     const classified = ativos.map(classify);
     const postList   = postMortem.map(enrichPost);
 
-    // Split by age: backlog = opened >= 20 days ago
+    // Single-pass aggregation to reduce array scans when rendering large boards
     const BACKLOG_DAYS = 20;
-    const msPerDay     = 86400000;
-    const now20        = Date.now();
-    const isBacklog    = c => (now20 - new Date(c.openedAt||0)) >= BACKLOG_DAYS * msPerDay;
-
-    const ativosItems  = classified.filter(c => !isBacklog(c));
-    const backlogItems = classified.filter(c => isBacklog(c));
-
-    const buildLanes = (sourceItems, key) => {
-      const items = sourceItems.filter(c=>c.gkey===key);
-      return {
-        critical: items.filter(c=>c.lane==='critical'),
-        high    : items.filter(c=>c.lane==='high'),
-        medium  : items.filter(c=>c.lane==='medium'),
-        awaiting: items.filter(c=>c.lane==='awaiting'),
-        normal  : items.filter(c=>c.lane==='normal'),
-        orphan  : items.filter(c=>c.lane==='orphan'),
-        total   : items.length
-      };
+    const BACKLOG_MS   = BACKLOG_DAYS * 86400000;
+    const laneNames    = ['critical','high','medium','awaiting','normal','orphan'];
+    const groupKeys    = ['l1','l2','event','all'];
+    const createGroupMap = () => {
+      const out = {};
+      groupKeys.forEach(g => {
+        out[g] = { total: 0 };
+        laneNames.forEach(l => { out[g][l] = []; });
+      });
+      return out;
     };
-    const ativosMap  = {l1:buildLanes(ativosItems,'l1'), l2:buildLanes(ativosItems,'l2'), event:buildLanes(ativosItems,'event')};
-    const backlogMap = {l1:buildLanes(backlogItems,'l1'), l2:buildLanes(backlogItems,'l2'), event:buildLanes(backlogItems,'event')};
-    const sumLane = (a,b,c,k) => [...(a[k]||[]), ...(b[k]||[]), ...(c[k]||[])];
-    ativosMap.all = {
-      critical: sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'critical'),
-      high    : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'high'),
-      medium  : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'medium'),
-      awaiting: sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'awaiting'),
-      normal  : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'normal'),
-      orphan  : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'orphan'),
-      total   : ativosMap.l1.total + ativosMap.l2.total + ativosMap.event.total
-    };
-    backlogMap.all = {
-      critical: sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'critical'),
-      high    : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'high'),
-      medium  : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'medium'),
-      awaiting: sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'awaiting'),
-      normal  : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'normal'),
-      orphan  : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'orphan'),
-      total   : backlogMap.l1.total + backlogMap.l2.total + backlogMap.event.total
-    };
-    const lanesMap   = ativosMap; // kept for KPI compat
+    const ativosMap = createGroupMap();
+    const backlogMap = createGroupMap();
 
-    const totalBreach = classified.filter(c=>c.sl.st==='breach').length;
-    const totalRisk   = classified.filter(c=>c.sl.st==='risk').length;
-    const totalOrphan = classified.filter(c=>c.noAss).length;
-    const totalAwait  = classified.filter(c=>c.isAw).length;
-    const pctHealth   = classified.length ? Math.round(((classified.length-totalBreach)/classified.length)*100) : 0;
-    const pmBreach    = postList.filter(p=>p.slaBreach).length;
-    const mttrList    = postList.filter(p=>p.mttr!==null);
-    const avgMTTR     = mttrList.length ? (mttrList.reduce((s,p)=>s+p.mttr,0)/mttrList.length).toFixed(1) : '—';
+    let totalBreach = 0;
+    let totalRisk = 0;
+    let totalOrphan = 0;
+    let totalAwait = 0;
+
+    const nowMs = Date.now();
+    classified.forEach(c => {
+      const target = (nowMs - new Date(c.openedAt || 0)) >= BACKLOG_MS ? backlogMap : ativosMap;
+      target[c.gkey].total += 1;
+      target[c.gkey][c.lane].push(c);
+      target.all.total += 1;
+      target.all[c.lane].push(c);
+
+      if (c.sl.st === 'breach') totalBreach += 1;
+      if (c.sl.st === 'risk') totalRisk += 1;
+      if (c.noAss) totalOrphan += 1;
+      if (c.isAw) totalAwait += 1;
+    });
+
+    const lanesMap = ativosMap; // kept for KPI compat
+    const pctHealth = classified.length ? Math.round(((classified.length - totalBreach) / classified.length) * 100) : 0;
+
+    let pmBreach = 0;
+    let mttrTotal = 0;
+    let mttrCount = 0;
+    postList.forEach(p => {
+      if (p.slaBreach) pmBreach += 1;
+      if (p.mttr !== null) {
+        mttrTotal += p.mttr;
+        mttrCount += 1;
+      }
+    });
+    const avgMTTR = mttrCount ? (mttrTotal / mttrCount).toFixed(1) : '—';
+    const ativosCount = ativosMap.all.total;
+    const backlogCount = backlogMap.all.total;
 
     // Card renderer
     const renderSlaBar = sl => {
@@ -310,11 +313,12 @@ function runEMSOps(userToken, userMes) {
     };
 
     const renderCard = c => `
-      <div class="card card-${c.lane}" data-sysid="${c.sysId}" data-assignedid="${c.assignedId||''}" data-assignedname="${c.assigned||''}" onclick="openCaseModal('${c.sysId}','${c.number}',this)">
+      <div class="card card-${c.lane}" data-sysid="${c.sysId}" data-assignedid="${c.assignedId||''}" data-assignedname="${c.assigned||''}" data-impact="${c.impactVal||''}" data-urgency="${c.urgencyVal||''}" onclick="openCaseModal('${c.sysId}','${c.number}',this)">
         <div class="card-top">
           <a class="card-num" href="${c.url}" target="_blank">${c.number} ↗</a>
           ${c.isAw?`<span class="badge-await">⏳ ${c.state}</span>`:''}
           ${c.isInternal?`<span class="badge-internal">🔒 Internal</span>`:''}
+          <button class="card-iu-btn" title="Alterar Impact/Urgency" data-sysid="${c.sysId}" data-impact="${c.impactVal||''}" data-urgency="${c.urgencyVal||''}" onclick="openImpactUrgencyBtn(event,this)">⚡ I/U</button>
           <button class="card-reassign-btn" title="Reatribuir" data-sysid="${c.sysId}" data-gid="${c.gid}" data-assigned="${c.assigned||''}" onclick="openReassignBtn(event,this)">👤 ✎</button>
         </div>
         <p class="card-desc">${c.desc||'—'}</p>
@@ -323,6 +327,7 @@ function runEMSOps(userToken, userMes) {
           <span class="tag" style="color:${prioColor(c.prio)};background:${prioColor(c.prio)}15;border-color:${prioColor(c.prio)}40">${c.priority}</span>
           <span class="tag tag-state">${c.state}</span>
           ${c.uType?`<span class="tag tag-type">${c.uType}</span>`:''}
+          <span class="tag tag-iu">I:${c.impactVal||'—'} · U:${c.urgencyVal||'—'}</span>
         </div>
         <div class="card-footer">
           <span class="card-assigned ${c.noAss?'unassigned':''}">${c.noAss?'⚠ Sem responsável':'👤 '+c.assigned}</span>
@@ -721,11 +726,19 @@ a{text-decoration:none;}
 .mbtn-backlog.active{background:#6E40C9;color:#fff;border-color:#6E40C9;}
 
 /* REASSIGN BUTTON */
-.card-reassign-btn{display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:10px;cursor:pointer;color:var(--muted);margin-left:auto;transition:all .15s;}
-.card:hover .card-reassign-btn{display:inline-flex;align-items:center;}
-.card-reassign-btn:hover{background:#EFF6FF;color:#0969DA;border-color:#0969DA;}
+.card-reassign-btn,.card-iu-btn{display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:10px;cursor:pointer;color:var(--muted);transition:all .15s;}
+.card-iu-btn{margin-left:auto;}
+.card:hover .card-reassign-btn,.card:hover .card-iu-btn{display:inline-flex;align-items:center;}
+.card-reassign-btn:hover,.card-iu-btn:hover{background:#EFF6FF;color:#0969DA;border-color:#0969DA;}
+.tag-iu{font-variant-numeric:tabular-nums;}
+.card.dragging{opacity:.55;transform:scale(.99);}
+.lane-body.drop-target{outline:2px dashed #0969DA;outline-offset:-4px;border-radius:8px;}
 /* REASSIGN DROPDOWN */
 .reassign-dd{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(27,31,36,.15);z-index:2000;width:210px;max-height:280px;display:flex;flex-direction:column;}
+.iu-dd{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(27,31,36,.15);z-index:2000;width:230px;padding:10px;display:flex;flex-direction:column;gap:8px;}
+.iu-dd label{font-size:10px;font-weight:600;color:#57606A;text-transform:uppercase;}
+.iu-dd select{width:100%;font-size:12px;padding:5px 6px;border:1px solid #D0D7DE;border-radius:4px;}
+.iu-dd-actions{display:flex;justify-content:flex-end;gap:6px;}
 .reassign-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:8px 12px 4px;}
 .reassign-search{padding:6px 10px;border:none;border-bottom:1px solid var(--border);font-size:12px;outline:none;font-family:var(--sans);color:var(--text);}
 .reassign-list{overflow-y:auto;flex:1;}
@@ -769,6 +782,11 @@ a{text-decoration:none;}
 .modal-journal-client .modal-j-author{color:#C2410C;}
 /* comment de sistema/automação = cinza */
 .modal-journal-cm{background:#F9FAFB;border-left-color:#9CA3AF;}
+.modal-account-btn{background:none;border:none;padding:0;text-align:left;font-size:12px;color:#0969DA;cursor:pointer;text-decoration:underline;font-family:inherit;}
+.modal-account-btn:hover{color:#1D4ED8;}
+.account-products-list{display:flex;flex-direction:column;gap:8px;max-height:42vh;overflow:auto;padding-right:4px;}
+.account-product-item{padding:8px 10px;background:#F6F8FA;border:1px solid #D0D7DE;border-radius:6px;font-size:12px;color:#24292F;}
+.account-product-empty{font-size:12px;color:#57606A;padding:8px;border:1px dashed #D0D7DE;border-radius:6px;background:#fff;}
 .modal-state-badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:500;}
 .card.modal-active{outline:2px solid #0969DA;outline-offset:1px;}
 .rt-row{display:flex;align-items:center;gap:5px;margin-bottom:3px;}
@@ -898,7 +916,7 @@ tr:hover td{background:#F6F8FA;}
   </div>
   <div class="header-right">
     <span class="h-ts">${ts}</span>
-    <span class="h-count">${mesNome} ${YEAR} · Ativos: ${classified.length} (${ativosItems.length} ativos / ${backlogItems.length} backlog) · Post-mortem: ${postList.length}</span>
+    <span class="h-count">${mesNome} ${YEAR} · Ativos: ${classified.length} (${ativosCount} ativos / ${backlogCount} backlog) · Post-mortem: ${postList.length}</span>
   </div>
 </div>
 
@@ -1069,7 +1087,7 @@ tr:hover td{background:#F6F8FA;}
     <div class="section-hdr" onclick="toggleSection('ativos')">
       <span class="section-icon" id="section-icon-ativos">▾</span>
       <span class="section-title">📋 Cases Ativos</span>
-      <span class="section-badge" id="section-badge-ativos">${ativosItems.length} cases · <20 dias</span>
+      <span class="section-badge" id="section-badge-ativos">${ativosCount} cases · <20 dias</span>
       <button class="section-refresh-btn" onclick="event.stopPropagation();refreshKanban()" title="Atualizar Cases Ativos">↺</button>
     </div>
     <div class="section-body" id="section-body-ativos">
@@ -1097,7 +1115,7 @@ tr:hover td{background:#F6F8FA;}
     <div class="section-hdr" onclick="toggleSection('backlog-tab')">
       <span class="section-icon" id="section-icon-backlog-tab">▾</span>
       <span class="section-title">📦 Backlog</span>
-      <span class="section-badge" id="section-badge-backlog-tab">${backlogItems.length} cases · ≥20 dias</span>
+      <span class="section-badge" id="section-badge-backlog-tab">${backlogCount} cases · ≥20 dias</span>
       <button class="section-refresh-btn" onclick="event.stopPropagation();refreshBacklog()" title="Atualizar Backlog">↺</button>
     </div>
     <div class="section-body" id="section-body-backlog-tab">
@@ -1203,6 +1221,24 @@ window._GMEMBERS=${gmembersJson};
 window._GID_MAP={'all':_IDS,'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
 window._MANAGER_CACHE={};
 window._MSH_NOC_GID=undefined;
+window._REPORTS_FETCH_CACHE={ttlMs:30000,entries:{},inflight:{}};
+
+function fetchJsonCached(url, options){
+  const now=Date.now();
+  const cache=window._REPORTS_FETCH_CACHE;
+  const key=url;
+  const hit=cache.entries[key];
+  if(hit && now-hit.ts<cache.ttlMs) return Promise.resolve(hit.data);
+  if(cache.inflight[key]) return cache.inflight[key];
+  cache.inflight[key]=fetch(url,options)
+    .then(r=>r.json())
+    .then(data=>{
+      cache.entries[key]={ts:Date.now(),data};
+      return data;
+    })
+    .finally(()=>{delete cache.inflight[key];});
+  return cache.inflight[key];
+}
 
 async function ensureMshNocGroupId(){
   if(window._MSH_NOC_GID!==undefined) return window._MSH_NOC_GID;
@@ -1374,6 +1410,80 @@ function showPage(id,el){
   }
 }
 
+
+const _LANE_IU_MAP={
+  critical:{impact:'1',urgency:'1'},
+  high:{impact:'1',urgency:'2'},
+  medium:{impact:'2',urgency:'2'},
+  awaiting:{impact:'3',urgency:'3'},
+  normal:{impact:'3',urgency:'3'},
+  orphan:{impact:'3',urgency:'3'}
+};
+let _dragCard=null;
+
+function refreshLaneCountersInBoard(boardInner){
+  if(!boardInner) return;
+  boardInner.querySelectorAll('.lane[data-lane]').forEach(lane=>{
+    const countEl=lane.querySelector('.lane-count');
+    if(countEl) countEl.textContent=String(lane.querySelectorAll('.lane-body .card').length);
+  });
+}
+
+function applyImpactUrgencyFromLane(card,laneKey){
+  const map=_LANE_IU_MAP[laneKey];
+  const sysId=card?.dataset?.sysid;
+  if(!card||!map||!sysId) return Promise.resolve(false);
+  return patchCase(sysId,{impact:map.impact,urgency:map.urgency}).then(ok=>{
+    if(ok){
+      syncImpactUrgencyInUI(sysId,map.impact,map.urgency);
+      showToast('✅ Impact/Urgency ajustado para '+laneKey);
+      if(_modalSysId===sysId){
+        const numEl=document.getElementById('modal-num');
+        if(numEl) setTimeout(()=>openCaseModal(sysId,numEl.textContent,_modalActiveCard||card),250);
+      }
+      return true;
+    }
+    showToast('❌ Não foi possível ajustar Impact/Urgency','error');
+    return false;
+  });
+}
+
+function initCardDragAndDrop(){
+  const board=document.getElementById('board-wrap');
+  if(!board) return;
+  board.querySelectorAll('.card').forEach(card=>{
+    if(card.dataset.dragReady==='1') return;
+    card.dataset.dragReady='1';
+    card.draggable=true;
+    card.addEventListener('dragstart',()=>{_dragCard=card;card.classList.add('dragging');});
+    card.addEventListener('dragend',()=>{card.classList.remove('dragging');_dragCard=null;board.querySelectorAll('.lane-body.drop-target').forEach(el=>el.classList.remove('drop-target'));});
+  });
+
+  board.querySelectorAll('.lane .lane-body').forEach(body=>{
+    if(body.dataset.dropReady==='1') return;
+    body.dataset.dropReady='1';
+    body.addEventListener('dragover',e=>{e.preventDefault();body.classList.add('drop-target');});
+    body.addEventListener('dragleave',()=>body.classList.remove('drop-target'));
+    body.addEventListener('drop',e=>{
+      e.preventDefault();
+      body.classList.remove('drop-target');
+      if(!_dragCard) return;
+      if(_dragCard.parentElement!==body){
+        body.insertBefore(_dragCard,body.firstChild);
+      }
+      const laneEl=body.closest('.lane');
+      const laneKey=laneEl?.dataset?.lane||'';
+      if(laneKey){
+        Array.from(_dragCard.classList).filter(c=>c.startsWith('card-')).forEach(c=>_dragCard.classList.remove(c));
+        _dragCard.classList.add('card-'+laneKey);
+      }
+      refreshLaneCountersInBoard(board.querySelector('.board-inner'));
+      if(laneKey) applyImpactUrgencyFromLane(_dragCard,laneKey);
+      reapplyAnalystFilters();
+    });
+  });
+}
+
 function switchFila(key){
   currentFila=key;
   const ativosBoards={'l1':${JSON.stringify(renderBoard('l1',ativosMap))},'l2':${JSON.stringify(renderBoard('l2',ativosMap))},'event':${JSON.stringify(renderBoard('event',ativosMap))}};
@@ -1382,6 +1492,7 @@ function switchFila(key){
   const bBacklog=document.getElementById('board-wrap-backlog');
   if(bAtivos)bAtivos.innerHTML=ativosBoards[key]||'';
   if(bBacklog)bBacklog.innerHTML=backlogBoards[key]||'';
+  initCardDragAndDrop();
   const ba=document.getElementById('section-badge-ativos');
   if(ba){const c=(ativosBoards[key]||'').match(/data-count="(\d+)"/g)||[];const tot=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,'')),0);ba.textContent=tot+' cases · <20 dias';}
   const tbl=document.getElementById('_at_'+key)?.innerHTML||'';
@@ -1507,16 +1618,16 @@ function fetchAccordionScores(){
   // Sem Type
   const elST=document.getElementById('sem-type-score');
   if(elST){elST.textContent='…';
-    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('stateIN1,10,21^u_typeISEMPTY^'+grpQ+assigneeF+yearOpenedF)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
-    .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elST.textContent=c;elST.style.color=c===0?'#1A7F37':'#CF222E';}).catch(()=>{elST.textContent='?';});
+    fetchJsonCached(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('stateIN1,10,21^u_typeISEMPTY^'+grpQ+assigneeF+yearOpenedF)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    .then(d=>{const c=parseInt(d.result?.stats?.count||0);elST.textContent=c;elST.style.color=c===0?'#1A7F37':'#CF222E';}).catch(()=>{elST.textContent='?';});
   }
 
   // Last Interacted by Client
   const elLI=document.getElementById('last-interacted-score');
   if(elLI){elLI.textContent='…';
     const liQ='stateIN32,1,10,21,90,18,8,5,29,30,2^u_customer_last_interactionISNOTEMPTY^u_type!=7^'+grpQ+assigneeF+yearOpenedF;
-    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(liQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
-    .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elLI.textContent=c;elLI.style.color=c>0?'#0969DA':'#1A7F37';}).catch(()=>{elLI.textContent='?';});
+    fetchJsonCached(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(liQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    .then(d=>{const c=parseInt(d.result?.stats?.count||0);elLI.textContent=c;elLI.style.color=c>0?'#0969DA':'#1A7F37';}).catch(()=>{elLI.textContent='?';});
   }
 
   // Resolvidos no Mês — 3 cards KPI (L1/L2/Event)
@@ -1531,8 +1642,8 @@ function fetchAccordionScores(){
     elRM.textContent='…';
     const qGid=window._GID_MAP?.[t.key]||'';
     const rmQ='resolved_atONThis month@javascript:gs.beginningOfThisMonth()@javascript:gs.endOfThisMonth()^assignment_group='+qGid+assigneeF+'^stateIN33,34,6,3^contact_typeNOT INautomation^u_recurrence_case=false^u_operating_countryINBR';
-    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(rmQ)+'&sysparm_count=true',{headers:h})
-    .then(r=>r.json()).then(d=>{
+    fetchJsonCached(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(rmQ)+'&sysparm_count=true',{headers:h})
+    .then(d=>{
       const total=parseInt(d.result?.stats?.count||0);
       elRM.textContent=total;
     }).catch(()=>{elRM.textContent='?';});
@@ -1542,8 +1653,8 @@ function fetchAccordionScores(){
   const elSA=document.getElementById('support-attention-score');
   if(elSA){elSA.textContent='…';
     const saQ='u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^'+grpQ+assigneeF+yearOpenedF;
-    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(saQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
-    .then(r=>r.json()).then(d=>{
+    fetchJsonCached(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(saQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    .then(d=>{
       const c=parseInt(d.result?.stats?.count||0);
       elSA.textContent=c;
       elSA.style.color=c>0?'#BF8700':'#1A7F37';
@@ -1579,8 +1690,8 @@ function fetchAccordionScores(){
   // Rating EMS Year
   if(elRating){
     const rQ=_ratingBase+_buildRatingSuffix(null);
-    fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(rQ)+'&sysparm_avg_fields=mr_actual_value&sysparm_count=true&sysparm_display_value=all',{headers:h})
-    .then(r=>r.json()).then(d=>{
+    fetchJsonCached(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(rQ)+'&sysparm_avg_fields=mr_actual_value&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    .then(d=>{
       const avg=parseFloat(d.result?.stats?.avg?.mr_actual_value||0);
       elRating.textContent=avg>0?avg.toFixed(2):'—';
       elRating.style.color=avg>=4?'#1A7F37':avg>=3?'#BF8700':'#CF222E';
@@ -1593,8 +1704,8 @@ function fetchAccordionScores(){
     ensureMshNocGroupId().then(mshGid=>{
     const csQ=_ratingBase+_buildRatingSuffix(mshGid||'');
     // group_by=mr_actual_value,cse_assigned_to — note: SN returns fields in order [assigned_to, value]
-    fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(csQ)+'&sysparm_group_by=mr_actual_value,cse_assigned_to&sysparm_count=true&sysparm_display_value=all&sysparm_limit=200',{headers:h})
-    .then(r=>r.json()).then(d=>{
+    fetchJsonCached(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(csQ)+'&sysparm_group_by=mr_actual_value,cse_assigned_to&sysparm_count=true&sysparm_display_value=all&sysparm_limit=200',{headers:h})
+    .then(d=>{
       const rows=d.result||[];
       let promoters=0,detractors=0,total=0;
       rows.forEach(row=>{
@@ -1821,6 +1932,77 @@ function doReassign(sysId,userId,userName,groupId,el){
   });
 }
 
+
+let _iuDd=null;
+function openImpactUrgencyBtn(e,btn){
+  e.stopPropagation();
+  openImpactUrgencyEditor(e,btn.dataset.sysid||'',btn.dataset.impact||'',btn.dataset.urgency||'');
+}
+
+function openImpactUrgencyEditor(e,sysId,currentImpact,currentUrgency){
+  e.stopPropagation();e.preventDefault();
+  if(_iuDd){_iuDd.remove();_iuDd=null;return;}
+
+  const dd=document.createElement('div');dd.className='iu-dd';
+  dd.innerHTML =
+    '<label>Impact</label>' +
+    '<select id="iu-impact"><option value="1">1 - Alto</option><option value="2">2 - Médio</option><option value="3">3 - Baixo</option></select>' +
+    '<label>Urgency</label>' +
+    '<select id="iu-urgency"><option value="1">1 - Alto</option><option value="2">2 - Médio</option><option value="3">3 - Baixo</option></select>' +
+    '<div class="iu-dd-actions">' +
+      '<button type="button" onclick="closeImpactUrgencyEditor()" style="font-size:11px;padding:4px 8px;border:1px solid #D0D7DE;background:#fff;border-radius:4px;cursor:pointer;">Cancelar</button>' +
+      '<button type="button" id="iu-save-btn" style="font-size:11px;padding:4px 8px;border:1px solid #0969DA;background:#0969DA;color:#fff;border-radius:4px;cursor:pointer;">Salvar</button>' +
+    '</div>';
+
+  document.body.appendChild(dd);_iuDd=dd;
+  const rect=e.target?.getBoundingClientRect?.()|| {bottom:window.innerHeight/2,left:window.innerWidth/2};
+  dd.style.top=Math.min(rect.bottom+4,window.innerHeight-220)+'px';
+  dd.style.left=Math.min(rect.left,window.innerWidth-240)+'px';
+
+  const impactSel=dd.querySelector('#iu-impact');
+  const urgencySel=dd.querySelector('#iu-urgency');
+  if(impactSel) impactSel.value=(currentImpact||'3');
+  if(urgencySel) urgencySel.value=(currentUrgency||'3');
+  dd.querySelector('#iu-save-btn').onclick=()=>saveImpactUrgency(sysId,impactSel?.value||'3',urgencySel?.value||'3');
+
+  setTimeout(()=>{document.addEventListener('click',closeImpactUrgencyOutside);},0);
+}
+
+function closeImpactUrgencyOutside(e){
+  if(_iuDd&&!_iuDd.contains(e.target)){closeImpactUrgencyEditor();}
+}
+
+function closeImpactUrgencyEditor(){
+  if(_iuDd){_iuDd.remove();_iuDd=null;}
+  document.removeEventListener('click',closeImpactUrgencyOutside);
+}
+
+function syncImpactUrgencyInUI(sysId,impact,urgency){
+  document.querySelectorAll('.card[data-sysid="'+sysId+'"]').forEach(card=>{
+    card.dataset.impact=impact;card.dataset.urgency=urgency;
+    const tag=card.querySelector('.tag-iu');
+    if(tag) tag.textContent='I:'+impact+' · U:'+urgency;
+    const iuBtn=card.querySelector('.card-iu-btn');
+    if(iuBtn){iuBtn.dataset.impact=impact;iuBtn.dataset.urgency=urgency;}
+  });
+}
+
+function saveImpactUrgency(sysId,impact,urgency){
+  patchCase(sysId,{impact,urgency}).then(ok=>{
+    if(ok){
+      syncImpactUrgencyInUI(sysId,impact,urgency);
+      showToast('✅ Impact/Urgency atualizado');
+      closeImpactUrgencyEditor();
+      if(_modalSysId===sysId){
+        const numEl=document.getElementById('modal-num');
+        if(numEl) setTimeout(()=>openCaseModal(sysId,numEl.textContent,_modalActiveCard||document.createElement('div')),250);
+      }
+    } else {
+      showToast('❌ Erro ao atualizar Impact/Urgency','error');
+    }
+  });
+}
+
 // ── API patch ──────────────────────────────────────────────────────────────
 async function patchCase(sysId,data){
   try{
@@ -2021,8 +2203,8 @@ function openCaseModal(sysId, number, cardEl) {
   const noteTA  = document.getElementById('modal-note-ta');
 
   overlay.style.display = 'block';
-  overlay.style.pointerEvents = 'none';
-  modal.style.transform = 'translateX(0)';
+  overlay.style.pointerEvents = 'all';
+  modal.style.transform = 'translate(-50%, -50%) scale(1)';
   numEl.textContent = number;
   link.href = _BASE + '/sn_customerservice_case.do?sysparm_query=number=' + number;
   if (noteTA) noteTA.value = '';
@@ -2069,10 +2251,32 @@ function openCaseModal(sysId, number, cardEl) {
           detailItem('State', '<span class="modal-state-badge" style="'+sc+'">'+val(c.state)+'</span>') +
           detailItem('Prioridade', '<span style="color:'+( prioColor[c.priority?.value]||'#57606A')+';font-weight:600">'+val(c.priority)+'</span>') +
           detailItem('Analista', val(c.assigned_to)) +
-          detailItem('Account', val(c.account)) +
+          '<div class="modal-detail-item">'+
+            '<span class="modal-detail-lbl">Account</span>'+
+            '<button type="button" id="modal-account-btn" class="modal-account-btn">'+val(c.account)+'</button>'+
+          '</div>' +
           '<div class="modal-detail-item" id="modal-contact-info"><span class="modal-detail-lbl">Contato</span><span class="modal-detail-val" style="color:#57606A;font-size:11px;">Carregando...</span></div>' +
-          detailItem('Impact', val(c.impact)) +
-          detailItem('Urgency', val(c.urgency)) +
+          '<div class="modal-detail-item">'+
+            '<span class="modal-detail-lbl">Impact</span>'+
+            '<div style="display:flex;gap:6px;align-items:center;">'+
+              '<select id="modal-impact" style="font-size:12px;padding:4px 6px;border:1px solid #D0D7DE;border-radius:4px;">'+
+                '<option value="1" '+((c.impact?.value==='1')?'selected':'')+'>1 - Alto</option>'+
+                '<option value="2" '+((c.impact?.value==='2')?'selected':'')+'>2 - Médio</option>'+
+                '<option value="3" '+((c.impact?.value==='3')?'selected':'')+'>3 - Baixo</option>'+
+              '</select>'+
+            '</div>'+
+          '</div>' +
+          '<div class="modal-detail-item">'+
+            '<span class="modal-detail-lbl">Urgency</span>'+
+            '<div style="display:flex;gap:6px;align-items:center;">'+
+              '<select id="modal-urgency" style="font-size:12px;padding:4px 6px;border:1px solid #D0D7DE;border-radius:4px;">'+
+                '<option value="1" '+((c.urgency?.value==='1')?'selected':'')+'>1 - Alto</option>'+
+                '<option value="2" '+((c.urgency?.value==='2')?'selected':'')+'>2 - Médio</option>'+
+                '<option value="3" '+((c.urgency?.value==='3')?'selected':'')+'>3 - Baixo</option>'+
+              '</select>'+
+              '<button type="button" onclick="saveModalImpactUrgency()" style="font-size:11px;padding:4px 8px;border:1px solid #0969DA;background:#0969DA;color:#fff;border-radius:4px;cursor:pointer;">Salvar</button>'+
+            '</div>'+
+          '</div>' +
           detailItem('Tipo', val(c.u_type)) +
           detailItem('Aberto em', fmtDate(c.opened_at?.value)) +
         '</div>' +
@@ -2119,6 +2323,13 @@ function openCaseModal(sysId, number, cardEl) {
           '</div>';
         }).join('') : '<div style="color:#57606A;font-size:12px;">Nenhuma nota ainda.</div>') +
       '</div>';
+
+    const accountBtn=document.getElementById('modal-account-btn');
+    if(accountBtn){
+      const accountId=c.account?.value||'';
+      const accountName=val(c.account);
+      accountBtn.onclick=()=>openAccountProductsModal(accountId,accountName);
+    }
   }).catch(e => {
     body.innerHTML = '<div style="color:#CF222E;padding:20px;">Erro: '+e.message+'</div>';
   });
@@ -2128,10 +2339,57 @@ function detailItem(label, valueHtml) {
   return '<div class="modal-detail-item"><span class="modal-detail-lbl">'+label+'</span><span class="modal-detail-val">'+valueHtml+'</span></div>';
 }
 
+function openAccountProductsModal(accountId, accountName){
+  const ov=document.getElementById('account-products-overlay');
+  const nameEl=document.getElementById('account-products-name');
+  const listEl=document.getElementById('account-products-list');
+  if(!ov||!nameEl||!listEl) return;
+  nameEl.textContent=accountName||'—';
+  ov.style.display='flex';
+  listEl.innerHTML='<div class="account-product-empty">Carregando produtos/serviços...</div>';
+
+  if(!accountId){
+    listEl.innerHTML='<div class="account-product-empty">Account sem referência para consulta.</div>';
+    return;
+  }
+
+  const h={'Accept':'application/json','X-UserToken':_TOK};
+  const q='account='+accountId+'^active=true';
+  const url=_BASE+'/api/now/table/sn_customerservice_entitlement?sysparm_query='+encodeURIComponent(q)+'&sysparm_fields=name,service_offering,u_service,u_product,product_model&sysparm_display_value=all&sysparm_limit=100';
+
+  fetch(url,{headers:h})
+    .then(r=>r.ok?r.json():Promise.reject(new Error('entitlement unavailable')))
+    .then(d=>{
+      const rows=d.result||[];
+      const items=[];
+      rows.forEach(row=>{
+        const n=row.name?.display_value||row.name?.value||'';
+        const so=row.service_offering?.display_value||row.service_offering?.value||'';
+        const sv=row.u_service?.display_value||row.u_service?.value||'';
+        const pr=row.u_product?.display_value||row.u_product?.value||row.product_model?.display_value||row.product_model?.value||'';
+        [n,so,sv,pr].filter(Boolean).forEach(v=>items.push(v));
+      });
+      const uniq=[...new Set(items)];
+      if(!uniq.length){
+        listEl.innerHTML='<div class="account-product-empty">Nenhum item encontrado para este account.</div>';
+        return;
+      }
+      listEl.innerHTML='<div class="account-products-list">'+uniq.map(v=>'<div class="account-product-item">'+v+'</div>').join('')+'</div>';
+    })
+    .catch(()=>{
+      listEl.innerHTML='<div class="account-product-empty">Não foi possível carregar produtos/serviços agora.</div>';
+    });
+}
+
+function closeAccountProductsModal(){
+  const ov=document.getElementById('account-products-overlay');
+  if(ov) ov.style.display='none';
+}
+
 function closeCaseModal() {
   const modal = document.getElementById('case-modal');
   const overlay = document.getElementById('case-modal-overlay');
-  modal.style.transform = 'translateX(100%)';
+  modal.style.transform = 'translate(-50%, -48%) scale(0.96)';
   setTimeout(() => { overlay.style.display = 'none'; }, 260);
   if (_modalActiveCard) { _modalActiveCard.classList.remove('modal-active'); _modalActiveCard = null; }
   _modalSysId = null;
@@ -2172,6 +2430,22 @@ function saveModal() {
   }).catch(() => showToast('❌ Erro de conexão','error'));
 }
 
+
+function saveModalImpactUrgency(){
+  if(!_modalSysId) return;
+  const impact=document.getElementById('modal-impact')?.value;
+  const urgency=document.getElementById('modal-urgency')?.value;
+  if(!impact||!urgency){showToast('Selecione Impact e Urgency','warn');return;}
+  patchCase(_modalSysId,{impact,urgency}).then(ok=>{
+    if(ok){
+      syncImpactUrgencyInUI(_modalSysId,impact,urgency);
+      showToast('✅ Impact/Urgency salvo');
+      const numEl=document.getElementById('modal-num');
+      if(numEl) setTimeout(()=>openCaseModal(_modalSysId,numEl.textContent,_modalActiveCard||document.createElement('div')),250);
+    }else showToast('❌ Erro ao salvar Impact/Urgency','error');
+  });
+}
+
 function modalReassign() {
   if (!_modalSysId) return;
   const gid = window._GID_MAP?.[currentFila] || '';
@@ -2206,6 +2480,11 @@ document.addEventListener('click', e => {
   const modal   = document.getElementById('case-modal');
   if (overlay && overlay.style.display !== 'none' && modal && !modal.contains(e.target) && !e.target.closest('.card')) {
     closeCaseModal();
+  }
+
+  const accOverlay=document.getElementById('account-products-overlay');
+  if(accOverlay && accOverlay.style.display!=='none' && e.target===accOverlay){
+    closeAccountProductsModal();
   }
 });
 
@@ -2275,6 +2554,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   // Start layered polling
 	  startPolling();
+    initCardDragAndDrop();
 	});
 
   // ── Delta Polling (Real-time updates) ──────────────────────────────────
@@ -2288,7 +2568,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     
     const _HEADERS = { 'Accept': 'application/json', 'X-UserToken': _TOK };
     const _G_IDS = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
-    const _FIELDS = 'number,short_description,priority,state,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
+    const _FIELDS = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
 
     async function fetchDeltas() {
       const query = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>' + lastSyncTime;
@@ -2364,8 +2644,15 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
         const sTag = tags.querySelector('.tag-state');
         if (sTag) sTag.textContent = data.state.display_value;
+        const iuTag = tags.querySelector('.tag-iu');
+        if (iuTag) iuTag.textContent = 'I:' + (data.impact?.value||'—') + ' · U:' + (data.urgency?.value||'—');
       }
       
+      const iuBtn = card.querySelector('.card-iu-btn');
+      if (iuBtn) { iuBtn.dataset.impact = data.impact?.value || ''; iuBtn.dataset.urgency = data.urgency?.value || ''; }
+      card.dataset.impact = data.impact?.value || '';
+      card.dataset.urgency = data.urgency?.value || '';
+
       const footer = card.querySelector('.card-footer');
       if (footer) {
         const ass = footer.querySelector('.card-assigned');
@@ -2391,8 +2678,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   })();
 	<\/script>
 <!-- Case Modal -->
-<div id="case-modal-overlay" style="display:none;position:fixed;inset:0;z-index:500;pointer-events:none;">
-  <div id="case-modal" style="position:absolute;top:0;right:0;height:100%;width:440px;background:#fff;border-left:1px solid #D0D7DE;display:flex;flex-direction:column;pointer-events:all;transform:translateX(100%);transition:transform .25s ease;">
+<div id="case-modal-overlay" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);">
+  <div id="case-modal" style="position:absolute;top:50%;left:50%;width:min(920px,92vw);height:min(88vh,820px);background:#fff;border:1px solid #D0D7DE;border-radius:12px;display:flex;flex-direction:column;transform:translate(-50%, -48%) scale(0.96);transition:transform .18s ease;box-shadow:0 20px 55px rgba(15,23,42,.35);overflow:hidden;">
     <div id="modal-hdr" style="padding:12px 14px;border-bottom:1px solid #D0D7DE;background:#F6F8FA;display:flex;align-items:center;gap:8px;">
       <div style="flex:1">
         <div style="font-size:10px;color:#57606A;margin-bottom:2px;">Case</div>
@@ -2421,6 +2708,24 @@ document.addEventListener('DOMContentLoaded',()=>{
         <button onclick="closeCaseModal()" style="font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;">Cancelar</button>
         <button onclick="saveModal()" style="font-size:11px;padding:4px 14px;border-radius:4px;cursor:pointer;border:1px solid #0969DA;background:#0969DA;color:#fff;font-weight:600;">Salvar no Snow</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<div id="account-products-overlay" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(15,23,42,.55);align-items:center;justify-content:center;">
+  <div style="width:min(620px,92vw);max-height:82vh;background:#fff;border:1px solid #D0D7DE;border-radius:12px;box-shadow:0 20px 55px rgba(15,23,42,.35);display:flex;flex-direction:column;overflow:hidden;">
+    <div style="padding:12px 14px;border-bottom:1px solid #D0D7DE;background:#F6F8FA;display:flex;align-items:center;gap:8px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:10px;color:#57606A;">Produtos/Serviços do Account</div>
+        <div id="account-products-name" style="font-size:13px;font-weight:700;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+      </div>
+      <button onclick="closeAccountProductsModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#57606A;width:28px;height:28px;">✕</button>
+    </div>
+    <div id="account-products-list" style="padding:12px 14px;overflow:auto;">
+      <div class="account-product-empty">Carregando...</div>
+    </div>
+    <div style="padding:10px 14px;border-top:1px solid #D0D7DE;display:flex;justify-content:flex-end;">
+      <button onclick="closeAccountProductsModal()" style="font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;">Fechar</button>
     </div>
   </div>
 </div>
