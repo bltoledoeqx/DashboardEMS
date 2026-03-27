@@ -2362,7 +2362,7 @@ function openAccountProductsModal(accountId, accountName){
   }
 
   const h={'Accept':'application/json','X-UserToken':_TOK};
-  const cmdbSerialFilter='^serial_numberISNOTEMPTY^serial_number!=NA^serial_number!=N/A^serial_number!=null^install_status!=7';
+  const cmdbSerialFilter='^serial_numberISNOTEMPTY^serial_number!=NA^serial_number!=N/A^serial_number!=null';
   const swActiveFilter='^active=true';
   const fetchTable = (table, query, fields) => {
     const url=_BASE+'/api/now/table/'+table+'?sysparm_query='+encodeURIComponent(query)+'&sysparm_fields='+fields+'&sysparm_display_value=all&sysparm_limit=500';
@@ -2413,20 +2413,29 @@ function openAccountProductsModal(accountId, accountName){
   };
 
   const renderSwSection = rows => {
+    const seen = new Set();
     const filtered = rows
       .map(r=>({
+        hostname: r.hostname?.display_value||r.hostname?.value||r.cmdb_ci?.display_value||r.cmdb_ci?.value||r.name?.display_value||r.name?.value||'—',
         toInstall: r.software_to_install?.display_value||r.software_to_install?.value||r.u_software_to_install?.display_value||r.u_software_to_install?.value||'—',
         manufacturer: r.manufacturer?.display_value||r.manufacturer?.value||r.u_manufacturer?.display_value||r.u_manufacturer?.value||'—',
-        licensingModel: r.software_licensing_model?.display_value||r.software_licensing_model?.value||r.u_software_licensing_model?.display_value||r.u_software_licensing_model?.value||'—',
-        quantity: r.software_quantity?.display_value||r.software_quantity?.value||r.u_software_quantity?.display_value||r.u_software_quantity?.value||r.quantity?.display_value||r.quantity?.value||'—'
-      }));
+        licensingModel: r.software_licensing_model?.display_value||r.software_licensing_model?.value||r.u_software_licensing_model?.display_value||r.u_software_licensing_model?.value||r.licensing_model?.display_value||r.licensing_model?.value||r.u_licensing_model?.display_value||r.u_licensing_model?.value||'—',
+        quantity: r.install_count?.display_value||r.install_count?.value||r.u_install_count?.display_value||r.u_install_count?.value||r.software_quantity?.display_value||r.software_quantity?.value||r.u_software_quantity?.display_value||r.u_software_quantity?.value||r.quantity?.display_value||r.quantity?.value||'—'
+      }))
+      .filter(i=>[i.hostname,i.toInstall,i.manufacturer,i.licensingModel,i.quantity].some(v=>v && v!=='—'))
+      .filter(i=>{
+        const key=[i.hostname,i.toInstall,i.manufacturer,i.licensingModel,i.quantity].join('|');
+        if(seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
     if(!filtered.length){
       return '<div class="acc-sec"><div class="acc-sec-h">u_cmdb_ci_dedicated_software: Licenças de software contratadas <span class="acc-sec-sub">0 itens</span></div><div style="padding:10px;"><div class="account-product-empty">Nenhuma licença ativa encontrada.</div></div></div>';
     }
     return '<div class="acc-sec">'+
       '<div class="acc-sec-h">u_cmdb_ci_dedicated_software: Licenças de software contratadas <span class="acc-sec-sub">'+filtered.length+' itens</span></div>'+
-      '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>Software to Install</th><th>Manufacturer</th><th>Licensing Model</th><th>Software Quantity</th></tr></thead><tbody>'+
-      filtered.map(i=>'<tr><td>'+i.toInstall+'</td><td>'+i.manufacturer+'</td><td>'+i.licensingModel+'</td><td class="acc-cell-muted">'+i.quantity+'</td></tr>').join('')+
+      '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>Hostname</th><th>Software to Install</th><th>Manufacturer</th><th>Licensing Model</th><th>Software Quantity</th></tr></thead><tbody>'+
+      filtered.map(i=>'<tr><td>'+i.hostname+'</td><td>'+i.toInstall+'</td><td>'+i.manufacturer+'</td><td>'+i.licensingModel+'</td><td class="acc-cell-muted">'+i.quantity+'</td></tr>').join('')+
       '</tbody></table></div></div>';
   };
 
@@ -2454,7 +2463,7 @@ function openAccountProductsModal(accountId, accountName){
         'customer_account.name='+accountName+swActiveFilter,
         'cmdb_ci.company.name='+accountName+swActiveFilter
       ],
-      'active,software_to_install,u_software_to_install,manufacturer,u_manufacturer,software_licensing_model,u_software_licensing_model,software_quantity,u_software_quantity,quantity'
+      'active,hostname,name,cmdb_ci,software_to_install,u_software_to_install,manufacturer,u_manufacturer,software_licensing_model,u_software_licensing_model,licensing_model,u_licensing_model,software_quantity,u_software_quantity,quantity,install_count,u_install_count'
     )
   ])
   .then(([cmdbRows, swRows])=>{
