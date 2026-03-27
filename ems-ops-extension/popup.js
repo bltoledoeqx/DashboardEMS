@@ -2354,31 +2354,121 @@ function openAccountProductsModal(accountId, accountName){
   }
 
   const h={'Accept':'application/json','X-UserToken':_TOK};
-  const q='account='+accountId+'^active=true';
-  const url=_BASE+'/api/now/table/sn_customerservice_entitlement?sysparm_query='+encodeURIComponent(q)+'&sysparm_fields=name,service_offering,u_service,u_product,product_model&sysparm_display_value=all&sysparm_limit=100';
+  const candidates=[
+    {
+      table:'sn_customerservice_contract_item',
+      query:'account='+accountId,
+      fields:'name,short_description,service_offering,u_service,u_product,product_model,contract',
+      pick:row=>[
+        row.name?.display_value||row.name?.value||'',
+        row.short_description?.display_value||row.short_description?.value||'',
+        row.service_offering?.display_value||row.service_offering?.value||'',
+        row.u_service?.display_value||row.u_service?.value||'',
+        row.u_product?.display_value||row.u_product?.value||'',
+        row.product_model?.display_value||row.product_model?.value||'',
+        row.contract?.display_value||row.contract?.value||'',
+      ]
+    },
+    {
+      table:'sn_customerservice_contract_item',
+      query:'customer_account='+accountId,
+      fields:'name,short_description,service_offering,u_service,u_product,product_model,contract',
+      pick:row=>[
+        row.name?.display_value||row.name?.value||'',
+        row.short_description?.display_value||row.short_description?.value||'',
+        row.service_offering?.display_value||row.service_offering?.value||'',
+        row.u_service?.display_value||row.u_service?.value||'',
+        row.u_product?.display_value||row.u_product?.value||'',
+        row.product_model?.display_value||row.product_model?.value||'',
+        row.contract?.display_value||row.contract?.value||'',
+      ]
+    },
+    {
+      table:'sn_customerservice_contract_item',
+      query:'u_account='+accountId,
+      fields:'name,short_description,service_offering,u_service,u_product,product_model,contract',
+      pick:row=>[
+        row.name?.display_value||row.name?.value||'',
+        row.short_description?.display_value||row.short_description?.value||'',
+        row.service_offering?.display_value||row.service_offering?.value||'',
+        row.u_service?.display_value||row.u_service?.value||'',
+        row.u_product?.display_value||row.u_product?.value||'',
+        row.product_model?.display_value||row.product_model?.value||'',
+        row.contract?.display_value||row.contract?.value||'',
+      ]
+    },
+    {
+      table:'sold_product',
+      query:'account='+accountId,
+      fields:'display_name,name,product_model,model,service_offering,u_product,u_service',
+      pick:row=>[
+        row.display_name?.display_value||row.display_name?.value||'',
+        row.name?.display_value||row.name?.value||'',
+        row.product_model?.display_value||row.product_model?.value||'',
+        row.model?.display_value||row.model?.value||'',
+        row.service_offering?.display_value||row.service_offering?.value||'',
+        row.u_product?.display_value||row.u_product?.value||'',
+        row.u_service?.display_value||row.u_service?.value||'',
+      ]
+    },
+    {
+      table:'cmdb_ci_service',
+      query:'company='+accountId+'^install_status!=7',
+      fields:'name,business_service,service_classification',
+      pick:row=>[
+        row.name?.display_value||row.name?.value||'',
+        row.business_service?.display_value||row.business_service?.value||'',
+        row.service_classification?.display_value||row.service_classification?.value||'',
+      ]
+    },
+    {
+      table:'u_account_product',
+      query:'u_account='+accountId,
+      fields:'name,u_product,u_service,short_description',
+      pick:row=>[
+        row.name?.display_value||row.name?.value||'',
+        row.u_product?.display_value||row.u_product?.value||'',
+        row.u_service?.display_value||row.u_service?.value||'',
+        row.short_description?.display_value||row.short_description?.value||'',
+      ]
+    }
+  ];
 
-  fetch(url,{headers:h})
-    .then(r=>r.ok?r.json():Promise.reject(new Error('entitlement unavailable')))
-    .then(d=>{
-      const rows=d.result||[];
-      const items=[];
-      rows.forEach(row=>{
-        const n=row.name?.display_value||row.name?.value||'';
-        const so=row.service_offering?.display_value||row.service_offering?.value||'';
-        const sv=row.u_service?.display_value||row.u_service?.value||'';
-        const pr=row.u_product?.display_value||row.u_product?.value||row.product_model?.display_value||row.product_model?.value||'';
-        [n,so,sv,pr].filter(Boolean).forEach(v=>items.push(v));
+  const tryCandidate=idx=>{
+    if(idx>=candidates.length){
+      listEl.innerHTML='<div class="account-product-empty">Não foi possível localizar a tabela de produtos/serviços nesta instância.</div>';
+      return;
+    }
+    const c=candidates[idx];
+    const url=_BASE+'/api/now/table/'+c.table+'?sysparm_query='+encodeURIComponent(c.query)+'&sysparm_fields='+c.fields+'&sysparm_display_value=all&sysparm_limit=100';
+    fetch(url,{headers:h})
+      .then(async r=>{
+        if(!r.ok){
+          const txt=await r.text().catch(()=>'');
+          const err=new Error('HTTP '+r.status);
+          err.status=r.status;
+          err.body=txt;
+          throw err;
+        }
+        return r.json();
+      })
+      .then(d=>{
+        const rows=d.result||[];
+        const items=[];
+        rows.forEach(row=>{(c.pick(row)||[]).filter(Boolean).forEach(v=>items.push(v));});
+        const uniq=[...new Set(items)];
+        if(!uniq.length){ tryCandidate(idx+1); return; }
+        listEl.innerHTML='<div style="font-size:11px;color:#57606A;margin-bottom:8px;">Fonte: '+c.table+'</div><div class="account-products-list">'+uniq.map(v=>'<div class="account-product-item">'+v+'</div>').join('')+'</div>';
+      })
+      .catch(err=>{
+        // 400/404 usually means table doesn't exist in this instance; continue with next candidate
+        if(err?.status===400||err?.status===404){ tryCandidate(idx+1); return; }
+        // ACL/auth/network errors: stop and show message
+        listEl.innerHTML='<div class="account-product-empty">Sem acesso para consultar produtos/serviços ('+(err?.status||'erro')+').</div>';
       });
-      const uniq=[...new Set(items)];
-      if(!uniq.length){
-        listEl.innerHTML='<div class="account-product-empty">Nenhum item encontrado para este account.</div>';
-        return;
-      }
-      listEl.innerHTML='<div class="account-products-list">'+uniq.map(v=>'<div class="account-product-item">'+v+'</div>').join('')+'</div>';
-    })
-    .catch(()=>{
-      listEl.innerHTML='<div class="account-product-empty">Não foi possível carregar produtos/serviços agora.</div>';
-    });
+  };
+
+  tryCandidate(0);
 }
 
 function closeAccountProductsModal(){
