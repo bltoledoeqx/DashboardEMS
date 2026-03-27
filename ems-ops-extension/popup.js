@@ -2410,10 +2410,10 @@ function openAccountProductsModal(accountId, accountName){
     const filtered = rows
       .filter(r=>(r.active?.value===true||r.active?.value==='true'||r.active===true))
       .map(r=>({
-        toInstall: r.software_to_install?.display_value||r.software_to_install?.value||'—',
-        manufacturer: r.manufacturer?.display_value||r.manufacturer?.value||'—',
-        licensingModel: r.software_licensing_model?.display_value||r.software_licensing_model?.value||'—',
-        quantity: r.software_quantity?.display_value||r.software_quantity?.value||'—'
+        toInstall: r.software_to_install?.display_value||r.software_to_install?.value||r.u_software_to_install?.display_value||r.u_software_to_install?.value||'—',
+        manufacturer: r.manufacturer?.display_value||r.manufacturer?.value||r.u_manufacturer?.display_value||r.u_manufacturer?.value||'—',
+        licensingModel: r.software_licensing_model?.display_value||r.software_licensing_model?.value||r.u_software_licensing_model?.display_value||r.u_software_licensing_model?.value||'—',
+        quantity: r.software_quantity?.display_value||r.software_quantity?.value||r.u_software_quantity?.display_value||r.u_software_quantity?.value||r.quantity?.display_value||r.quantity?.value||'—'
       }));
     if(!filtered.length){
       return '<div class="acc-sec"><div class="acc-sec-h">u_cmdb_ci_dedicated_software: Licenças de software contratadas <span class="acc-sec-sub">0 itens</span></div><div style="padding:10px;"><div class="account-product-empty">Nenhuma licença ativa encontrada.</div></div></div>';
@@ -2428,13 +2428,28 @@ function openAccountProductsModal(accountId, accountName){
   Promise.all([
     fetchFirst(
       'cmdb_ci',
-      ['company='+accountId,'account='+accountId,'u_account='+accountId],
+      [
+        'company='+accountId,
+        'account='+accountId,
+        'u_account='+accountId,
+        'company.name='+accountName,
+        'account.name='+accountName,
+        'u_account.name='+accountName
+      ],
       'name,serial_number,u_management_type,management_type'
     ),
     fetchFirst(
       'u_cmdb_ci_dedicated_software',
-      ['u_account='+accountId,'account='+accountId,'customer_account='+accountId],
-      'active,software_to_install,manufacturer,software_licensing_model,software_quantity'
+      [
+        'u_account='+accountId,
+        'account='+accountId,
+        'customer_account='+accountId,
+        'u_account.name='+accountName,
+        'account.name='+accountName,
+        'customer_account.name='+accountName,
+        'cmdb_ci.company.name='+accountName
+      ],
+      'active,software_to_install,u_software_to_install,manufacturer,u_manufacturer,software_licensing_model,u_software_licensing_model,software_quantity,u_software_quantity,quantity'
     )
   ])
   .then(([cmdbRows, swRows])=>{
