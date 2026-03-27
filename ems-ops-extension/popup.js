@@ -2379,7 +2379,7 @@ function openAccountProductsModal(accountId, accountName){
     for(const q of queries){
       try{
         const rows=await fetchTable(table,q,fields);
-        return rows;
+        if (rows.length) return rows;
       }catch(err){
         if(err?.status===400||err?.status===404) continue;
         throw err;
@@ -2407,8 +2407,14 @@ function openAccountProductsModal(accountId, accountName){
   };
 
   const renderSwSection = rows => {
+    const isActive = row => {
+      const raw = row.active?.value ?? row.active?.display_value ?? row.active;
+      if (raw === true) return true;
+      const norm = String(raw || '').trim().toLowerCase();
+      return norm === 'true' || norm === '1' || norm === 'yes';
+    };
     const filtered = rows
-      .filter(r=>(r.active?.value===true||r.active?.value==='true'||r.active===true))
+      .filter(isActive)
       .map(r=>({
         toInstall: r.software_to_install?.display_value||r.software_to_install?.value||r.u_software_to_install?.display_value||r.u_software_to_install?.value||'—',
         manufacturer: r.manufacturer?.display_value||r.manufacturer?.value||r.u_manufacturer?.display_value||r.u_manufacturer?.value||'—',
