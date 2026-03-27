@@ -116,7 +116,20 @@ function runEMSOps(userToken, userMes) {
 
   // ── Fetch helpers ──────────────────────────────────────────────────────
   const chunk  = arr => Array.from({length:Math.ceil(arr.length/BATCH)},(_,i)=>arr.slice(i*BATCH,i*BATCH+BATCH));
-  const fcases = (q, lim=1000) => fetch(`${BASE}/api/now/table/sn_customerservice_case?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${FIELDS}&sysparm_display_value=all&sysparm_limit=${lim}`,{headers}).then(r=>r.json()).then(d=>d.result||[]);
+  const parseJsonSafe = async (response, contextLabel='API') => {
+    const raw = await response.text();
+    if (!response.ok) {
+      const msg = raw ? `: ${raw.slice(0, 180)}` : '';
+      throw new Error(`${contextLabel} HTTP ${response.status}${msg}`);
+    }
+    if (!raw) return {};
+    try {
+      return JSON.parse(raw);
+    } catch (_) {
+      throw new Error(`${contextLabel} retornou JSON inválido (HTTP ${response.status})`);
+    }
+  };
+  const fcases = (q, lim=1000) => fetch(`${BASE}/api/now/table/sn_customerservice_case?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${FIELDS}&sysparm_display_value=all&sysparm_limit=${lim}`,{headers}).then(r=>parseJsonSafe(r,'sn_customerservice_case')).then(d=>d.result||[]);
   const GID_L1='1c7c9057db6771d0832ead8ed396197a',GID_EVENT='673c2170476422503cbfe07a216d430f',GID_L2='ff72689247ee1e143cbfe07a216d4357';
   const fcasesAllGroups = q => {
     // Build per-group queries by replacing the groupIN clause directly
@@ -127,7 +140,7 @@ function runEMSOps(userToken, userMes) {
       fcases(mk(GID_L2),   2000),
     ]).then(([a,b,c])=>[...a,...b,...c]);
   };
-  const fsla   = q => fetch(`${BASE}/api/now/table/task_sla?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${SLA_F}&sysparm_display_value=all&sysparm_limit=500`,{headers}).then(r=>r.json()).then(d=>d.result||[]);
+  const fsla   = q => fetch(`${BASE}/api/now/table/task_sla?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${SLA_F}&sysparm_display_value=all&sysparm_limit=500`,{headers}).then(r=>parseJsonSafe(r,'task_sla')).then(d=>d.result||[]);
   const bsla   = (ids,f) => !ids.length ? Promise.resolve([]) : Promise.all(chunk(ids).map(b=>fsla(`taskIN${b.join(',')}^${f}`))).then(r=>r.flat());
 
   const mesRange = m => {
