@@ -239,58 +239,57 @@ function runEMSOps(userToken, userMes) {
     const classified = ativos.map(classify);
     const postList   = postMortem.map(enrichPost);
 
-    // Split by age: backlog = opened >= 20 days ago
+    // Single-pass aggregation to reduce array scans when rendering large boards
     const BACKLOG_DAYS = 20;
-    const msPerDay     = 86400000;
-    const now20        = Date.now();
-    const isBacklog    = c => (now20 - new Date(c.openedAt||0)) >= BACKLOG_DAYS * msPerDay;
-
-    const ativosItems  = classified.filter(c => !isBacklog(c));
-    const backlogItems = classified.filter(c => isBacklog(c));
-
-    const buildLanes = (sourceItems, key) => {
-      const items = sourceItems.filter(c=>c.gkey===key);
-      return {
-        critical: items.filter(c=>c.lane==='critical'),
-        high    : items.filter(c=>c.lane==='high'),
-        medium  : items.filter(c=>c.lane==='medium'),
-        awaiting: items.filter(c=>c.lane==='awaiting'),
-        normal  : items.filter(c=>c.lane==='normal'),
-        orphan  : items.filter(c=>c.lane==='orphan'),
-        total   : items.length
-      };
+    const BACKLOG_MS   = BACKLOG_DAYS * 86400000;
+    const laneNames    = ['critical','high','medium','awaiting','normal','orphan'];
+    const groupKeys    = ['l1','l2','event','all'];
+    const createGroupMap = () => {
+      const out = {};
+      groupKeys.forEach(g => {
+        out[g] = { total: 0 };
+        laneNames.forEach(l => { out[g][l] = []; });
+      });
+      return out;
     };
-    const ativosMap  = {l1:buildLanes(ativosItems,'l1'), l2:buildLanes(ativosItems,'l2'), event:buildLanes(ativosItems,'event')};
-    const backlogMap = {l1:buildLanes(backlogItems,'l1'), l2:buildLanes(backlogItems,'l2'), event:buildLanes(backlogItems,'event')};
-    const sumLane = (a,b,c,k) => [...(a[k]||[]), ...(b[k]||[]), ...(c[k]||[])];
-    ativosMap.all = {
-      critical: sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'critical'),
-      high    : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'high'),
-      medium  : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'medium'),
-      awaiting: sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'awaiting'),
-      normal  : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'normal'),
-      orphan  : sumLane(ativosMap.l1,ativosMap.l2,ativosMap.event,'orphan'),
-      total   : ativosMap.l1.total + ativosMap.l2.total + ativosMap.event.total
-    };
-    backlogMap.all = {
-      critical: sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'critical'),
-      high    : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'high'),
-      medium  : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'medium'),
-      awaiting: sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'awaiting'),
-      normal  : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'normal'),
-      orphan  : sumLane(backlogMap.l1,backlogMap.l2,backlogMap.event,'orphan'),
-      total   : backlogMap.l1.total + backlogMap.l2.total + backlogMap.event.total
-    };
-    const lanesMap   = ativosMap; // kept for KPI compat
+    const ativosMap = createGroupMap();
+    const backlogMap = createGroupMap();
 
-    const totalBreach = classified.filter(c=>c.sl.st==='breach').length;
-    const totalRisk   = classified.filter(c=>c.sl.st==='risk').length;
-    const totalOrphan = classified.filter(c=>c.noAss).length;
-    const totalAwait  = classified.filter(c=>c.isAw).length;
-    const pctHealth   = classified.length ? Math.round(((classified.length-totalBreach)/classified.length)*100) : 0;
-    const pmBreach    = postList.filter(p=>p.slaBreach).length;
-    const mttrList    = postList.filter(p=>p.mttr!==null);
-    const avgMTTR     = mttrList.length ? (mttrList.reduce((s,p)=>s+p.mttr,0)/mttrList.length).toFixed(1) : '—';
+    let totalBreach = 0;
+    let totalRisk = 0;
+    let totalOrphan = 0;
+    let totalAwait = 0;
+
+    const nowMs = Date.now();
+    classified.forEach(c => {
+      const target = (nowMs - new Date(c.openedAt || 0)) >= BACKLOG_MS ? backlogMap : ativosMap;
+      target[c.gkey].total += 1;
+      target[c.gkey][c.lane].push(c);
+      target.all.total += 1;
+      target.all[c.lane].push(c);
+
+      if (c.sl.st === 'breach') totalBreach += 1;
+      if (c.sl.st === 'risk') totalRisk += 1;
+      if (c.noAss) totalOrphan += 1;
+      if (c.isAw) totalAwait += 1;
+    });
+
+    const lanesMap = ativosMap; // kept for KPI compat
+    const pctHealth = classified.length ? Math.round(((classified.length - totalBreach) / classified.length) * 100) : 0;
+
+    let pmBreach = 0;
+    let mttrTotal = 0;
+    let mttrCount = 0;
+    postList.forEach(p => {
+      if (p.slaBreach) pmBreach += 1;
+      if (p.mttr !== null) {
+        mttrTotal += p.mttr;
+        mttrCount += 1;
+      }
+    });
+    const avgMTTR = mttrCount ? (mttrTotal / mttrCount).toFixed(1) : '—';
+    const ativosCount = ativosMap.all.total;
+    const backlogCount = backlogMap.all.total;
 
     // Card renderer
     const renderSlaBar = sl => {
@@ -898,7 +897,7 @@ tr:hover td{background:#F6F8FA;}
   </div>
   <div class="header-right">
     <span class="h-ts">${ts}</span>
-    <span class="h-count">${mesNome} ${YEAR} · Ativos: ${classified.length} (${ativosItems.length} ativos / ${backlogItems.length} backlog) · Post-mortem: ${postList.length}</span>
+    <span class="h-count">${mesNome} ${YEAR} · Ativos: ${classified.length} (${ativosCount} ativos / ${backlogCount} backlog) · Post-mortem: ${postList.length}</span>
   </div>
 </div>
 
@@ -1069,7 +1068,7 @@ tr:hover td{background:#F6F8FA;}
     <div class="section-hdr" onclick="toggleSection('ativos')">
       <span class="section-icon" id="section-icon-ativos">▾</span>
       <span class="section-title">📋 Cases Ativos</span>
-      <span class="section-badge" id="section-badge-ativos">${ativosItems.length} cases · <20 dias</span>
+      <span class="section-badge" id="section-badge-ativos">${ativosCount} cases · <20 dias</span>
       <button class="section-refresh-btn" onclick="event.stopPropagation();refreshKanban()" title="Atualizar Cases Ativos">↺</button>
     </div>
     <div class="section-body" id="section-body-ativos">
@@ -1097,7 +1096,7 @@ tr:hover td{background:#F6F8FA;}
     <div class="section-hdr" onclick="toggleSection('backlog-tab')">
       <span class="section-icon" id="section-icon-backlog-tab">▾</span>
       <span class="section-title">📦 Backlog</span>
-      <span class="section-badge" id="section-badge-backlog-tab">${backlogItems.length} cases · ≥20 dias</span>
+      <span class="section-badge" id="section-badge-backlog-tab">${backlogCount} cases · ≥20 dias</span>
       <button class="section-refresh-btn" onclick="event.stopPropagation();refreshBacklog()" title="Atualizar Backlog">↺</button>
     </div>
     <div class="section-body" id="section-body-backlog-tab">
@@ -1203,6 +1202,24 @@ window._GMEMBERS=${gmembersJson};
 window._GID_MAP={'all':_IDS,'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
 window._MANAGER_CACHE={};
 window._MSH_NOC_GID=undefined;
+window._REPORTS_FETCH_CACHE={ttlMs:30000,entries:{},inflight:{}};
+
+function fetchJsonCached(url, options){
+  const now=Date.now();
+  const cache=window._REPORTS_FETCH_CACHE;
+  const key=url;
+  const hit=cache.entries[key];
+  if(hit && now-hit.ts<cache.ttlMs) return Promise.resolve(hit.data);
+  if(cache.inflight[key]) return cache.inflight[key];
+  cache.inflight[key]=fetch(url,options)
+    .then(r=>r.json())
+    .then(data=>{
+      cache.entries[key]={ts:Date.now(),data};
+      return data;
+    })
+    .finally(()=>{delete cache.inflight[key];});
+  return cache.inflight[key];
+}
 
 async function ensureMshNocGroupId(){
   if(window._MSH_NOC_GID!==undefined) return window._MSH_NOC_GID;
@@ -1507,16 +1524,16 @@ function fetchAccordionScores(){
   // Sem Type
   const elST=document.getElementById('sem-type-score');
   if(elST){elST.textContent='…';
-    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('stateIN1,10,21^u_typeISEMPTY^'+grpQ+assigneeF+yearOpenedF)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
-    .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elST.textContent=c;elST.style.color=c===0?'#1A7F37':'#CF222E';}).catch(()=>{elST.textContent='?';});
+    fetchJsonCached(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent('stateIN1,10,21^u_typeISEMPTY^'+grpQ+assigneeF+yearOpenedF)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    .then(d=>{const c=parseInt(d.result?.stats?.count||0);elST.textContent=c;elST.style.color=c===0?'#1A7F37':'#CF222E';}).catch(()=>{elST.textContent='?';});
   }
 
   // Last Interacted by Client
   const elLI=document.getElementById('last-interacted-score');
   if(elLI){elLI.textContent='…';
     const liQ='stateIN32,1,10,21,90,18,8,5,29,30,2^u_customer_last_interactionISNOTEMPTY^u_type!=7^'+grpQ+assigneeF+yearOpenedF;
-    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(liQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
-    .then(r=>r.json()).then(d=>{const c=parseInt(d.result?.stats?.count||0);elLI.textContent=c;elLI.style.color=c>0?'#0969DA':'#1A7F37';}).catch(()=>{elLI.textContent='?';});
+    fetchJsonCached(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(liQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    .then(d=>{const c=parseInt(d.result?.stats?.count||0);elLI.textContent=c;elLI.style.color=c>0?'#0969DA':'#1A7F37';}).catch(()=>{elLI.textContent='?';});
   }
 
   // Resolvidos no Mês — 3 cards KPI (L1/L2/Event)
@@ -1531,8 +1548,8 @@ function fetchAccordionScores(){
     elRM.textContent='…';
     const qGid=window._GID_MAP?.[t.key]||'';
     const rmQ='resolved_atONThis month@javascript:gs.beginningOfThisMonth()@javascript:gs.endOfThisMonth()^assignment_group='+qGid+assigneeF+'^stateIN33,34,6,3^contact_typeNOT INautomation^u_recurrence_case=false^u_operating_countryINBR';
-    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(rmQ)+'&sysparm_count=true',{headers:h})
-    .then(r=>r.json()).then(d=>{
+    fetchJsonCached(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(rmQ)+'&sysparm_count=true',{headers:h})
+    .then(d=>{
       const total=parseInt(d.result?.stats?.count||0);
       elRM.textContent=total;
     }).catch(()=>{elRM.textContent='?';});
@@ -1542,8 +1559,8 @@ function fetchAccordionScores(){
   const elSA=document.getElementById('support-attention-score');
   if(elSA){elSA.textContent='…';
     const saQ='u_typeIN0,1,3,4^stateIN32,10,21,18,8,5,29,30,2^resolved_byISEMPTY^u_support_attentionISNOTEMPTY^'+grpQ+assigneeF+yearOpenedF;
-    fetch(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(saQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
-    .then(r=>r.json()).then(d=>{
+    fetchJsonCached(_BASE+'/api/now/stats/sn_customerservice_case?sysparm_query='+encodeURIComponent(saQ)+'&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    .then(d=>{
       const c=parseInt(d.result?.stats?.count||0);
       elSA.textContent=c;
       elSA.style.color=c>0?'#BF8700':'#1A7F37';
@@ -1579,8 +1596,8 @@ function fetchAccordionScores(){
   // Rating EMS Year
   if(elRating){
     const rQ=_ratingBase+_buildRatingSuffix(null);
-    fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(rQ)+'&sysparm_avg_fields=mr_actual_value&sysparm_count=true&sysparm_display_value=all',{headers:h})
-    .then(r=>r.json()).then(d=>{
+    fetchJsonCached(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(rQ)+'&sysparm_avg_fields=mr_actual_value&sysparm_count=true&sysparm_display_value=all',{headers:h})
+    .then(d=>{
       const avg=parseFloat(d.result?.stats?.avg?.mr_actual_value||0);
       elRating.textContent=avg>0?avg.toFixed(2):'—';
       elRating.style.color=avg>=4?'#1A7F37':avg>=3?'#BF8700':'#CF222E';
@@ -1593,8 +1610,8 @@ function fetchAccordionScores(){
     ensureMshNocGroupId().then(mshGid=>{
     const csQ=_ratingBase+_buildRatingSuffix(mshGid||'');
     // group_by=mr_actual_value,cse_assigned_to — note: SN returns fields in order [assigned_to, value]
-    fetch(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(csQ)+'&sysparm_group_by=mr_actual_value,cse_assigned_to&sysparm_count=true&sysparm_display_value=all&sysparm_limit=200',{headers:h})
-    .then(r=>r.json()).then(d=>{
+    fetchJsonCached(_BASE+'/api/now/stats/u_ticket_evaluation?sysparm_query='+encodeURIComponent(csQ)+'&sysparm_group_by=mr_actual_value,cse_assigned_to&sysparm_count=true&sysparm_display_value=all&sysparm_limit=200',{headers:h})
+    .then(d=>{
       const rows=d.result||[];
       let promoters=0,detractors=0,total=0;
       rows.forEach(row=>{
