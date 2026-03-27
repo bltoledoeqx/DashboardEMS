@@ -116,7 +116,20 @@ function runEMSOps(userToken, userMes) {
 
   // ── Fetch helpers ──────────────────────────────────────────────────────
   const chunk  = arr => Array.from({length:Math.ceil(arr.length/BATCH)},(_,i)=>arr.slice(i*BATCH,i*BATCH+BATCH));
-  const fcases = (q, lim=1000) => fetch(`${BASE}/api/now/table/sn_customerservice_case?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${FIELDS}&sysparm_display_value=all&sysparm_limit=${lim}`,{headers}).then(r=>r.json()).then(d=>d.result||[]);
+  const parseJsonSafe = async (response, contextLabel='API') => {
+    const raw = await response.text();
+    if (!response.ok) {
+      const msg = raw ? `: ${raw.slice(0, 180)}` : '';
+      throw new Error(`${contextLabel} HTTP ${response.status}${msg}`);
+    }
+    if (!raw) return {};
+    try {
+      return JSON.parse(raw);
+    } catch (_) {
+      throw new Error(`${contextLabel} retornou JSON inválido (HTTP ${response.status})`);
+    }
+  };
+  const fcases = (q, lim=1000) => fetch(`${BASE}/api/now/table/sn_customerservice_case?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${FIELDS}&sysparm_display_value=all&sysparm_limit=${lim}`,{headers}).then(r=>parseJsonSafe(r,'sn_customerservice_case')).then(d=>d.result||[]);
   const GID_L1='1c7c9057db6771d0832ead8ed396197a',GID_EVENT='673c2170476422503cbfe07a216d430f',GID_L2='ff72689247ee1e143cbfe07a216d4357';
   const fcasesAllGroups = q => {
     // Build per-group queries by replacing the groupIN clause directly
@@ -127,7 +140,7 @@ function runEMSOps(userToken, userMes) {
       fcases(mk(GID_L2),   2000),
     ]).then(([a,b,c])=>[...a,...b,...c]);
   };
-  const fsla   = q => fetch(`${BASE}/api/now/table/task_sla?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${SLA_F}&sysparm_display_value=all&sysparm_limit=500`,{headers}).then(r=>r.json()).then(d=>d.result||[]);
+  const fsla   = q => fetch(`${BASE}/api/now/table/task_sla?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${SLA_F}&sysparm_display_value=all&sysparm_limit=500`,{headers}).then(r=>parseJsonSafe(r,'task_sla')).then(d=>d.result||[]);
   const bsla   = (ids,f) => !ids.length ? Promise.resolve([]) : Promise.all(chunk(ids).map(b=>fsla(`taskIN${b.join(',')}^${f}`))).then(r=>r.flat());
 
   const mesRange = m => {
@@ -2377,29 +2390,54 @@ function openAccountProductsModal(accountId, accountName){
     }).then(d=>d.result||[]);
   };
 
-  const fetchFirst = async (table, queries, fields) => {
-    for(const q of queries){
-      try{
-        const rows=await fetchTable(table,q,fields);
-        if (rows.length) return rows;
-      }catch(err){
-        if(err?.status===400||err?.status===404) continue;
+  const fetchMerged = async (table, queries, fields) => {
+    const merged = [];
+    const seen = new Set();
+
+    for (const q of queries) {
+      try {
+        const rows = await fetchTable(table, q, fields);
+        rows.forEach(r => {
+          const id = r.sys_id?.value || r.sys_id?.display_value || JSON.stringify(r);
+          if (seen.has(id)) return;
+          seen.add(id);
+          merged.push(r);
+        });
+      } catch (err) {
+        if (err?.status === 400 || err?.status === 404) continue;
         throw err;
       }
     }
-    return [];
+
+    return merged;
   };
 
   const renderCmdbSection = rows => {
+    const normalize = v => (v || '')
+      .toString()
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
+    const isTotalManagement = raw => {
+      const mg = normalize(raw);
+      if (!mg) return false;
+      if (mg.includes('total management')) return true;
+      if (mg === 'tm' || mg === 'tm 2 0' || mg === 'tm20' || mg === 'tm 20' || mg === 'tm2 0') return true;
+      return false;
+    };
+
     const filtered = rows
       .filter(r=>{
         const s=(r.serial_number?.display_value||r.serial_number?.value||'').trim().toLowerCase();
         if(!s || ['na','n/a','null','none'].includes(s)) return false;
-        const mg=(r.u_management_type?.display_value||r.u_management_type?.value||r.management_type?.display_value||r.management_type?.value||'').trim().toLowerCase();
-        return mg==='total management (tm)' || mg==='total management (tm) 2.0';
+        const mgRaw = r.u_management_type?.display_value||r.u_management_type?.value||r.management_type?.display_value||r.management_type?.value||'';
+        return isTotalManagement(mgRaw);
       })
       .map(r=>({
-        hostname: r.name?.display_value||r.name?.value||'—',
+        hostname: r.hostname?.display_value||r.hostname?.value||r.host_name?.display_value||r.host_name?.value||r.name?.display_value||r.name?.value||'—',
         serial: (r.serial_number?.display_value||r.serial_number?.value||'—').trim()
       }));
     if(!filtered.length){
@@ -2414,13 +2452,29 @@ function openAccountProductsModal(accountId, accountName){
 
   const renderSwSection = rows => {
     const seen = new Set();
+    const pickFirst = candidates => {
+      for (const c of candidates) {
+        if (c === undefined || c === null) continue;
+        const str = String(c).trim();
+        if (!str || str.toLowerCase() === 'null') continue;
+        return str;
+      }
+      return '—';
+    };
+
     const filtered = rows
       .map(r=>({
-        hostname: r.hostname?.display_value||r.hostname?.value||r.cmdb_ci?.display_value||r.cmdb_ci?.value||r.name?.display_value||r.name?.value||'—',
-        toInstall: r.software_to_install?.display_value||r.software_to_install?.value||r.u_software_to_install?.display_value||r.u_software_to_install?.value||'—',
-        manufacturer: r.manufacturer?.display_value||r.manufacturer?.value||r.u_manufacturer?.display_value||r.u_manufacturer?.value||'—',
-        licensingModel: r.software_licensing_model?.display_value||r.software_licensing_model?.value||r.u_software_licensing_model?.display_value||r.u_software_licensing_model?.value||r.licensing_model?.display_value||r.licensing_model?.value||r.u_licensing_model?.display_value||r.u_licensing_model?.value||'—',
-        quantity: r.install_count?.display_value||r.install_count?.value||r.u_install_count?.display_value||r.u_install_count?.value||r.software_quantity?.display_value||r.software_quantity?.value||r.u_software_quantity?.display_value||r.u_software_quantity?.value||r.quantity?.display_value||r.quantity?.value||'—'
+        hostname: pickFirst([r.hostname?.display_value,r.hostname?.value,r.cmdb_ci?.display_value,r.cmdb_ci?.value,r.name?.display_value,r.name?.value]),
+        toInstall: pickFirst([r.software_to_install?.display_value,r.software_to_install?.value,r.u_software_to_install?.display_value,r.u_software_to_install?.value]),
+        manufacturer: pickFirst([r.manufacturer?.display_value,r.manufacturer?.value,r.u_manufacturer?.display_value,r.u_manufacturer?.value]),
+        licensingModel: pickFirst([r.software_licensing_model?.display_value,r.software_licensing_model?.value,r.u_software_licensing_model?.display_value,r.u_software_licensing_model?.value,r.licensing_model?.display_value,r.licensing_model?.value,r.u_licensing_model?.display_value,r.u_licensing_model?.value]),
+        quantity: pickFirst([
+          r.software_quantity?.display_value, r.software_quantity?.value,
+          r.u_software_quantity?.display_value, r.u_software_quantity?.value,
+          r.quantity?.display_value, r.quantity?.value,
+          r.install_count?.display_value, r.install_count?.value,
+          r.u_install_count?.display_value, r.u_install_count?.value
+        ])
       }))
       .filter(i=>[i.hostname,i.toInstall,i.manufacturer,i.licensingModel,i.quantity].some(v=>v && v!=='—'))
       .filter(i=>{
@@ -2440,7 +2494,7 @@ function openAccountProductsModal(accountId, accountName){
   };
 
   Promise.all([
-    fetchFirst(
+    fetchMerged(
       'cmdb_ci',
       [
         'company='+accountId+cmdbSerialFilter,
@@ -2450,9 +2504,9 @@ function openAccountProductsModal(accountId, accountName){
         'account.name='+accountName+cmdbSerialFilter,
         'u_account.name='+accountName+cmdbSerialFilter
       ],
-      'name,serial_number,u_management_type,management_type'
+      'sys_id,hostname,host_name,name,serial_number,u_management_type,management_type'
     ),
-    fetchFirst(
+    fetchMerged(
       'u_cmdb_ci_dedicated_software',
       [
         'u_account='+accountId+swActiveFilter,
@@ -2463,7 +2517,7 @@ function openAccountProductsModal(accountId, accountName){
         'customer_account.name='+accountName+swActiveFilter,
         'cmdb_ci.company.name='+accountName+swActiveFilter
       ],
-      'active,hostname,name,cmdb_ci,software_to_install,u_software_to_install,manufacturer,u_manufacturer,software_licensing_model,u_software_licensing_model,licensing_model,u_licensing_model,software_quantity,u_software_quantity,quantity,install_count,u_install_count'
+      'sys_id,active,hostname,name,cmdb_ci,software_to_install,u_software_to_install,manufacturer,u_manufacturer,software_licensing_model,u_software_licensing_model,licensing_model,u_licensing_model,software_quantity,u_software_quantity,quantity,install_count,u_install_count'
     )
   ])
   .then(([cmdbRows, swRows])=>{
