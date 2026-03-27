@@ -2424,7 +2424,7 @@ function openAccountProductsModal(accountId, accountName){
         return isTotalManagement(mgRaw);
       })
       .map(r=>({
-        hostname: r.name?.display_value||r.name?.value||'—',
+        hostname: r.hostname?.display_value||r.hostname?.value||r.host_name?.display_value||r.host_name?.value||r.name?.display_value||r.name?.value||'—',
         serial: (r.serial_number?.display_value||r.serial_number?.value||'—').trim()
       }));
     if(!filtered.length){
@@ -2491,7 +2491,7 @@ function openAccountProductsModal(accountId, accountName){
         'account.name='+accountName+cmdbSerialFilter,
         'u_account.name='+accountName+cmdbSerialFilter
       ],
-      'sys_id,name,serial_number,u_management_type,management_type'
+      'sys_id,hostname,host_name,name,serial_number,u_management_type,management_type'
     ),
     fetchMerged(
       'u_cmdb_ci_dedicated_software',
