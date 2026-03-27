@@ -782,6 +782,11 @@ a{text-decoration:none;}
 .modal-journal-client .modal-j-author{color:#C2410C;}
 /* comment de sistema/automação = cinza */
 .modal-journal-cm{background:#F9FAFB;border-left-color:#9CA3AF;}
+.modal-account-btn{background:none;border:none;padding:0;text-align:left;font-size:12px;color:#0969DA;cursor:pointer;text-decoration:underline;font-family:inherit;}
+.modal-account-btn:hover{color:#1D4ED8;}
+.account-products-list{display:flex;flex-direction:column;gap:8px;max-height:42vh;overflow:auto;padding-right:4px;}
+.account-product-item{padding:8px 10px;background:#F6F8FA;border:1px solid #D0D7DE;border-radius:6px;font-size:12px;color:#24292F;}
+.account-product-empty{font-size:12px;color:#57606A;padding:8px;border:1px dashed #D0D7DE;border-radius:6px;background:#fff;}
 .modal-state-badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:500;}
 .card.modal-active{outline:2px solid #0969DA;outline-offset:1px;}
 .rt-row{display:flex;align-items:center;gap:5px;margin-bottom:3px;}
@@ -2198,8 +2203,8 @@ function openCaseModal(sysId, number, cardEl) {
   const noteTA  = document.getElementById('modal-note-ta');
 
   overlay.style.display = 'block';
-  overlay.style.pointerEvents = 'none';
-  modal.style.transform = 'translateX(0)';
+  overlay.style.pointerEvents = 'all';
+  modal.style.transform = 'translate(-50%, -50%) scale(1)';
   numEl.textContent = number;
   link.href = _BASE + '/sn_customerservice_case.do?sysparm_query=number=' + number;
   if (noteTA) noteTA.value = '';
@@ -2246,7 +2251,10 @@ function openCaseModal(sysId, number, cardEl) {
           detailItem('State', '<span class="modal-state-badge" style="'+sc+'">'+val(c.state)+'</span>') +
           detailItem('Prioridade', '<span style="color:'+( prioColor[c.priority?.value]||'#57606A')+';font-weight:600">'+val(c.priority)+'</span>') +
           detailItem('Analista', val(c.assigned_to)) +
-          detailItem('Account', val(c.account)) +
+          '<div class="modal-detail-item">'+
+            '<span class="modal-detail-lbl">Account</span>'+
+            '<button type="button" id="modal-account-btn" class="modal-account-btn">'+val(c.account)+'</button>'+
+          '</div>' +
           '<div class="modal-detail-item" id="modal-contact-info"><span class="modal-detail-lbl">Contato</span><span class="modal-detail-val" style="color:#57606A;font-size:11px;">Carregando...</span></div>' +
           '<div class="modal-detail-item">'+
             '<span class="modal-detail-lbl">Impact</span>'+
@@ -2315,6 +2323,13 @@ function openCaseModal(sysId, number, cardEl) {
           '</div>';
         }).join('') : '<div style="color:#57606A;font-size:12px;">Nenhuma nota ainda.</div>') +
       '</div>';
+
+    const accountBtn=document.getElementById('modal-account-btn');
+    if(accountBtn){
+      const accountId=c.account?.value||'';
+      const accountName=val(c.account);
+      accountBtn.onclick=()=>openAccountProductsModal(accountId,accountName);
+    }
   }).catch(e => {
     body.innerHTML = '<div style="color:#CF222E;padding:20px;">Erro: '+e.message+'</div>';
   });
@@ -2324,10 +2339,57 @@ function detailItem(label, valueHtml) {
   return '<div class="modal-detail-item"><span class="modal-detail-lbl">'+label+'</span><span class="modal-detail-val">'+valueHtml+'</span></div>';
 }
 
+function openAccountProductsModal(accountId, accountName){
+  const ov=document.getElementById('account-products-overlay');
+  const nameEl=document.getElementById('account-products-name');
+  const listEl=document.getElementById('account-products-list');
+  if(!ov||!nameEl||!listEl) return;
+  nameEl.textContent=accountName||'—';
+  ov.style.display='flex';
+  listEl.innerHTML='<div class="account-product-empty">Carregando produtos/serviços...</div>';
+
+  if(!accountId){
+    listEl.innerHTML='<div class="account-product-empty">Account sem referência para consulta.</div>';
+    return;
+  }
+
+  const h={'Accept':'application/json','X-UserToken':_TOK};
+  const q='account='+accountId+'^active=true';
+  const url=_BASE+'/api/now/table/sn_customerservice_entitlement?sysparm_query='+encodeURIComponent(q)+'&sysparm_fields=name,service_offering,u_service,u_product,product_model&sysparm_display_value=all&sysparm_limit=100';
+
+  fetch(url,{headers:h})
+    .then(r=>r.ok?r.json():Promise.reject(new Error('entitlement unavailable')))
+    .then(d=>{
+      const rows=d.result||[];
+      const items=[];
+      rows.forEach(row=>{
+        const n=row.name?.display_value||row.name?.value||'';
+        const so=row.service_offering?.display_value||row.service_offering?.value||'';
+        const sv=row.u_service?.display_value||row.u_service?.value||'';
+        const pr=row.u_product?.display_value||row.u_product?.value||row.product_model?.display_value||row.product_model?.value||'';
+        [n,so,sv,pr].filter(Boolean).forEach(v=>items.push(v));
+      });
+      const uniq=[...new Set(items)];
+      if(!uniq.length){
+        listEl.innerHTML='<div class="account-product-empty">Nenhum item encontrado para este account.</div>';
+        return;
+      }
+      listEl.innerHTML='<div class="account-products-list">'+uniq.map(v=>'<div class="account-product-item">'+v+'</div>').join('')+'</div>';
+    })
+    .catch(()=>{
+      listEl.innerHTML='<div class="account-product-empty">Não foi possível carregar produtos/serviços agora.</div>';
+    });
+}
+
+function closeAccountProductsModal(){
+  const ov=document.getElementById('account-products-overlay');
+  if(ov) ov.style.display='none';
+}
+
 function closeCaseModal() {
   const modal = document.getElementById('case-modal');
   const overlay = document.getElementById('case-modal-overlay');
-  modal.style.transform = 'translateX(100%)';
+  modal.style.transform = 'translate(-50%, -48%) scale(0.96)';
   setTimeout(() => { overlay.style.display = 'none'; }, 260);
   if (_modalActiveCard) { _modalActiveCard.classList.remove('modal-active'); _modalActiveCard = null; }
   _modalSysId = null;
@@ -2418,6 +2480,11 @@ document.addEventListener('click', e => {
   const modal   = document.getElementById('case-modal');
   if (overlay && overlay.style.display !== 'none' && modal && !modal.contains(e.target) && !e.target.closest('.card')) {
     closeCaseModal();
+  }
+
+  const accOverlay=document.getElementById('account-products-overlay');
+  if(accOverlay && accOverlay.style.display!=='none' && e.target===accOverlay){
+    closeAccountProductsModal();
   }
 });
 
@@ -2611,8 +2678,8 @@ document.addEventListener('DOMContentLoaded',()=>{
   })();
 	<\/script>
 <!-- Case Modal -->
-<div id="case-modal-overlay" style="display:none;position:fixed;inset:0;z-index:500;pointer-events:none;">
-  <div id="case-modal" style="position:absolute;top:0;right:0;height:100%;width:440px;background:#fff;border-left:1px solid #D0D7DE;display:flex;flex-direction:column;pointer-events:all;transform:translateX(100%);transition:transform .25s ease;">
+<div id="case-modal-overlay" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);">
+  <div id="case-modal" style="position:absolute;top:50%;left:50%;width:min(920px,92vw);height:min(88vh,820px);background:#fff;border:1px solid #D0D7DE;border-radius:12px;display:flex;flex-direction:column;transform:translate(-50%, -48%) scale(0.96);transition:transform .18s ease;box-shadow:0 20px 55px rgba(15,23,42,.35);overflow:hidden;">
     <div id="modal-hdr" style="padding:12px 14px;border-bottom:1px solid #D0D7DE;background:#F6F8FA;display:flex;align-items:center;gap:8px;">
       <div style="flex:1">
         <div style="font-size:10px;color:#57606A;margin-bottom:2px;">Case</div>
@@ -2641,6 +2708,24 @@ document.addEventListener('DOMContentLoaded',()=>{
         <button onclick="closeCaseModal()" style="font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;">Cancelar</button>
         <button onclick="saveModal()" style="font-size:11px;padding:4px 14px;border-radius:4px;cursor:pointer;border:1px solid #0969DA;background:#0969DA;color:#fff;font-weight:600;">Salvar no Snow</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<div id="account-products-overlay" style="display:none;position:fixed;inset:0;z-index:700;background:rgba(15,23,42,.55);align-items:center;justify-content:center;">
+  <div style="width:min(620px,92vw);max-height:82vh;background:#fff;border:1px solid #D0D7DE;border-radius:12px;box-shadow:0 20px 55px rgba(15,23,42,.35);display:flex;flex-direction:column;overflow:hidden;">
+    <div style="padding:12px 14px;border-bottom:1px solid #D0D7DE;background:#F6F8FA;display:flex;align-items:center;gap:8px;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:10px;color:#57606A;">Produtos/Serviços do Account</div>
+        <div id="account-products-name" style="font-size:13px;font-weight:700;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">—</div>
+      </div>
+      <button onclick="closeAccountProductsModal()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#57606A;width:28px;height:28px;">✕</button>
+    </div>
+    <div id="account-products-list" style="padding:12px 14px;overflow:auto;">
+      <div class="account-product-empty">Carregando...</div>
+    </div>
+    <div style="padding:10px 14px;border-top:1px solid #D0D7DE;display:flex;justify-content:flex-end;">
+      <button onclick="closeAccountProductsModal()" style="font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;">Fechar</button>
     </div>
   </div>
 </div>
