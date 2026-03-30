@@ -2420,13 +2420,15 @@ function openAccountProductsModal(accountId, accountName){
   };
 
   // ── CMDB: Itens Gerenciados ───────────────────────────────────────────
-  // Requested exact filter (from SN list URL):
-  // u_account.nameSTARTSWITHwick^u_active_flag=true^u_management_type!=no_management^ORu_management_type=NULL^GROUPBYsys_class_name
-  // (GROUPBY is presentation concern for list; grouping is done client-side below)
+  // Adapted to the account from current modal/case (account sys_id/name).
+  // Equivalent to requested logic:
+  // u_account=<account>^u_active_flag=true^u_management_type!=no_management
+  // OR u_account=<account>^u_active_flag=true^u_management_type=NULL
   const cmdbFields = 'sys_id,name,hostname,ip_address,u_management_type,management_type,sys_class_name,u_active_flag,active';
   const cmdbLimit  = 10000;
   const cmdbQueries = [
-    'u_account.nameSTARTSWITHwick^u_active_flag=true^u_management_type!=no_management^ORu_management_type=NULL'
+    'u_account='+accountId+'^u_active_flag=true^u_management_type!=no_management^NQu_account='+accountId+'^u_active_flag=true^u_management_type=NULL',
+    'u_account.name='+accountName+'^u_active_flag=true^u_management_type!=no_management^NQu_account.name='+accountName+'^u_active_flag=true^u_management_type=NULL'
   ];
 
   // ── Software: Licenças ────────────────────────────────────────────────
