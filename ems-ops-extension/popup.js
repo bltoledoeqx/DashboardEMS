@@ -2269,8 +2269,6 @@ function openCaseModal(sysId, number, cardEl) {
 
     const fmtDate = d => d ? new Date(d).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}) : '—';
     const val = f => f?.display_value || f?.value || '—';
-    const scheduleCandidates = ['u_scheduled_date','u_schedule_date','u_next_action_date','follow_up'];
-    window._modalScheduleField = scheduleCandidates.find(k => Object.prototype.hasOwnProperty.call(c, k)) || 'follow_up';
     const fmtBytes = n => {
       const x = parseInt(n||'0',10)||0;
       if(x < 1024) return x+' B';
