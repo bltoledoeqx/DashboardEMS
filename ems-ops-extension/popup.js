@@ -2452,6 +2452,7 @@ function openAccountProductsModal(accountId, accountName){
 
     const ignoredHostnames = new Set(['server','—','managedservices-custom']);
     const items = rows.map(r=>({
+      sysId  : pickFirst(r.sys_id?.value),
       name   : pickFirst(r.hostname?.display_value,r.hostname?.value,r.name?.display_value,r.name?.value),
       mgType : pickFirst(r.u_management_type?.display_value,r.u_management_type?.value,r.management_type?.display_value,r.management_type?.value),
       ip     : pickFirst(r.ip_address?.display_value,r.ip_address?.value),
@@ -2472,8 +2473,10 @@ function openAccountProductsModal(accountId, accountName){
         '<table class="acc-table">'+
         '<thead><tr><th>Hostname</th><th>IP Address</th><th>Management type</th></tr></thead>'+
         '<tbody>'+
-        gRows.map(i=>'<tr>'+
-          '<td><strong>'+i.name+'</strong></td>'+
+        gRows.map(i=>'<tr class="managed-item-row" data-mi-search="'+
+          [i.name,i.ip,i.mgType,cls].join(' ').toLowerCase().replace(/"/g,'&quot;')+'">'+
+          '<td><a href="'+_BASE+'/cmdb_ci.do?sys_id='+encodeURIComponent(i.sysId||'')+'" target="_blank" rel="noopener noreferrer" '+
+          'class="managed-item-row-link"><strong>'+i.name+'</strong></a></td>'+
           '<td class="acc-cell-muted">'+i.ip+'</td>'+
           '<td><span class="acc-badge acc-badge-tm">'+i.mgType+'</span></td>'+
           '</tr>').join('')+
@@ -2482,6 +2485,11 @@ function openAccountProductsModal(accountId, accountName){
 
     return '<div class="acc-sec">'+
       '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-ok">'+items.length+' itens</span></div>'+
+      '<div style="padding:8px 0 4px 0;">'+
+        '<input id="managed-items-find" type="search" placeholder="Find hostname, IP, class..." '+
+        'oninput="filterManagedItemsRows(this.value)" '+
+        'style="width:100%;font-size:12px;padding:7px 9px;border:1px solid #D0D7DE;border-radius:6px;">'+
+      '</div>'+
       sections+
       '</div>';
   };
@@ -2495,15 +2503,18 @@ function openAccountProductsModal(accountId, accountName){
         '<div style="padding:10px;"><div class="account-product-empty">Nenhum registro encontrado.</div></div></div>';
     }
     const toNum = v => {
-      const n = parseFloat(String(v||'').replace(',', '.').replace(/[^\d.-]/g, ''));
+      const n = Number(String(v||'').replace(',', '.').replace(/[^\d.-]/g, ''));
       return Number.isFinite(n) ? n : 0;
+    };
+    const pickField = (obj, field) => {
+      return obj?.[field]?.display_value ?? obj?.[field]?.value ?? obj?.[field] ?? '—';
     };
     const agg = new Map();
     rows.forEach(r=>{
-      const sw = pickFirst(r.u_software_to_install?.display_value, r.u_software_to_install?.value);
-      const mfr = pickFirst(r.manufacturer?.display_value, r.manufacturer?.value);
-      const model = pickFirst(r.u_licensing_model?.display_value, r.u_licensing_model?.value);
-      const qtyRaw = pickFirst(r.u_software_quantity?.display_value, r.u_software_quantity?.value);
+      const sw = pickField(r, 'u_software_to_install');
+      const mfr = pickField(r, 'manufacturer');
+      const model = pickField(r, 'u_licensing_model');
+      const qtyRaw = pickField(r, 'u_software_quantity');
       const key = [sw, model].join('|');
       if(!agg.has(key)){
         agg.set(key, {
@@ -2550,6 +2561,14 @@ function openAccountProductsModal(accountId, accountName){
 function closeAccountProductsModal(){
   const ov=document.getElementById('account-products-overlay');
   if(ov) ov.style.display='none';
+}
+
+function filterManagedItemsRows(query){
+  const q=(query||'').toLowerCase().trim();
+  document.querySelectorAll('#account-products-list .managed-item-row').forEach(row=>{
+    const hay=(row.getAttribute('data-mi-search')||'').toLowerCase();
+    row.style.display = !q || hay.includes(q) ? '' : 'none';
+  });
 }
 
 function closeCaseModal() {
