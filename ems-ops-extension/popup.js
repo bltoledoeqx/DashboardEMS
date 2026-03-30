@@ -646,7 +646,7 @@ a{text-decoration:none;}
 .acc-badge{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:10px;border:1px solid var(--border);}
 .acc-arrow{font-size:12px;color:var(--muted);transition:transform .2s;margin-left:4px;}
 .accordion-body{padding:10px 16px 12px;border-top:1px solid var(--border);background:var(--bg);}
-.acc-grid{display:flex;gap:8px;align-items:flex-start;}
+.acc-grid{display:flex;flex-direction:column;gap:8px;align-items:stretch;}
 .acc-report-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;flex-shrink:0;}
 /* Analyst table */
 .acc-report-card.acc-analyst{width:250px;overflow:hidden;}
@@ -655,9 +655,9 @@ a{text-decoration:none;}
 .acc-report-card.acc-analyst .ana-table td:first-child{width:auto;overflow:hidden;text-overflow:ellipsis;}
 .acc-report-card.acc-analyst .ana-table th.ana-num,
 .acc-report-card.acc-analyst .ana-table td.ana-num{width:42px;}
-.acc-analyst-wrap{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;}
+.acc-analyst-wrap{display:flex;gap:8px;flex-wrap:nowrap;align-items:flex-start;overflow-x:auto;padding-bottom:2px;}
 /* score cards */
-.acc-scores-wrap{display:flex;flex-shrink:0;max-width:100%;}
+.acc-scores-wrap{display:flex;max-width:100%;overflow-x:auto;padding-bottom:2px;}
 .acc-scores-row{display:flex;gap:8px;align-items:stretch;flex-wrap:nowrap;}
 .acc-report-card.acc-score-card{width:132px;display:flex;flex-direction:column;justify-content:center;}
 /* Resolved chart — fixed width */
@@ -1024,10 +1024,6 @@ tr:hover td{background:#F6F8FA;}
       <div class="acc-grid">
         <div class="acc-analyst-wrap">
           <div class="acc-report-card acc-analyst">
-            <div class="acc-report-title">Cases Ativos por Analista · All</div>
-            <div id="ana-table-wrap-acc-all"></div>
-          </div>
-          <div class="acc-report-card acc-analyst">
             <div class="acc-report-title">Cases Ativos por Analista · L1</div>
             <div id="ana-table-wrap-acc-l1"></div>
           </div>
@@ -1085,7 +1081,7 @@ tr:hover td{background:#F6F8FA;}
             </div>
           </div>
         </div>
-        <div class="acc-scores-wrap" style="margin-top:6px;">
+        <div class="acc-scores-wrap">
           <div class="acc-scores-row">
             <div class="acc-report-card acc-score-card">
               <div class="acc-report-title">Resolvidos no Mês · L1</div>
@@ -1390,16 +1386,13 @@ function getRatingAssigneeFilter(){
 }
 
 function applyAnalystTableFilter(){
-  const gid=window._GID_MAP?.[currentFila]||'';
   const managerId=document.getElementById('manager-sel')?.value||'';
   const analystId=document.getElementById('analyst-sel')?.value||'';
   const queueCfg=[
-    {key:'all', gid:'all'},
     {key:'l1', gid:window._GID_MAP?.l1||''},
     {key:'l2', gid:window._GID_MAP?.l2||''},
     {key:'event', gid:window._GID_MAP?.event||''}
   ];
-  const allGroupIds=[window._GID_MAP?.l1,window._GID_MAP?.l2,window._GID_MAP?.event].filter(Boolean);
   let visible=0;
   queueCfg.forEach(cfg=>{
     const wrap=document.getElementById('ana-table-wrap-acc-'+cfg.key);
@@ -1408,17 +1401,12 @@ function applyAnalystTableFilter(){
     const rows=document.querySelectorAll('#ana-table-wrap-acc-'+cfg.key+' .ana-table tbody tr');
     let allowNames=null;
     if(analystId){
-      const searchGroups=cfg.key==='all'?allGroupIds:[cfg.gid];
       let foundName='';
-      for(const g of searchGroups){
-        const member=(window._MANAGER_CACHE?.[g]?.members||window._GMEMBERS?.[g]||[]).find(m=>m.id===analystId);
-        if(member?.name){foundName=member.name;break;}
-      }
+      const member=(window._MANAGER_CACHE?.[cfg.gid]?.members||window._GMEMBERS?.[cfg.gid]||[]).find(m=>m.id===analystId);
+      if(member?.name) foundName=member.name;
       allowNames=new Set(foundName?[foundName]:[]);
     }else if(managerId){
-      const members=cfg.key==='all'
-        ? allGroupIds.flatMap(g=>getMembersByManager(g,managerId))
-        : getMembersByManager(cfg.gid,managerId);
+      const members=getMembersByManager(cfg.gid,managerId);
       allowNames=new Set(members.map(m=>m.name));
     }
     rows.forEach(r=>{
@@ -1443,8 +1431,8 @@ function showPage(id,el){
   }
   if(id==='kanban'){
     // Re-init accordion in case it wasn't loaded yet
-    const anaAll=document.getElementById('ana-table-wrap-acc-all');
-    if(!anaAll||!anaAll.innerHTML||anaAll.innerHTML.trim().length<10){
+    const anaL1=document.getElementById('ana-table-wrap-acc-l1');
+    if(!anaL1||!anaL1.innerHTML||anaL1.innerHTML.trim().length<10){
       initAccordion();
     }
   }
@@ -1640,7 +1628,7 @@ function toggleAcc(key){
 }
 
 function initAccordion(){
-  const queues=['all','l1','l2','event'];
+  const queues=['l1','l2','event'];
   queues.forEach(q=>{
     const wrap=document.getElementById('ana-table-wrap-acc-'+q);
     const src=document.getElementById('_at_'+q)?.innerHTML||'';
@@ -1654,7 +1642,7 @@ function initAccordion(){
   });
   const badge=document.getElementById('acc-badge-analyst');
   if(badge){
-    const rows=document.querySelectorAll('#ana-table-wrap-acc-all .ana-table tbody tr,#ana-table-wrap-acc-l1 .ana-table tbody tr,#ana-table-wrap-acc-l2 .ana-table tbody tr,#ana-table-wrap-acc-event .ana-table tbody tr');
+    const rows=document.querySelectorAll('#ana-table-wrap-acc-l1 .ana-table tbody tr,#ana-table-wrap-acc-l2 .ana-table tbody tr,#ana-table-wrap-acc-event .ana-table tbody tr');
     badge.textContent=rows.length?rows.length+' analistas':'';
   }
   applyAnalystTableFilter();
