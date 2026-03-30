@@ -2846,7 +2846,16 @@ document.addEventListener('DOMContentLoaded',()=>{
       async function fetchByQuery(query) {
         const url = endpoint + '?sysparm_query=' + encodeURIComponent(query) + params;
         const response = await fetch(url, { headers: _HEADERS });
-        const data = await parseJsonSafe(response, 'delta_polling');
+        const raw = await response.text();
+        if (!response.ok) {
+          const msg = raw ? ': ' + raw.slice(0, 180) : '';
+          throw new Error('delta_polling HTTP ' + response.status + msg);
+        }
+        let data = {};
+        if (raw) {
+          try { data = JSON.parse(raw); }
+          catch (_) { throw new Error('delta_polling retornou JSON inválido (HTTP ' + response.status + ')'); }
+        }
         return data.result || [];
       }
 
