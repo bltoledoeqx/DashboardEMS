@@ -2267,7 +2267,7 @@ function openCaseModal(sysId, number, cardEl) {
     const stateColors = {'1':'background:#EFF6FF;color:#0550AE','10':'background:#EFF6FF;color:#0550AE','21':'background:#DBEAFE;color:#1D4ED8','8':'background:#DCFCE7;color:#166534','18':'background:#FEF9C3;color:#854D0E','32':'background:#FEF9C3;color:#854D0E','5':'background:#F3E8FF;color:#6B21A8','29':'background:#FEE2E2;color:#991B1B','30':'background:#FEE2E2;color:#991B1B'};
     const sc = stateColors[c.state?.value] || 'background:#F6F8FA;color:#57606A';
 
-    const fmtDate = d => d ? new Date(d).toLocaleString('pt-BR',{timeZone:TZ_BR}) : '—';
+    const fmtDate = d => d ? new Date(d).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}) : '—';
     const val = f => f?.display_value || f?.value || '—';
     const scheduleCandidates = ['u_scheduled_date','u_schedule_date','u_next_action_date','follow_up'];
     window._modalScheduleField = scheduleCandidates.find(k => Object.prototype.hasOwnProperty.call(c, k)) || 'follow_up';
