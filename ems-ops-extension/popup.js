@@ -1021,7 +1021,7 @@ tr:hover td{background:#F6F8FA;}
       <span class="acc-arrow" id="acc-arrow-analyst" style="transform:rotate(180deg)">▾</span>
       <button class="refresh-btn" onclick="event.stopPropagation();refreshReports()" title="Atualizar Reports" style="font-size:13px;margin-left:4px;">↻</button>
     </div>
-    <div class="accordion-body" id="acc-body-analyst" style="display:block">
+    <div class="accordion-body" id="acc-body-analyst" data-open="0" style="display:none">
       <div class="acc-grid">
         <div class="acc-analyst-wrap">
           <div class="acc-report-card acc-analyst">
@@ -1624,10 +1624,17 @@ function toggleAcc(key){
   const body=document.getElementById('acc-body-'+key);
   const arrow=document.getElementById('acc-arrow-'+key);
   if(!body)return;
-  const open=body.style.display!=='none';
-  body.style.display=open?'none':'block';
-  if(arrow)arrow.style.transform=open?'':'rotate(180deg)';
-  if(!open)fetchAccordionScores();
+  const open=(body.dataset.open==='1') || (body.style.display!=='none');
+  if(open){
+    body.style.display='none';
+    body.dataset.open='0';
+    if(arrow)arrow.style.transform='';
+    return;
+  }
+  body.style.display='block';
+  body.dataset.open='1';
+  if(arrow)arrow.style.transform='rotate(180deg)';
+  fetchAccordionScores();
 }
 
 function initAccordion(){
