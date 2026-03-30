@@ -646,7 +646,7 @@ a{text-decoration:none;}
 .acc-badge{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:10px;border:1px solid var(--border);}
 .acc-arrow{font-size:12px;color:var(--muted);transition:transform .2s;margin-left:4px;}
 .accordion-body{padding:10px 16px 12px;border-top:1px solid var(--border);background:var(--bg);}
-.acc-grid{display:flex;flex-direction:column;gap:8px;align-items:stretch;}
+.acc-grid{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;}
 .acc-report-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;flex-shrink:0;}
 /* Analyst table */
 .acc-report-card.acc-analyst{width:250px;overflow:hidden;}
@@ -657,6 +657,7 @@ a{text-decoration:none;}
 .acc-report-card.acc-analyst .ana-table td.ana-num{width:42px;}
 .acc-analyst-wrap{display:flex;gap:8px;flex-wrap:nowrap;align-items:flex-start;overflow-x:auto;padding-bottom:2px;}
 /* score cards */
+.acc-kpis-col{display:flex;flex-direction:column;gap:8px;min-width:max-content;max-width:100%;}
 .acc-scores-wrap{display:flex;max-width:100%;overflow-x:auto;padding-bottom:2px;}
 .acc-scores-row{display:flex;gap:8px;align-items:stretch;flex-wrap:nowrap;}
 .acc-report-card.acc-score-card{width:132px;display:flex;flex-direction:column;justify-content:center;}
@@ -1036,72 +1037,74 @@ tr:hover td{background:#F6F8FA;}
             <div id="ana-table-wrap-acc-event"></div>
           </div>
         </div>
-        <div class="acc-scores-wrap">
-          <div class="acc-scores-row">
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Sem Type
-                <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=afec7b28933bb290771238797bba106e" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
+        <div class="acc-kpis-col">
+          <div class="acc-scores-wrap">
+            <div class="acc-scores-row">
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Sem Type
+                  <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=afec7b28933bb290771238797bba106e" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
+                </div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num" id="sem-type-score">—</div>
+                  <div class="acc-score-lbl">sem tipo</div>
+                </div>
               </div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num" id="sem-type-score">—</div>
-                <div class="acc-score-lbl">sem tipo</div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Last Client
+                  <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=132e7da233211ed497e2fba45d5c7bb5" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
+                </div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num" id="last-interacted-score">—</div>
+                  <div class="acc-score-lbl">últ. interação cliente</div>
+                </div>
               </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Last Client
-                <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=132e7da233211ed497e2fba45d5c7bb5" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Support Attention
+                  <a href="#" target="_blank" class="acc-report-link" id="support-attention-link">Abrir no Snow ↗</a>
+                </div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num" id="support-attention-score">—</div>
+                  <div class="acc-score-lbl">requerem atenção</div>
+                </div>
               </div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num" id="last-interacted-score">—</div>
-                <div class="acc-score-lbl">últ. interação cliente</div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Rating EMS (Ano)</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-rating" id="rating-score">—</div>
+                  <div class="acc-score-lbl">nota média</div>
+                </div>
               </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Support Attention
-                <a href="#" target="_blank" class="acc-report-link" id="support-attention-link">Abrir no Snow ↗</a>
-              </div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num" id="support-attention-score">—</div>
-                <div class="acc-score-lbl">requerem atenção</div>
-              </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Rating EMS (Ano)</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-rating" id="rating-score">—</div>
-                <div class="acc-score-lbl">nota média</div>
-              </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Customer Satisfaction</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-rating" id="customer-satisfaction-score">—</div>
-                <div class="acc-score-lbl">(% promotors - detractors) / total</div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Customer Satisfaction</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-rating" id="customer-satisfaction-score">—</div>
+                  <div class="acc-score-lbl">(% promotors - detractors) / total</div>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-        <div class="acc-scores-wrap">
-          <div class="acc-scores-row">
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Resolvidos no Mês · L1</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-month" id="resolved-month-score-l1">—</div>
-                <div class="acc-score-lbl">casos resolvidos</div>
+          <div class="acc-scores-wrap">
+            <div class="acc-scores-row">
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Resolvidos no Mês · L1</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-month" id="resolved-month-score-l1">—</div>
+                  <div class="acc-score-lbl">casos resolvidos</div>
+                </div>
               </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Resolvidos no Mês · L2</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-month" id="resolved-month-score-l2">—</div>
-                <div class="acc-score-lbl">casos resolvidos</div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Resolvidos no Mês · L2</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-month" id="resolved-month-score-l2">—</div>
+                  <div class="acc-score-lbl">casos resolvidos</div>
+                </div>
               </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Resolvidos no Mês · Event</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-month" id="resolved-month-score-event">—</div>
-                <div class="acc-score-lbl">casos resolvidos</div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Resolvidos no Mês · Event</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-month" id="resolved-month-score-event">—</div>
+                  <div class="acc-score-lbl">casos resolvidos</div>
+                </div>
               </div>
             </div>
           </div>
