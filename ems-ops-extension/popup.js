@@ -2834,17 +2834,54 @@ document.addEventListener('DOMContentLoaded',()=>{
     const _FIELDS = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
 
     async function fetchDeltas() {
-      const visibleIds = Array.from(document.querySelectorAll('.card[data-sysid]')).map(c=>c.dataset.sysid).filter(Boolean);
-      let query = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>' + lastSyncTime;
-      if (visibleIds.length) {
-        query += '^NQsys_idIN' + visibleIds.join(',') + '^sys_updated_on>' + lastSyncTime;
+      const visibleIds = Array.from(document.querySelectorAll('.card[data-sysid]'))
+        .map(c => c.dataset.sysid)
+        .filter(Boolean);
+
+      const baseQuery = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>' + lastSyncTime;
+      const endpoint = _BASE + '/api/now/table/sn_customerservice_case';
+      const params = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all&sysparm_limit=100';
+      const visibleBatchSize = 40;
+
+      async function fetchByQuery(query) {
+        const url = endpoint + '?sysparm_query=' + encodeURIComponent(query) + params;
+        const response = await fetch(url, { headers: _HEADERS });
+        const raw = await response.text();
+        if (!response.ok) {
+          const msg = raw ? ': ' + raw.slice(0, 180) : '';
+          throw new Error('delta_polling HTTP ' + response.status + msg);
+        }
+        let data = {};
+        if (raw) {
+          try { data = JSON.parse(raw); }
+          catch (_) { throw new Error('delta_polling retornou JSON inválido (HTTP ' + response.status + ')'); }
+        }
+        return data.result || [];
       }
-      const url = _BASE + '/api/now/table/sn_customerservice_case?sysparm_query=' + encodeURIComponent(query) + '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all&sysparm_limit=100';
 
       try {
-        const response = await fetch(url, { headers: _HEADERS });
-        const data = await response.json();
-        const cases = data.result || [];
+        const out = [];
+        const seen = new Set();
+        const addCases = list => {
+          list.forEach(c => {
+            const sid = c?.sys_id?.value;
+            if (!sid || seen.has(sid)) return;
+            seen.add(sid);
+            out.push(c);
+          });
+        };
+
+        addCases(await fetchByQuery(baseQuery));
+
+        if (visibleIds.length) {
+          for (let i = 0; i < visibleIds.length; i += visibleBatchSize) {
+            const batch = visibleIds.slice(i, i + visibleBatchSize);
+            const q = 'sys_idIN' + batch.join(',') + '^sys_updated_on>' + lastSyncTime;
+            addCases(await fetchByQuery(q));
+          }
+        }
+
+        const cases = out;
 
         if (cases.length > 0) {
           console.log('[DeltaPolling] ' + cases.length + ' casos alterados.');
