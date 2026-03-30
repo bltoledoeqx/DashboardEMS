@@ -2673,52 +2673,6 @@ async function uploadModalAttachment(){
   }
 }
 
-function modalSetState(stateValue){
-  if(!_modalSysId) return;
-  patchCase(_modalSysId,{state:String(stateValue)}).then(ok=>{
-    if(ok){
-      showToast('✅ Estado atualizado');
-      const numEl=document.getElementById('modal-num');
-      if(numEl) setTimeout(()=>openCaseModal(_modalSysId,numEl.textContent,_modalActiveCard||document.createElement('div')),250);
-    } else {
-      showToast('❌ Erro ao atualizar estado','error');
-    }
-  });
-}
-
-function toggleScheduleControls(){
-  const row = document.getElementById('modal-schedule-row');
-  const inp = document.getElementById('modal-schedule-dt');
-  if(!row) return;
-  const show = row.style.display === 'none' || !row.style.display;
-  row.style.display = show ? 'flex' : 'none';
-  if(show && inp && !inp.value){
-    const d = new Date(Date.now() + 3600000);
-    const pad=n=>String(n).padStart(2,'0');
-    inp.value = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
-  }
-}
-
-function applyScheduledState(){
-  if(!_modalSysId) return;
-  const inp = document.getElementById('modal-schedule-dt');
-  const raw = inp?.value;
-  if(!raw){ showToast('Selecione data e hora','warn'); return; }
-  const toSnow = raw.replace('T',' ') + ':00';
-  const body = { state:'5' };
-  const f = window._modalScheduleField || 'follow_up';
-  body[f] = toSnow;
-  patchCase(_modalSysId, body).then(ok=>{
-    if(ok){
-      showToast('✅ Caso agendado');
-      const numEl=document.getElementById('modal-num');
-      if(numEl) setTimeout(()=>openCaseModal(_modalSysId,numEl.textContent,_modalActiveCard||document.createElement('div')),250);
-    } else {
-      showToast('❌ Erro ao agendar','error');
-    }
-  });
-}
-
 let _modalNoteType = 'work_notes';
 function modalTabSwitch(type) {
   _modalNoteType = type === 'wn' ? 'work_notes' : 'comments';
