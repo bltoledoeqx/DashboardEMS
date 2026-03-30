@@ -2503,7 +2503,36 @@ function openAccountProductsModal(accountId, accountName){
         '<div style="padding:10px;"><div class="account-product-empty">Nenhum registro encontrado.</div></div></div>';
     }
     const toNum = v => {
-      const n = Number(String(v||'').replace(',', '.').replace(/[^\d.-]/g, ''));
+      let s = String(v ?? '').trim();
+      if(!s) return 0;
+      s = s.replace(/[^\d,.-]/g, '');
+      if(!s) return 0;
+
+      const lastComma = s.lastIndexOf(',');
+      const lastDot = s.lastIndexOf('.');
+
+      if(lastComma>-1 && lastDot>-1){
+        if(lastComma > lastDot){
+          // 1.234,56 -> 1234.56
+          s = s.replace(/\./g, '').replace(',', '.');
+        } else {
+          // 1,234.56 -> 1234.56
+          s = s.replace(/,/g, '');
+        }
+      } else if(lastComma>-1){
+        // 123,45 -> 123.45 | 1,234 -> 1234
+        const commas = (s.match(/,/g)||[]).length;
+        s = commas>1 ? s.replace(/,/g, '') : s.replace(',', '.');
+      } else if(lastDot>-1){
+        // 1.234.567 -> 1234567 | 1234.56 -> 1234.56
+        const dots = (s.match(/\./g)||[]).length;
+        if(dots>1){
+          const i = s.lastIndexOf('.');
+          s = s.slice(0,i).replace(/\./g,'') + '.' + s.slice(i+1);
+        }
+      }
+
+      const n = Number(s);
       return Number.isFinite(n) ? n : 0;
     };
     const pickField = (obj, field) => {
