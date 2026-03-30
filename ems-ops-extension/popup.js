@@ -2242,7 +2242,7 @@ function openCaseModal(sysId, number, cardEl) {
 
   // Fetch case details + journal + attachments in parallel
   const h = {'Accept':'application/json','X-UserToken':_TOK};
-  const fields = 'number,short_description,description,assigned_to,priority,state,impact,urgency,opened_at,account,contact,u_type,category,sys_id';
+  const fields = 'number,short_description,description,assigned_to,priority,state,impact,urgency,opened_at,account,contact,u_type,category,sys_id,follow_up,u_scheduled_date,u_schedule_date,u_next_action_date';
   Promise.all([
     fetch(_BASE+'/api/now/table/sn_customerservice_case/'+sysId+'?sysparm_fields='+fields+'&sysparm_display_value=all', {headers:h}).then(r=>r.json()),
     fetch(_BASE+'/api/now/table/sys_journal_field?sysparm_query=element_id='+sysId+'&sysparm_display_value=all&sysparm_limit=20', {headers:h}).then(r=>r.json()),
@@ -3077,6 +3077,15 @@ document.addEventListener('DOMContentLoaded',()=>{
       <div style="display:flex;gap:6px;align-items:center;">
         <span id="modal-state-badge" style="font-size:11px;color:#57606A;flex:1;"></span>
         <button onclick="modalReassign()" style="font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;white-space:nowrap;">👤 Reatribuir</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button onclick="toggleScheduleControls()" style="font-size:11px;padding:4px 8px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;">Schedule</button>
+        <button onclick="modalSetState('18')" style="font-size:11px;padding:4px 8px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;">Awaiting Info</button>
+        <button onclick="modalSetState('32')" style="font-size:11px;padding:4px 8px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;">Awaiting Customer Approval</button>
+      </div>
+      <div id="modal-schedule-row" style="display:none;gap:6px;align-items:center;">
+        <input id="modal-schedule-dt" type="datetime-local" style="font-size:11px;padding:4px 6px;border:1px solid #D0D7DE;border-radius:4px;flex:1;">
+        <button onclick="applyScheduledState()" style="font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;border:1px solid #0969DA;background:#0969DA;color:#fff;">Aplicar</button>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:2px;">
         <button id="tab-wn" onclick="modalTabSwitch('wn')" style="font-size:11px;padding:3px 10px;border-radius:4px;cursor:pointer;border:1px solid #0969DA;background:#0969DA;color:#fff;font-weight:600;">Work Note</button>
