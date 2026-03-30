@@ -108,6 +108,7 @@ function runEMSOps(userToken, userMes) {
   const SLA_F     = 'task,planned_end_time,has_breached,percentage,sla,original_breach_time';
   const BATCH     = 50;
   const BASE      = window.location.origin;
+  const TZ_BR     = 'America/Sao_Paulo';
   const MES_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   const nowD      = new Date();
@@ -457,7 +458,7 @@ function runEMSOps(userToken, userMes) {
 
     const pmByGroup = postList.reduce((a,p)=>{ a[p.group]=(a[p.group]||0)+1; return a; },{});
     const pmByType  = postList.reduce((a,p)=>{ a[p.uType]=(a[p.uType]||0)+1; return a; },{});
-    const ts        = new Date().toLocaleString('pt-BR');
+    const ts        = new Date().toLocaleString('pt-BR',{timeZone:TZ_BR});
     const gmembersJson = JSON.stringify(GROUP_MEMBERS);
 
     // ── Analytics: table by analyst + resolved today chart ─────────────
@@ -645,17 +646,19 @@ a{text-decoration:none;}
 .acc-badge{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:10px;border:1px solid var(--border);}
 .acc-arrow{font-size:12px;color:var(--muted);transition:transform .2s;margin-left:4px;}
 .accordion-body{padding:10px 16px 12px;border-top:1px solid var(--border);background:var(--bg);}
-.acc-grid{display:flex;gap:8px;align-items:flex-start;}
+.acc-grid{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;}
 .acc-report-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;flex-shrink:0;}
 /* Analyst table */
-.acc-report-card.acc-analyst{width:240px;overflow:hidden;}
+.acc-report-card.acc-analyst{width:250px;overflow:hidden;}
 .acc-report-card.acc-analyst .ana-table{table-layout:fixed;width:100%;}
 .acc-report-card.acc-analyst .ana-table th:first-child,
 .acc-report-card.acc-analyst .ana-table td:first-child{width:auto;overflow:hidden;text-overflow:ellipsis;}
 .acc-report-card.acc-analyst .ana-table th.ana-num,
 .acc-report-card.acc-analyst .ana-table td.ana-num{width:42px;}
+.acc-analyst-wrap{display:flex;gap:8px;flex-wrap:nowrap;align-items:flex-start;overflow-x:auto;padding-bottom:2px;}
 /* score cards */
-.acc-scores-wrap{display:flex;flex-shrink:0;max-width:100%;}
+.acc-kpis-col{display:flex;flex-direction:column;gap:8px;min-width:max-content;max-width:100%;}
+.acc-scores-wrap{display:flex;max-width:100%;overflow-x:auto;padding-bottom:2px;}
 .acc-scores-row{display:flex;gap:8px;align-items:stretch;flex-wrap:nowrap;}
 .acc-report-card.acc-score-card{width:132px;display:flex;flex-direction:column;justify-content:center;}
 /* Resolved chart — fixed width */
@@ -1011,91 +1014,97 @@ tr:hover td{background:#F6F8FA;}
   <!-- Reports accordion (only in Cases Ativos) -->
   <div class="accordion-wrap" id="accordion-wrap">
   <div class="accordion-item" id="acc-analyst">
-    <div class="accordion-hdr" onclick="toggleAcc('analyst')">
+    <div class="accordion-hdr" id="acc-hdr-analyst">
       <span class="acc-icon">📊</span>
       <span class="acc-title">Reports</span>
       <span class="acc-badge" id="acc-badge-analyst"></span>
       <span class="acc-arrow" id="acc-arrow-analyst">▾</span>
       <button class="refresh-btn" onclick="event.stopPropagation();refreshReports()" title="Atualizar Reports" style="font-size:13px;margin-left:4px;">↻</button>
     </div>
-    <div class="accordion-body" id="acc-body-analyst" style="display:none">
+    <div class="accordion-body" id="acc-body-analyst" data-open="0" style="display:none">
       <div class="acc-grid">
-        <div class="acc-report-card acc-analyst">
-          <div class="acc-report-title">Cases Ativos por Analista
-            <span id="ana-queue-wrap">
-              <select id="ana-queue-sel" onchange="changeAnalystReportQueue(this.value)" style="font-size:10px;padding:1px 6px;border:1px solid #d0d7de;border-radius:6px;">
-                <option value="all">All</option><option value="l1">L1</option><option value="l2">L2</option><option value="event">Event</option>
-              </select>
-            </span>
+        <div class="acc-analyst-wrap">
+          <div class="acc-report-card acc-analyst">
+            <div class="acc-report-title">Cases Ativos por Analista · L1</div>
+            <div id="ana-table-wrap-acc-l1"></div>
           </div>
-          <div id="ana-table-wrap-acc"></div>
-        </div>
-        <div class="acc-scores-wrap">
-          <div class="acc-scores-row">
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Sem Type
-                <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=afec7b28933bb290771238797bba106e" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
-              </div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num" id="sem-type-score">—</div>
-                <div class="acc-score-lbl">sem tipo</div>
-              </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Last Client
-                <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=132e7da233211ed497e2fba45d5c7bb5" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
-              </div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num" id="last-interacted-score">—</div>
-                <div class="acc-score-lbl">últ. interação cliente</div>
-              </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Support Attention
-                <a href="#" target="_blank" class="acc-report-link" id="support-attention-link">Abrir no Snow ↗</a>
-              </div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num" id="support-attention-score">—</div>
-                <div class="acc-score-lbl">requerem atenção</div>
-              </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Rating EMS (Ano)</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-rating" id="rating-score">—</div>
-                <div class="acc-score-lbl">nota média</div>
-              </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Customer Satisfaction</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-rating" id="customer-satisfaction-score">—</div>
-                <div class="acc-score-lbl">(% promotors - detractors) / total</div>
-              </div>
-            </div>
+          <div class="acc-report-card acc-analyst">
+            <div class="acc-report-title">Cases Ativos por Analista · L2</div>
+            <div id="ana-table-wrap-acc-l2"></div>
+          </div>
+          <div class="acc-report-card acc-analyst">
+            <div class="acc-report-title">Cases Ativos por Analista · Event</div>
+            <div id="ana-table-wrap-acc-event"></div>
           </div>
         </div>
-        <div class="acc-scores-wrap" style="margin-top:6px;">
-          <div class="acc-scores-row">
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Resolvidos no Mês · L1</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-month" id="resolved-month-score-l1">—</div>
-                <div class="acc-score-lbl">casos resolvidos</div>
+        <div class="acc-kpis-col">
+          <div class="acc-scores-wrap">
+            <div class="acc-scores-row">
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Sem Type
+                  <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=afec7b28933bb290771238797bba106e" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
+                </div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num" id="sem-type-score">—</div>
+                  <div class="acc-score-lbl">sem tipo</div>
+                </div>
+              </div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Last Client
+                  <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=132e7da233211ed497e2fba45d5c7bb5" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
+                </div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num" id="last-interacted-score">—</div>
+                  <div class="acc-score-lbl">últ. interação cliente</div>
+                </div>
+              </div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Support Attention
+                  <a href="#" target="_blank" class="acc-report-link" id="support-attention-link">Abrir no Snow ↗</a>
+                </div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num" id="support-attention-score">—</div>
+                  <div class="acc-score-lbl">requerem atenção</div>
+                </div>
+              </div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Rating EMS (Ano)</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-rating" id="rating-score">—</div>
+                  <div class="acc-score-lbl">nota média</div>
+                </div>
+              </div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Customer Satisfaction</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-rating" id="customer-satisfaction-score">—</div>
+                  <div class="acc-score-lbl">(% promotors - detractors) / total</div>
+                </div>
               </div>
             </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Resolvidos no Mês · L2</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-month" id="resolved-month-score-l2">—</div>
-                <div class="acc-score-lbl">casos resolvidos</div>
+          </div>
+          <div class="acc-scores-wrap">
+            <div class="acc-scores-row">
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Resolvidos no Mês · L1</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-month" id="resolved-month-score-l1">—</div>
+                  <div class="acc-score-lbl">casos resolvidos</div>
+                </div>
               </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Resolvidos no Mês · Event</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-month" id="resolved-month-score-event">—</div>
-                <div class="acc-score-lbl">casos resolvidos</div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Resolvidos no Mês · L2</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-month" id="resolved-month-score-l2">—</div>
+                  <div class="acc-score-lbl">casos resolvidos</div>
+                </div>
+              </div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Resolvidos no Mês · Event</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-month" id="resolved-month-score-event">—</div>
+                  <div class="acc-score-lbl">casos resolvidos</div>
+                </div>
               </div>
             </div>
           </div>
@@ -1235,16 +1244,14 @@ function refreshReports(){
     const elR=document.getElementById(id);
     if(elR)elR.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
   });
-  // Also reload analyst table
-  const tbl=document.getElementById('_at_'+currentFila)?.innerHTML||'';
-  initAccordion(tbl);
+  // Also reload analyst tables
+  initAccordion();
 }
 function refreshMyCases(){
   initMyCases();
 }
 
 let currentFila='all';
-let currentAnalystReportQueue='all';
 window._GMEMBERS=${gmembersJson};
 window._GID_MAP={'all':_IDS,'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
 window._MANAGER_CACHE={};
@@ -1382,41 +1389,38 @@ function getRatingAssigneeFilter(){
 }
 
 function applyAnalystTableFilter(){
-  const gid=window._GID_MAP?.[currentFila]||'';
   const managerId=document.getElementById('manager-sel')?.value||'';
-  const queueWrap=document.getElementById('ana-queue-wrap');
-  const queueSel=document.getElementById('ana-queue-sel');
-  const qKey=(queueSel?.value||currentAnalystReportQueue||'all');
-  const srcKey=managerId?'all':qKey;
-  const src=document.getElementById('_at_'+srcKey)?.innerHTML||'';
-  const anaAcc=document.getElementById('ana-table-wrap-acc');
-  if(anaAcc && src && anaAcc.dataset.src!==srcKey){anaAcc.innerHTML=src;anaAcc.dataset.src=srcKey;}
-  if(queueWrap) queueWrap.style.display=managerId?'none':'inline-flex';
-
-  const rows=document.querySelectorAll('#ana-table-wrap-acc .ana-table tbody tr');
-  if(!rows.length) return;
   const analystId=document.getElementById('analyst-sel')?.value||'';
-  let allowNames=null;
-  if(analystId){
-    const member=(window._MANAGER_CACHE?.[gid]?.members||window._GMEMBERS?.[gid]||[]).find(m=>m.id===analystId);
-    allowNames=new Set(member?[member.name]:[]);
-  }else if(managerId){
-    allowNames=new Set(getMembersByManager(gid,managerId).map(m=>m.name));
-  }
+  const queueCfg=[
+    {key:'l1', gid:window._GID_MAP?.l1||''},
+    {key:'l2', gid:window._GID_MAP?.l2||''},
+    {key:'event', gid:window._GID_MAP?.event||''}
+  ];
   let visible=0;
-  rows.forEach(r=>{
-    const name=(r.cells?.[0]?.innerText||r.cells?.[0]?.textContent||'').trim();
-    const show=!allowNames||allowNames.has(name);
-    r.style.display=show?'':'none';
-    if(show) visible++;
+  queueCfg.forEach(cfg=>{
+    const wrap=document.getElementById('ana-table-wrap-acc-'+cfg.key);
+    const src=document.getElementById('_at_'+cfg.key)?.innerHTML||'';
+    if(wrap && src && wrap.dataset.src!==cfg.key){wrap.innerHTML=src;wrap.dataset.src=cfg.key;}
+    const rows=document.querySelectorAll('#ana-table-wrap-acc-'+cfg.key+' .ana-table tbody tr');
+    let allowNames=null;
+    if(analystId){
+      let foundName='';
+      const member=(window._MANAGER_CACHE?.[cfg.gid]?.members||window._GMEMBERS?.[cfg.gid]||[]).find(m=>m.id===analystId);
+      if(member?.name) foundName=member.name;
+      allowNames=new Set(foundName?[foundName]:[]);
+    }else if(managerId){
+      const members=getMembersByManager(cfg.gid,managerId);
+      allowNames=new Set(members.map(m=>m.name));
+    }
+    rows.forEach(r=>{
+      const name=(r.cells?.[0]?.innerText||r.cells?.[0]?.textContent||'').trim();
+      const show=!allowNames||allowNames.has(name);
+      r.style.display=show?'':'none';
+      if(show) visible++;
+    });
   });
   const badge=document.getElementById('acc-badge-analyst');
   if(badge) badge.textContent=visible?visible+' analistas':'';
-}
-
-function changeAnalystReportQueue(queueKey){
-  currentAnalystReportQueue=queueKey||'all';
-  applyAnalystTableFilter();
 }
 
 function showPage(id,el){
@@ -1430,10 +1434,9 @@ function showPage(id,el){
   }
   if(id==='kanban'){
     // Re-init accordion in case it wasn't loaded yet
-    const anaAcc=document.getElementById('ana-table-wrap-acc');
-    if(!anaAcc||!anaAcc.innerHTML||anaAcc.innerHTML.trim().length<10){
-      const src=document.getElementById('_at_'+currentFila)?.innerHTML||document.getElementById('_at_l1')?.innerHTML||'';
-      if(src&&src.trim().length>10) initAccordion(src);
+    const anaL1=document.getElementById('ana-table-wrap-acc-l1');
+    if(!anaL1||!anaL1.innerHTML||anaL1.innerHTML.trim().length<10){
+      initAccordion();
     }
   }
 }
@@ -1525,7 +1528,7 @@ function switchFila(key){
   if(ba){const c=(ativosBoards[key]||'').match(/data-count="(\d+)"/g)||[];const tot=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,'')),0);ba.textContent=tot+' cases · <20 dias';}
   const tbl=document.getElementById('_at_'+key)?.innerHTML||'';
   document.getElementById('ana-table-wrap').innerHTML=tbl;
-  initAccordion(tbl);
+  initAccordion();
   populateManagerDropdown('manager-sel', key).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
     populateAnalystDropdown('analyst-sel', key, managerId, '— Todos —');
@@ -1613,22 +1616,37 @@ function toggleAcc(key){
   const body=document.getElementById('acc-body-'+key);
   const arrow=document.getElementById('acc-arrow-'+key);
   if(!body)return;
-  const open=body.style.display!=='none';
-  body.style.display=open?'none':'block';
-  if(arrow)arrow.style.transform=open?'':'rotate(180deg)';
-  if(!open)fetchAccordionScores();
+  const open=(body.dataset.open==='1') || (body.style.display!=='none');
+  if(open){
+    body.style.display='none';
+    body.dataset.open='0';
+    if(arrow)arrow.style.transform='';
+    return;
+  }
+  body.style.display='block';
+  body.dataset.open='1';
+  if(arrow)arrow.style.transform='rotate(180deg)';
+  fetchAccordionScores();
 }
 
-function initAccordion(html){
-  const anaAcc=document.getElementById('ana-table-wrap-acc');
-  // Try passed html, then current fila hidden div, then l1 fallback
-  const src=html||document.getElementById('_at_'+currentFila)?.innerHTML||document.getElementById('_at_l1')?.innerHTML||'';
-  if(anaAcc){
-    if(src&&src.trim()!=='') anaAcc.innerHTML=src;
-    else anaAcc.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px;">Sem dados disponíveis para esta fila.</div>';
-  }
+function initAccordion(){
+  const queues=['l1','l2','event'];
+  queues.forEach(q=>{
+    const wrap=document.getElementById('ana-table-wrap-acc-'+q);
+    const src=document.getElementById('_at_'+q)?.innerHTML||'';
+    if(!wrap) return;
+    if(src&&src.trim()!==''){
+      wrap.innerHTML=src;
+      wrap.dataset.src=q;
+    }else{
+      wrap.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px;">Sem dados disponíveis para esta fila.</div>';
+    }
+  });
   const badge=document.getElementById('acc-badge-analyst');
-  if(badge){const rows=document.querySelectorAll('#ana-table-wrap-acc .ana-table tbody tr');badge.textContent=rows.length?rows.length+' analistas':'';}
+  if(badge){
+    const rows=document.querySelectorAll('#ana-table-wrap-acc-l1 .ana-table tbody tr,#ana-table-wrap-acc-l2 .ana-table tbody tr,#ana-table-wrap-acc-event .ana-table tbody tr');
+    badge.textContent=rows.length?rows.length+' analistas':'';
+  }
   applyAnalystTableFilter();
   fetchAccordionScores();
 }
@@ -2236,18 +2254,31 @@ function openCaseModal(sysId, number, cardEl) {
   numEl.textContent = number;
   link.href = _BASE + '/sn_customerservice_case.do?sysparm_query=number=' + number;
   if (noteTA) noteTA.value = '';
+  const legacyQuickActions = Array.from(document.querySelectorAll('#modal-footer button')).filter(btn => {
+    const txt = (btn.textContent || '').trim().toLowerCase();
+    const oc = (btn.getAttribute('onclick') || '').toLowerCase();
+    return txt === 'schedule'
+      || txt === 'awaiting info'
+      || txt === 'awaiting customer approval'
+      || oc.includes('modalsetstate')
+      || oc.includes('toggleschedulecontrols')
+      || oc.includes('applyscheduledstate');
+  });
+  legacyQuickActions.forEach(btn => btn.remove());
   body.innerHTML = '<div style="text-align:center;color:#57606A;font-size:13px;padding:40px 0;">Carregando...</div>';
   title.textContent = '';
 
-  // Fetch case details + journal in parallel
+  // Fetch case details + journal + attachments in parallel
   const h = {'Accept':'application/json','X-UserToken':_TOK};
   const fields = 'number,short_description,description,assigned_to,priority,state,impact,urgency,opened_at,account,contact,u_type,category,sys_id';
   Promise.all([
     fetch(_BASE+'/api/now/table/sn_customerservice_case/'+sysId+'?sysparm_fields='+fields+'&sysparm_display_value=all', {headers:h}).then(r=>r.json()),
     fetch(_BASE+'/api/now/table/sys_journal_field?sysparm_query=element_id='+sysId+'&sysparm_display_value=all&sysparm_limit=20', {headers:h}).then(r=>r.json()),
-  ]).then(([caseData, journalData]) => {
+    fetch(_BASE+'/api/now/attachment?sysparm_query='+encodeURIComponent('table_name=sn_customerservice_case^table_sys_id='+sysId)+'&sysparm_fields=sys_id,file_name,size_bytes,sys_created_on&sysparm_display_value=all&sysparm_limit=100', {headers:h}).then(r=>r.json()).catch(()=>({result:[]})),
+  ]).then(([caseData, journalData, attachmentData]) => {
     const c = caseData.result;
     const j = journalData.result || [];
+    const at = attachmentData.result || [];
     if (!c) { body.innerHTML = '<div style="color:#CF222E;padding:20px;">Erro ao carregar caso.</div>'; return; }
 
     // Fetch contact phone in background (non-blocking)
@@ -2264,8 +2295,14 @@ function openCaseModal(sysId, number, cardEl) {
     const stateColors = {'1':'background:#EFF6FF;color:#0550AE','10':'background:#EFF6FF;color:#0550AE','21':'background:#DBEAFE;color:#1D4ED8','8':'background:#DCFCE7;color:#166534','18':'background:#FEF9C3;color:#854D0E','32':'background:#FEF9C3;color:#854D0E','5':'background:#F3E8FF;color:#6B21A8','29':'background:#FEE2E2;color:#991B1B','30':'background:#FEE2E2;color:#991B1B'};
     const sc = stateColors[c.state?.value] || 'background:#F6F8FA;color:#57606A';
 
-    const fmtDate = d => d ? new Date(d).toLocaleString('pt-BR') : '—';
+    const fmtDate = d => d ? new Date(d).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}) : '—';
     const val = f => f?.display_value || f?.value || '—';
+    const fmtBytes = n => {
+      const x = parseInt(n||'0',10)||0;
+      if(x < 1024) return x+' B';
+      if(x < 1024*1024) return (x/1024).toFixed(1)+' KB';
+      return (x/(1024*1024)).toFixed(1)+' MB';
+    };
 
     // Show current state badge
     const stateBadge=document.getElementById('modal-state-badge'); if(stateBadge) stateBadge.textContent='Estado atual: '+val(c.state);
@@ -2312,6 +2349,24 @@ function openCaseModal(sysId, number, cardEl) {
       '<div>' +
         '<div class="modal-section-title">Descrição</div>' +
         '<div class="modal-desc">'+(c.description?.display_value||c.description?.value||'Sem descrição.')+'</div>' +
+      '</div>' +
+      '<div>' +
+        '<div class="modal-section-title">Anexos ('+at.length+')</div>' +
+        '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">' +
+          '<input id="modal-attach-file" type="file" style="font-size:11px;flex:1;">' +
+          '<button type="button" onclick="uploadModalAttachment()" style="font-size:11px;padding:4px 10px;border:1px solid #0969DA;background:#0969DA;color:#fff;border-radius:4px;cursor:pointer;">Anexar</button>' +
+        '</div>' +
+        (at.length ? '<div style="display:flex;flex-direction:column;gap:6px;">'+at.map(a=>{
+          const aid = a.sys_id?.value || a.sys_id || '';
+          const fn = a.file_name?.display_value || a.file_name?.value || a.file_name || 'anexo';
+          const sz = fmtBytes(a.size_bytes?.value || a.size_bytes);
+          const dt = fmtDate(a.sys_created_on?.value || a.sys_created_on);
+          return '<a href="'+_BASE+'/sys_attachment.do?sys_id='+aid+'" target="_blank" rel="noopener noreferrer" '+
+            'style="display:flex;justify-content:space-between;gap:8px;padding:7px 8px;border:1px solid #D0D7DE;border-radius:6px;text-decoration:none;color:#24292F;">'+
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 '+fn+'</span>'+
+            '<span style="font-size:10px;color:#57606A;white-space:nowrap;">'+sz+' · '+dt+'</span>'+
+          '</a>';
+        }).join('')+'</div>' : '<div style="color:#57606A;font-size:12px;">Sem anexos.</div>') +
       '</div>' +
       '<div>' +
         '<div class="modal-section-title">Notas de Trabalho ('+(sorted.length)+')</div>' +
@@ -2419,214 +2474,157 @@ function openAccountProductsModal(accountId, accountName){
     return '—';
   };
 
-  const normStr = v => (v||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-  const isTM = raw => {
-    const s=normStr(raw);
-    if(!s) return false;
-    return s.includes('total management') || /^tm(\s*2?\.?\s*0?)?$/.test(s);
-  };
-
   // ── CMDB: Itens Gerenciados ───────────────────────────────────────────
-  // The ServiceNow screenshot shows the correct field is "account" on cmdb_ci.
-  // We query TM/TM2.0 directly in the API (server-side filter) to avoid pulling
-  // 1000 NM items and filtering client-side.
-  const TM_FILTER  = '^u_management_typeIN966ea1bf4f302700f3d33d828110c70b.0228d1c,Total Management (TM),Total Management (TM) 2.0';
-  // Also try by display value using LIKE since value encoding varies per instance
-  const TM_LIKE    = '^u_management_typeLIKETotal Management';
-  const cmdbFields = 'sys_id,name,hostname,host_name,serial_number,asset_tag,u_management_type,management_type,ip_address,os,sys_class_name,active';
-  const cmdbLimit  = 200;
-
-  // Query strategy:
-  // 1. account=<id> with TM filter (most precise, matches screenshot)
-  // 2. account=<id> with TM LIKE (fallback if value IDs differ)
-  // 3. account=<id> all active (fallback, filter client-side)
-  // 4. account.name=<name> with TM LIKE (if ID lookup fails)
-  // All queries filter active=true to skip decommissioned CIs
+  // Adapted to the account from current modal/case (account sys_id/name).
+  // Equivalent to requested logic:
+  // u_account=<account>^u_active_flag=true^u_management_type!=no_management
+  // OR u_account=<account>^u_active_flag=true^u_management_type=NULL
+  const cmdbFields = 'sys_id,name,hostname,ip_address,u_management_type,management_type,sys_class_name,u_active_flag,active';
+  const cmdbLimit  = 10000;
   const cmdbQueries = [
-    'account='+accountId+TM_LIKE+'^active=true',
-    'account='+accountId+'^active=true',
-    'account.name='+accountName+TM_LIKE+'^active=true',
-    'account.name='+accountName+'^active=true',
-    // fallback: legacy field names
-    'u_customer_account='+accountId+TM_LIKE+'^active=true',
-    'u_customer_account='+accountId+'^active=true',
+    'u_account='+accountId+'^u_active_flag=true^u_management_type!=no_management^NQu_account='+accountId+'^u_active_flag=true^u_management_type=NULL',
+    'u_account.name='+accountName+'^u_active_flag=true^u_management_type!=no_management^NQu_account.name='+accountName+'^u_active_flag=true^u_management_type=NULL'
   ];
 
   // ── Software: Licenças ────────────────────────────────────────────────
-  // Fetch a single record first to introspect real field names, then render all
-  // Fields: try every plausible name for software name, quantity, license type
+  // Confirmed fields from instance test script.
   const swFields = [
-    'sys_id','name','short_description','active',
-    // account relationship
-    'u_account','account','customer_account','u_customer_account',
-    // software identification
-    'u_software','software','u_product','product','u_software_name','software_name',
-    // version
-    'u_version','version','u_software_version','software_version',
-    // manufacturer / vendor
-    'manufacturer','u_manufacturer','vendor','u_vendor',
-    // license type / model
-    'u_license_type','license_type','u_licensing_model','licensing_model','u_type','type',
-    // quantity — the most likely real field names
-    'u_number_of_licenses','number_of_licenses','u_licenses','licenses',
-    'u_quantity','quantity','u_seats','seats','u_total','total',
-    'u_install_count','install_count','u_license_count','license_count',
-    'u_amount','amount','u_total_quantity','total_quantity',
-    // host / CI
-    'cmdb_ci','u_cmdb_ci','hostname','u_hostname',
-    // status
-    'u_status','status','state'
+    'sys_id',
+    'u_software_to_install',
+    'manufacturer',
+    'u_licensing_model',
+    'u_software_quantity'
   ].join(',');
-
-  const swQueries = [
-    'u_account='+accountId+'^active=true',
-    'account='+accountId+'^active=true',
-    'customer_account='+accountId+'^active=true',
-    'u_customer_account='+accountId+'^active=true',
-    'u_account='+accountId,
-    'account='+accountId,
-    'u_account.name='+accountName+'^active=true',
-    'account.name='+accountName+'^active=true',
-    'customer_account.name='+accountName+'^active=true',
-    'u_account.name='+accountName,
-    'account.name='+accountName,
-  ];
 
   // ── Render: CMDB ─────────────────────────────────────────────────────
   const renderCmdb = rows => {
-    // Client-side: keep only TM/TM2.0; if none (e.g. query fell back to all),
-    // show TM first then others collapsed
-    const tmRows   = rows.filter(r=>isTM(r.u_management_type?.display_value||r.u_management_type?.value||r.management_type?.display_value||r.management_type?.value||''));
-    const showRows = tmRows.length ? tmRows : rows; // if no TM found, show all so user can debug
-
-    const label = 'Itens Gerenciados — TM / TM 2.0 (CMDB)';
+    const label = 'Itens Gerenciados';
     if(!rows.length){
       return '<div class="acc-sec">'+
         '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-warn">0 itens encontrados</span></div>'+
-        '<div style="padding:10px;"><div class="account-product-empty">'+
-        'Nenhum CI encontrado.<br>'+
-        '<small style="color:#8b949e">Queries tentadas: account=id, account.name=nome (com active=true).</small>'+
-        '</div></div></div>';
+        '<div style="padding:10px;"><div class="account-product-empty">Nenhum CI encontrado.</div></div></div>';
     }
 
-    const items = showRows.map(r=>({
-      name   : pickFirst(r.hostname?.display_value,r.hostname?.value,r.host_name?.display_value,r.host_name?.value,r.name?.display_value,r.name?.value),
-      serial : pickFirst(r.serial_number?.display_value,r.serial_number?.value,r.asset_tag?.display_value,r.asset_tag?.value),
+    const ignoredHostnames = new Set(['server','—','managedservices-custom']);
+    const items = rows.map(r=>({
+      sysId  : pickFirst(r.sys_id?.value),
+      name   : pickFirst(r.hostname?.display_value,r.hostname?.value,r.name?.display_value,r.name?.value),
       mgType : pickFirst(r.u_management_type?.display_value,r.u_management_type?.value,r.management_type?.display_value,r.management_type?.value),
-      os     : pickFirst(r.os?.display_value,r.os?.value),
       ip     : pickFirst(r.ip_address?.display_value,r.ip_address?.value),
       cls    : pickFirst(r.sys_class_name?.display_value,r.sys_class_name?.value),
-      active : r.active?.value==='true'||r.active?.display_value==='true',
-    }));
+    })).filter(i=>!ignoredHostnames.has((i.name||'').trim().toLowerCase()));
 
-    const tmCount    = tmRows.length;
-    const totalCount = rows.length;
-    const showing    = tmCount || totalCount;
-    const subtitle   = tmCount
-      ? tmCount+' TM / TM 2.0'+(totalCount>tmCount?' (de '+totalCount+' CIs total)':'')
-      : totalCount+' CIs (sem TM identificado — verifique u_management_type)';
+    const grouped = items.reduce((acc, it) => {
+      const key = it.cls || 'Sem Class';
+      if(!acc[key]) acc[key] = [];
+      acc[key].push(it);
+      return acc;
+    }, {});
+
+    const sections = Object.keys(grouped).sort((a,b)=>a.localeCompare(b)).map(cls=>{
+      const gRows = grouped[cls];
+      return '<div class="acc-table-wrap" style="margin-top:10px;">'+
+        '<div style="font-size:11px;font-weight:700;color:#57606A;padding:6px 2px;">'+cls+' ('+gRows.length+')</div>'+
+        '<table class="acc-table">'+
+        '<thead><tr><th>Hostname</th><th>IP Address</th><th>Management type</th></tr></thead>'+
+        '<tbody>'+
+        gRows.map(i=>'<tr class="managed-item-row" data-mi-search="'+
+          [i.name,i.ip,i.mgType,cls].join(' ').toLowerCase().replace(/"/g,'&quot;')+'">'+
+          '<td><a href="'+_BASE+'/cmdb_ci.do?sys_id='+encodeURIComponent(i.sysId||'')+'" target="_blank" rel="noopener noreferrer" '+
+          'class="managed-item-row-link"><strong>'+i.name+'</strong></a></td>'+
+          '<td class="acc-cell-muted">'+i.ip+'</td>'+
+          '<td><span class="acc-badge acc-badge-tm">'+i.mgType+'</span></td>'+
+          '</tr>').join('')+
+        '</tbody></table></div>';
+    }).join('');
 
     return '<div class="acc-sec">'+
-      '<div class="acc-sec-h">'+label+
-      ' <span class="acc-sec-sub '+(tmCount?'acc-sec-ok':'acc-sec-warn')+'">'+subtitle+'</span></div>'+
-      '<div class="acc-table-wrap"><table class="acc-table">'+
-      '<thead><tr><th>Hostname / Nome</th><th>Serial / Asset Tag</th><th>Management Type</th><th>Classe</th><th>IP</th></tr></thead>'+
-      '<tbody>'+
-      items.map(i=>
-        '<tr'+(i.active?'':' style="opacity:.55"')+'>'+
-        '<td><strong>'+i.name+'</strong></td>'+
-        '<td class="acc-cell-muted">'+i.serial+'</td>'+
-        '<td><span class="acc-badge acc-badge-tm">'+i.mgType+'</span></td>'+
-        '<td class="acc-cell-muted" style="font-size:10px">'+i.cls+'</td>'+
-        '<td class="acc-cell-muted">'+i.ip+'</td>'+
-        '</tr>'
-      ).join('')+
-      '</tbody></table></div></div>';
+      '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-ok">'+items.length+' itens</span></div>'+
+      '<div style="padding:8px 0 4px 0;">'+
+        '<input id="managed-items-find" type="search" placeholder="Find hostname, IP, class..." '+
+        'oninput="filterManagedItemsRows(this.value)" '+
+        'style="width:100%;font-size:12px;padding:7px 9px;border:1px solid #D0D7DE;border-radius:6px;">'+
+      '</div>'+
+      sections+
+      '</div>';
   };
 
   // ── Render: Software ──────────────────────────────────────────────────
   const renderSw = rows => {
-    const label = 'Licenças de Software';
+    const label = 'Software Licensing';
     if(!rows.length){
       return '<div class="acc-sec">'+
         '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-warn">0 licenças encontradas</span></div>'+
-        '<div style="padding:10px;"><div class="account-product-empty">'+
-        'Nenhuma licença encontrada para este account.<br>'+
-        '<small style="color:#8b949e">Queries tentadas: u_account, account, customer_account por ID e nome.</small>'+
-        '</div></div></div>';
+        '<div style="padding:10px;"><div class="account-product-empty">Nenhum registro encontrado.</div></div></div>';
     }
+    const toNum = v => {
+      let s = String(v ?? '').trim();
+      if(!s) return 0;
+      s = s.replace(/[^\d,.-]/g, '');
+      if(!s) return 0;
 
-    // Introspect: find which quantity field actually has data in this instance
-    const QTY_CANDIDATES = [
-      'u_number_of_licenses','number_of_licenses','u_licenses','licenses',
-      'u_quantity','quantity','u_seats','seats','u_total','total',
-      'u_install_count','install_count','u_license_count','license_count',
-      'u_amount','amount','u_total_quantity','total_quantity',
-    ];
-    // Find the first field that has any non-zero, non-null value across all rows
-    let qtyField = null;
-    for(const f of QTY_CANDIDATES){
-      const hasData = rows.some(r=>{
-        const v=r[f]?.value??r[f]?.display_value??r[f];
-        return v!==undefined && v!==null && String(v).trim()!=='' && String(v).trim()!=='0' && String(v).toLowerCase()!=='null';
-      });
-      if(hasData){ qtyField=f; break; }
-    }
+      const lastComma = s.lastIndexOf(',');
+      const lastDot = s.lastIndexOf('.');
 
-    const seen=new Set();
-    const items=rows.map(r=>{
-      const sw  = pickFirst(r.u_software?.display_value,r.u_software?.value,r.software?.display_value,r.software?.value,r.u_product?.display_value,r.u_product?.value,r.product?.display_value,r.product?.value,r.u_software_name?.display_value,r.u_software_name?.value,r.software_name?.display_value,r.software_name?.value,r.name?.display_value,r.name?.value,r.short_description?.display_value,r.short_description?.value);
-      const ver = pickFirst(r.u_version?.display_value,r.u_version?.value,r.version?.display_value,r.version?.value,r.u_software_version?.display_value,r.u_software_version?.value,r.software_version?.display_value,r.software_version?.value);
-      const mfr = pickFirst(r.manufacturer?.display_value,r.manufacturer?.value,r.u_manufacturer?.display_value,r.u_manufacturer?.value,r.vendor?.display_value,r.vendor?.value,r.u_vendor?.display_value,r.u_vendor?.value);
-      const lic = pickFirst(r.u_license_type?.display_value,r.u_license_type?.value,r.license_type?.display_value,r.license_type?.value,r.u_licensing_model?.display_value,r.u_licensing_model?.value,r.licensing_model?.display_value,r.licensing_model?.value,r.u_type?.display_value,r.u_type?.value,r.type?.display_value,r.type?.value);
-      // Use the discovered qty field; if none found, show all candidates
-      let qty='—';
-      if(qtyField){
-        const qr=r[qtyField];
-        qty=pickFirst(qr?.display_value,qr?.value,typeof qr==='string'||typeof qr==='number'?String(qr):undefined);
-      } else {
-        // Last resort: show first non-empty among candidates
-        for(const f of QTY_CANDIDATES){
-          const v=r[f]?.display_value??r[f]?.value??r[f];
-          if(v!==undefined&&v!==null&&String(v).trim()!==''&&String(v)!=='0'){
-            qty=String(v).trim(); break;
-          }
+      if(lastComma>-1 && lastDot>-1){
+        if(lastComma > lastDot){
+          // 1.234,56 -> 1234.56
+          s = s.replace(/\./g, '').replace(',', '.');
+        } else {
+          // 1,234.56 -> 1234.56
+          s = s.replace(/,/g, '');
+        }
+      } else if(lastComma>-1){
+        // 123,45 -> 123.45 | 1,234 -> 1234
+        const commas = (s.match(/,/g)||[]).length;
+        s = commas>1 ? s.replace(/,/g, '') : s.replace(',', '.');
+      } else if(lastDot>-1){
+        // 1.234.567 -> 1234567 | 1234.56 -> 1234.56
+        const dots = (s.match(/\./g)||[]).length;
+        if(dots>1){
+          const i = s.lastIndexOf('.');
+          s = s.slice(0,i).replace(/\./g,'') + '.' + s.slice(i+1);
         }
       }
-      const ci  = pickFirst(r.cmdb_ci?.display_value,r.cmdb_ci?.value,r.u_cmdb_ci?.display_value,r.u_cmdb_ci?.value,r.hostname?.display_value,r.hostname?.value,r.u_hostname?.display_value,r.u_hostname?.value);
-      const st  = pickFirst(r.u_status?.display_value,r.u_status?.value,r.status?.display_value,r.status?.value,r.state?.display_value,r.state?.value,r.active?.display_value==='true'||r.active?.value==='true'?'Active':'');
-      const key=[sw,ver,lic,mfr,ci].join('|');
-      return {sw,ver,mfr,lic,qty,ci,st,key};
-    }).filter(i=>{
-      if(seen.has(i.key)) return false;
-      seen.add(i.key);
-      return i.sw!=='—'||i.lic!=='—';
+
+      const n = Number(s);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const pickField = (obj, field) => {
+      return obj?.[field]?.display_value ?? obj?.[field]?.value ?? obj?.[field] ?? '—';
+    };
+    const agg = new Map();
+    rows.forEach(r=>{
+      const sw = pickField(r, 'u_software_to_install');
+      const mfr = pickField(r, 'manufacturer');
+      const model = pickField(r, 'u_licensing_model');
+      const qtyRaw = pickField(r, 'u_software_quantity');
+      const key = [sw, model].join('|');
+      if(!agg.has(key)){
+        agg.set(key, {
+          sw,
+          mfr,
+          model,
+          qty: 0
+        });
+      }
+      agg.get(key).qty += toNum(qtyRaw);
     });
 
-    if(!items.length){
-      return '<div class="acc-sec"><div class="acc-sec-h">'+label+
-        ' <span class="acc-sec-sub acc-sec-warn">0 licenças com dados úteis</span></div>'+
-        '<div style="padding:10px;"><div class="account-product-empty">Registros encontrados mas campos de software/licença vazios.<br>'+
-        '<small style="color:#8b949e">Campos qty tentados: '+QTY_CANDIDATES.slice(0,6).join(', ')+'...</small>'+
-        '</div></div></div>';
-    }
-
-    const qtyHeader = qtyField ? qtyField.replace('u_','').replace(/_/g,' ') : 'Quantidade';
+    const items = Array.from(agg.values())
+      .filter(i=>i.sw!=='—'||i.model!=='—')
+      .sort((a,b)=>a.sw.localeCompare(b.sw)||a.model.localeCompare(b.model));
     return '<div class="acc-sec">'+
       '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-ok">'+items.length+' licenças</span>'+
-      (qtyField?'<span style="font-size:10px;font-weight:400;color:#8b949e;margin-left:8px;">qty via '+qtyField+'</span>':'')+
       '</div>'+
       '<div class="acc-table-wrap"><table class="acc-table">'+
-      '<thead><tr><th>Software</th><th>Versão</th><th>Fabricante</th><th>Tipo Licença</th><th>'+qtyHeader+'</th><th>CI/Host</th><th>Status</th></tr></thead>'+
+      '<thead><tr><th>Software to Install</th><th>Manufacturer</th><th>Software Licensing Model</th><th>Software Quantity</th></tr></thead>'+
       '<tbody>'+
       items.map(i=>'<tr>'+
         '<td><strong>'+i.sw+'</strong></td>'+
-        '<td class="acc-cell-muted">'+i.ver+'</td>'+
         '<td class="acc-cell-muted">'+i.mfr+'</td>'+
-        '<td>'+i.lic+'</td>'+
-        '<td class="acc-cell-muted">'+(i.qty==='0'?'<span style="color:#cf222e">0</span>':i.qty)+'</td>'+
-        '<td class="acc-cell-muted">'+i.ci+'</td>'+
-        '<td><span class="acc-badge'+(i.st==='Active'?' acc-badge-ok':'')+'">'+i.st+'</span></td>'+
+        '<td>'+i.model+'</td>'+
+        '<td class="acc-cell-muted">'+String(i.qty)+'</td>'+
         '</tr>'
       ).join('')+
       '</tbody></table></div></div>';
@@ -2634,7 +2632,7 @@ function openAccountProductsModal(accountId, accountName){
 
   Promise.all([
     fetchMerged('cmdb_ci', cmdbQueries, cmdbFields, cmdbLimit),
-    fetchMerged('u_cmdb_ci_dedicated_software', swQueries, swFields, 500),
+    fetchMerged('u_cmdb_ci_dedicated_software', ['u_account='+accountId+'^u_active_flag=true'], swFields, 500),
   ])
   .then(([cmdbRows, swRows]) => {
     listEl.innerHTML = renderCmdb(cmdbRows) + renderSw(swRows);
@@ -2649,6 +2647,14 @@ function closeAccountProductsModal(){
   if(ov) ov.style.display='none';
 }
 
+function filterManagedItemsRows(query){
+  const q=(query||'').toLowerCase().trim();
+  document.querySelectorAll('#account-products-list .managed-item-row').forEach(row=>{
+    const hay=(row.getAttribute('data-mi-search')||'').toLowerCase();
+    row.style.display = !q || hay.includes(q) ? '' : 'none';
+  });
+}
+
 function closeCaseModal() {
   const modal = document.getElementById('case-modal');
   const overlay = document.getElementById('case-modal-overlay');
@@ -2656,6 +2662,25 @@ function closeCaseModal() {
   setTimeout(() => { overlay.style.display = 'none'; }, 260);
   if (_modalActiveCard) { _modalActiveCard.classList.remove('modal-active'); _modalActiveCard = null; }
   _modalSysId = null;
+}
+
+async function uploadModalAttachment(){
+  if(!_modalSysId) return;
+  const input = document.getElementById('modal-attach-file');
+  const file = input?.files?.[0];
+  if(!file){ showToast('Selecione um arquivo','warn'); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  const url = _BASE + '/api/now/attachment/file?table_name=sn_customerservice_case&table_sys_id=' + encodeURIComponent(_modalSysId) + '&file_name=' + encodeURIComponent(file.name);
+  try{
+    const r = await fetch(url, {method:'POST', headers:{'X-UserToken':_TOK}, body:fd});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    showToast('✅ Anexo enviado');
+    const numEl=document.getElementById('modal-num');
+    if(numEl) openCaseModal(_modalSysId, numEl.textContent, _modalActiveCard||document.createElement('div'));
+  }catch(e){
+    showToast('❌ Erro ao anexar arquivo','error');
+  }
 }
 
 let _modalNoteType = 'work_notes';
@@ -2796,6 +2821,14 @@ document.addEventListener('visibilitychange',()=>{
   else startPolling();
 });
 document.addEventListener('DOMContentLoaded',()=>{
+  const accHdr=document.getElementById('acc-hdr-analyst');
+  if(accHdr && !accHdr.dataset.bound){
+    accHdr.dataset.bound='1';
+    accHdr.addEventListener('click',e=>{
+      if(e.target.closest('.refresh-btn')) return;
+      toggleAcc('analyst');
+    });
+  }
   dedupeManagerToolbar();
   populateManagerDropdown('manager-sel', currentFila).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
@@ -2806,7 +2839,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   // Load analyst table — try immediately, then watch for content via MutationObserver
   function tryInitAccordion(){
     const src=document.getElementById('_at_'+currentFila)?.innerHTML||document.getElementById('_at_l1')?.innerHTML||'';
-    if(src&&src.trim().length>10){initAccordion(src);return true;}
+    if(src&&src.trim().length>10){initAccordion();return true;}
     return false;
   }
   if(!tryInitAccordion()){
@@ -2834,17 +2867,54 @@ document.addEventListener('DOMContentLoaded',()=>{
     const _FIELDS = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
 
     async function fetchDeltas() {
-      const visibleIds = Array.from(document.querySelectorAll('.card[data-sysid]')).map(c=>c.dataset.sysid).filter(Boolean);
-      let query = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>' + lastSyncTime;
-      if (visibleIds.length) {
-        query += '^NQsys_idIN' + visibleIds.join(',') + '^sys_updated_on>' + lastSyncTime;
+      const visibleIds = Array.from(document.querySelectorAll('.card[data-sysid]'))
+        .map(c => c.dataset.sysid)
+        .filter(Boolean);
+
+      const baseQuery = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>' + lastSyncTime;
+      const endpoint = _BASE + '/api/now/table/sn_customerservice_case';
+      const params = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all&sysparm_limit=100';
+      const visibleBatchSize = 40;
+
+      async function fetchByQuery(query) {
+        const url = endpoint + '?sysparm_query=' + encodeURIComponent(query) + params;
+        const response = await fetch(url, { headers: _HEADERS });
+        const raw = await response.text();
+        if (!response.ok) {
+          const msg = raw ? ': ' + raw.slice(0, 180) : '';
+          throw new Error('delta_polling HTTP ' + response.status + msg);
+        }
+        let data = {};
+        if (raw) {
+          try { data = JSON.parse(raw); }
+          catch (_) { throw new Error('delta_polling retornou JSON inválido (HTTP ' + response.status + ')'); }
+        }
+        return data.result || [];
       }
-      const url = _BASE + '/api/now/table/sn_customerservice_case?sysparm_query=' + encodeURIComponent(query) + '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all&sysparm_limit=100';
 
       try {
-        const response = await fetch(url, { headers: _HEADERS });
-        const data = await response.json();
-        const cases = data.result || [];
+        const out = [];
+        const seen = new Set();
+        const addCases = list => {
+          list.forEach(c => {
+            const sid = c?.sys_id?.value;
+            if (!sid || seen.has(sid)) return;
+            seen.add(sid);
+            out.push(c);
+          });
+        };
+
+        addCases(await fetchByQuery(baseQuery));
+
+        if (visibleIds.length) {
+          for (let i = 0; i < visibleIds.length; i += visibleBatchSize) {
+            const batch = visibleIds.slice(i, i + visibleBatchSize);
+            const q = 'sys_idIN' + batch.join(',') + '^sys_updated_on>' + lastSyncTime;
+            addCases(await fetchByQuery(q));
+          }
+        }
+
+        const cases = out;
 
         if (cases.length > 0) {
           console.log('[DeltaPolling] ' + cases.length + ' casos alterados.');
