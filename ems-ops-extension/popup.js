@@ -108,6 +108,7 @@ function runEMSOps(userToken, userMes) {
   const SLA_F     = 'task,planned_end_time,has_breached,percentage,sla,original_breach_time';
   const BATCH     = 50;
   const BASE      = window.location.origin;
+  const TZ_BR     = 'America/Sao_Paulo';
   const MES_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   const nowD      = new Date();
@@ -457,7 +458,7 @@ function runEMSOps(userToken, userMes) {
 
     const pmByGroup = postList.reduce((a,p)=>{ a[p.group]=(a[p.group]||0)+1; return a; },{});
     const pmByType  = postList.reduce((a,p)=>{ a[p.uType]=(a[p.uType]||0)+1; return a; },{});
-    const ts        = new Date().toLocaleString('pt-BR');
+    const ts        = new Date().toLocaleString('pt-BR',{timeZone:TZ_BR});
     const gmembersJson = JSON.stringify(GROUP_MEMBERS);
 
     // ── Analytics: table by analyst + resolved today chart ─────────────
@@ -2239,15 +2240,17 @@ function openCaseModal(sysId, number, cardEl) {
   body.innerHTML = '<div style="text-align:center;color:#57606A;font-size:13px;padding:40px 0;">Carregando...</div>';
   title.textContent = '';
 
-  // Fetch case details + journal in parallel
+  // Fetch case details + journal + attachments in parallel
   const h = {'Accept':'application/json','X-UserToken':_TOK};
-  const fields = 'number,short_description,description,assigned_to,priority,state,impact,urgency,opened_at,account,contact,u_type,category,sys_id';
+  const fields = 'number,short_description,description,assigned_to,priority,state,impact,urgency,opened_at,account,contact,u_type,category,sys_id,follow_up,u_scheduled_date,u_schedule_date,u_next_action_date';
   Promise.all([
     fetch(_BASE+'/api/now/table/sn_customerservice_case/'+sysId+'?sysparm_fields='+fields+'&sysparm_display_value=all', {headers:h}).then(r=>r.json()),
     fetch(_BASE+'/api/now/table/sys_journal_field?sysparm_query=element_id='+sysId+'&sysparm_display_value=all&sysparm_limit=20', {headers:h}).then(r=>r.json()),
-  ]).then(([caseData, journalData]) => {
+    fetch(_BASE+'/api/now/attachment?sysparm_query='+encodeURIComponent('table_name=sn_customerservice_case^table_sys_id='+sysId)+'&sysparm_fields=sys_id,file_name,size_bytes,sys_created_on&sysparm_display_value=all&sysparm_limit=100', {headers:h}).then(r=>r.json()).catch(()=>({result:[]})),
+  ]).then(([caseData, journalData, attachmentData]) => {
     const c = caseData.result;
     const j = journalData.result || [];
+    const at = attachmentData.result || [];
     if (!c) { body.innerHTML = '<div style="color:#CF222E;padding:20px;">Erro ao carregar caso.</div>'; return; }
 
     // Fetch contact phone in background (non-blocking)
@@ -2264,8 +2267,16 @@ function openCaseModal(sysId, number, cardEl) {
     const stateColors = {'1':'background:#EFF6FF;color:#0550AE','10':'background:#EFF6FF;color:#0550AE','21':'background:#DBEAFE;color:#1D4ED8','8':'background:#DCFCE7;color:#166534','18':'background:#FEF9C3;color:#854D0E','32':'background:#FEF9C3;color:#854D0E','5':'background:#F3E8FF;color:#6B21A8','29':'background:#FEE2E2;color:#991B1B','30':'background:#FEE2E2;color:#991B1B'};
     const sc = stateColors[c.state?.value] || 'background:#F6F8FA;color:#57606A';
 
-    const fmtDate = d => d ? new Date(d).toLocaleString('pt-BR') : '—';
+    const fmtDate = d => d ? new Date(d).toLocaleString('pt-BR',{timeZone:TZ_BR}) : '—';
     const val = f => f?.display_value || f?.value || '—';
+    const scheduleCandidates = ['u_scheduled_date','u_schedule_date','u_next_action_date','follow_up'];
+    window._modalScheduleField = scheduleCandidates.find(k => Object.prototype.hasOwnProperty.call(c, k)) || 'follow_up';
+    const fmtBytes = n => {
+      const x = parseInt(n||'0',10)||0;
+      if(x < 1024) return x+' B';
+      if(x < 1024*1024) return (x/1024).toFixed(1)+' KB';
+      return (x/(1024*1024)).toFixed(1)+' MB';
+    };
 
     // Show current state badge
     const stateBadge=document.getElementById('modal-state-badge'); if(stateBadge) stateBadge.textContent='Estado atual: '+val(c.state);
@@ -2312,6 +2323,24 @@ function openCaseModal(sysId, number, cardEl) {
       '<div>' +
         '<div class="modal-section-title">Descrição</div>' +
         '<div class="modal-desc">'+(c.description?.display_value||c.description?.value||'Sem descrição.')+'</div>' +
+      '</div>' +
+      '<div>' +
+        '<div class="modal-section-title">Anexos ('+at.length+')</div>' +
+        '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">' +
+          '<input id="modal-attach-file" type="file" style="font-size:11px;flex:1;">' +
+          '<button type="button" onclick="uploadModalAttachment()" style="font-size:11px;padding:4px 10px;border:1px solid #0969DA;background:#0969DA;color:#fff;border-radius:4px;cursor:pointer;">Anexar</button>' +
+        '</div>' +
+        (at.length ? '<div style="display:flex;flex-direction:column;gap:6px;">'+at.map(a=>{
+          const aid = a.sys_id?.value || a.sys_id || '';
+          const fn = a.file_name?.display_value || a.file_name?.value || a.file_name || 'anexo';
+          const sz = fmtBytes(a.size_bytes?.value || a.size_bytes);
+          const dt = fmtDate(a.sys_created_on?.value || a.sys_created_on);
+          return '<a href="'+_BASE+'/sys_attachment.do?sys_id='+aid+'" target="_blank" rel="noopener noreferrer" '+
+            'style="display:flex;justify-content:space-between;gap:8px;padding:7px 8px;border:1px solid #D0D7DE;border-radius:6px;text-decoration:none;color:#24292F;">'+
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 '+fn+'</span>'+
+            '<span style="font-size:10px;color:#57606A;white-space:nowrap;">'+sz+' · '+dt+'</span>'+
+          '</a>';
+        }).join('')+'</div>' : '<div style="color:#57606A;font-size:12px;">Sem anexos.</div>') +
       '</div>' +
       '<div>' +
         '<div class="modal-section-title">Notas de Trabalho ('+(sorted.length)+')</div>' +
@@ -2607,6 +2636,71 @@ function closeCaseModal() {
   setTimeout(() => { overlay.style.display = 'none'; }, 260);
   if (_modalActiveCard) { _modalActiveCard.classList.remove('modal-active'); _modalActiveCard = null; }
   _modalSysId = null;
+}
+
+async function uploadModalAttachment(){
+  if(!_modalSysId) return;
+  const input = document.getElementById('modal-attach-file');
+  const file = input?.files?.[0];
+  if(!file){ showToast('Selecione um arquivo','warn'); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  const url = _BASE + '/api/now/attachment/file?table_name=sn_customerservice_case&table_sys_id=' + encodeURIComponent(_modalSysId) + '&file_name=' + encodeURIComponent(file.name);
+  try{
+    const r = await fetch(url, {method:'POST', headers:{'X-UserToken':_TOK}, body:fd});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    showToast('✅ Anexo enviado');
+    const numEl=document.getElementById('modal-num');
+    if(numEl) openCaseModal(_modalSysId, numEl.textContent, _modalActiveCard||document.createElement('div'));
+  }catch(e){
+    showToast('❌ Erro ao anexar arquivo','error');
+  }
+}
+
+function modalSetState(stateValue){
+  if(!_modalSysId) return;
+  patchCase(_modalSysId,{state:String(stateValue)}).then(ok=>{
+    if(ok){
+      showToast('✅ Estado atualizado');
+      const numEl=document.getElementById('modal-num');
+      if(numEl) setTimeout(()=>openCaseModal(_modalSysId,numEl.textContent,_modalActiveCard||document.createElement('div')),250);
+    } else {
+      showToast('❌ Erro ao atualizar estado','error');
+    }
+  });
+}
+
+function toggleScheduleControls(){
+  const row = document.getElementById('modal-schedule-row');
+  const inp = document.getElementById('modal-schedule-dt');
+  if(!row) return;
+  const show = row.style.display === 'none' || !row.style.display;
+  row.style.display = show ? 'flex' : 'none';
+  if(show && inp && !inp.value){
+    const d = new Date(Date.now() + 3600000);
+    const pad=n=>String(n).padStart(2,'0');
+    inp.value = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes());
+  }
+}
+
+function applyScheduledState(){
+  if(!_modalSysId) return;
+  const inp = document.getElementById('modal-schedule-dt');
+  const raw = inp?.value;
+  if(!raw){ showToast('Selecione data e hora','warn'); return; }
+  const toSnow = raw.replace('T',' ') + ':00';
+  const body = { state:'5' };
+  const f = window._modalScheduleField || 'follow_up';
+  body[f] = toSnow;
+  patchCase(_modalSysId, body).then(ok=>{
+    if(ok){
+      showToast('✅ Caso agendado');
+      const numEl=document.getElementById('modal-num');
+      if(numEl) setTimeout(()=>openCaseModal(_modalSysId,numEl.textContent,_modalActiveCard||document.createElement('div')),250);
+    } else {
+      showToast('❌ Erro ao agendar','error');
+    }
+  });
 }
 
 let _modalNoteType = 'work_notes';
@@ -2985,6 +3079,15 @@ document.addEventListener('DOMContentLoaded',()=>{
       <div style="display:flex;gap:6px;align-items:center;">
         <span id="modal-state-badge" style="font-size:11px;color:#57606A;flex:1;"></span>
         <button onclick="modalReassign()" style="font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;white-space:nowrap;">👤 Reatribuir</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        <button onclick="toggleScheduleControls()" style="font-size:11px;padding:4px 8px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;">Schedule</button>
+        <button onclick="modalSetState('18')" style="font-size:11px;padding:4px 8px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;">Awaiting Info</button>
+        <button onclick="modalSetState('32')" style="font-size:11px;padding:4px 8px;border-radius:4px;cursor:pointer;border:1px solid #D0D7DE;background:#fff;color:#24292F;">Awaiting Customer Approval</button>
+      </div>
+      <div id="modal-schedule-row" style="display:none;gap:6px;align-items:center;">
+        <input id="modal-schedule-dt" type="datetime-local" style="font-size:11px;padding:4px 6px;border:1px solid #D0D7DE;border-radius:4px;flex:1;">
+        <button onclick="applyScheduledState()" style="font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;border:1px solid #0969DA;background:#0969DA;color:#fff;">Aplicar</button>
       </div>
       <div style="display:flex;gap:6px;margin-bottom:2px;">
         <button id="tab-wn" onclick="modalTabSwitch('wn')" style="font-size:11px;padding:3px 10px;border-radius:4px;cursor:pointer;border:1px solid #0969DA;background:#0969DA;color:#fff;font-weight:600;">Work Note</button>
