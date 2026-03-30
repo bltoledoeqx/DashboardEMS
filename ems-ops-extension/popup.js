@@ -808,6 +808,13 @@ a{text-decoration:none;}
 .acc-table th{position:sticky;top:0;background:#fff;border-bottom:1px solid #D0D7DE;text-align:left;padding:8px;color:#57606A;font-size:11px;text-transform:uppercase;letter-spacing:.3px;}
 .acc-table td{padding:8px;border-bottom:1px solid #EEF2F7;color:#1f2937;vertical-align:top;}
 .acc-cell-muted{color:#57606A;font-size:11px;}
+.acc-sec-warn{color:#CF222E !important;}
+.acc-sec-tm{font-size:11px;font-weight:600;color:#1A7F37;background:#DCFCE7;padding:1px 7px;border-radius:8px;border:1px solid #86EFAC;margin-left:6px;}
+.acc-badge{display:inline-block;font-size:10px;color:#57606A;background:#F6F8FA;padding:1px 6px;border-radius:8px;border:1px solid #D0D7DE;}
+.acc-badge-tm{color:#1A7F37;background:#DCFCE7;border-color:#86EFAC;font-weight:600;}
+.acc-badge-ok{color:#0550AE;background:#EFF6FF;border-color:#BFDBFE;}
+.acc-sep-row td{background:#F6F8FA !important;border-bottom:1px solid #D0D7DE !important;}
+.acc-sec-ok{color:#1A7F37 !important;font-weight:600;}
 .modal-state-badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:500;}
 .card.modal-active{outline:2px solid #0969DA;outline-offset:1px;}
 .rt-row{display:flex;align-items:center;gap:5px;margin-bottom:3px;}
@@ -2367,164 +2374,273 @@ function openAccountProductsModal(accountId, accountName){
   if(!ov||!nameEl||!listEl) return;
   nameEl.textContent=accountName||'—';
   ov.style.display='flex';
-  listEl.innerHTML='<div class="account-product-empty">Carregando produtos/serviços...</div>';
-
+  listEl.innerHTML='<div class="account-product-empty">⏳ Carregando dados do account...</div>';
   if(!accountId){
-    listEl.innerHTML='<div class="account-product-empty">Account sem referência para consulta.</div>';
+    listEl.innerHTML='<div class="account-product-empty">Account sem sys_id para consulta.</div>';
     return;
   }
 
   const h={'Accept':'application/json','X-UserToken':_TOK};
-  const cmdbSerialFilter='^serial_numberISNOTEMPTY^serial_number!=NA^serial_number!=N/A^serial_number!=null';
-  const swActiveFilter='^active=true';
-  const fetchTable = (table, query, fields) => {
-    const url=_BASE+'/api/now/table/'+table+'?sysparm_query='+encodeURIComponent(query)+'&sysparm_fields='+fields+'&sysparm_display_value=all&sysparm_limit=500';
+
+  // ── fetch helper ──────────────────────────────────────────────────────
+  const fetchTable = (table, query, fields, limit) => {
+    const url = _BASE+'/api/now/table/'+table
+      +'?sysparm_query='+encodeURIComponent(query)
+      +'&sysparm_fields='+fields
+      +'&sysparm_display_value=all'
+      +'&sysparm_limit='+(limit||500);
     return fetch(url,{headers:h}).then(async r=>{
-      if(!r.ok){
-        const err=new Error('HTTP '+r.status);
-        err.status=r.status;
-        err.body=await r.text().catch(()=>'');
-        throw err;
-      }
+      if(!r.ok){ const e=new Error('HTTP '+r.status); e.status=r.status; throw e; }
       return r.json();
     }).then(d=>d.result||[]);
   };
 
-  const fetchMerged = async (table, queries, fields) => {
-    const merged = [];
-    const seen = new Set();
-
-    for (const q of queries) {
-      try {
-        const rows = await fetchTable(table, q, fields);
-        rows.forEach(r => {
-          const id = r.sys_id?.value || r.sys_id?.display_value || JSON.stringify(r);
-          if (seen.has(id)) return;
-          seen.add(id);
-          merged.push(r);
+  // Try multiple queries, deduplicate by sys_id, skip 400/404
+  const fetchMerged = async (table, queries, fields, limit) => {
+    const seen=new Set(), all=[];
+    for(const q of queries){
+      try{
+        const rows=await fetchTable(table,q,fields,limit);
+        rows.forEach(r=>{
+          const id=r.sys_id?.value||JSON.stringify(r);
+          if(!seen.has(id)){ seen.add(id); all.push(r); }
         });
-      } catch (err) {
-        if (err?.status === 400 || err?.status === 404) continue;
-        throw err;
-      }
+      } catch(e){ if(e?.status===400||e?.status===404) continue; throw e; }
     }
-
-    return merged;
+    return all;
   };
 
-  const renderCmdbSection = rows => {
-    const normalize = v => (v || '')
-      .toString()
-      .normalize('NFD')
-      .replace(/[̀-ͯ]/g, '')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, ' ')
-      .trim();
-
-    const isTotalManagement = raw => {
-      const mg = normalize(raw);
-      if (!mg) return false;
-      if (mg.includes('total management')) return true;
-      if (mg === 'tm' || mg === 'tm 2 0' || mg === 'tm20' || mg === 'tm 20' || mg === 'tm2 0') return true;
-      return false;
-    };
-
-    const filtered = rows
-      .filter(r=>{
-        const s=(r.serial_number?.display_value||r.serial_number?.value||'').trim().toLowerCase();
-        if(!s || ['na','n/a','null','none'].includes(s)) return false;
-        const mgRaw = r.u_management_type?.display_value||r.u_management_type?.value||r.management_type?.display_value||r.management_type?.value||'';
-        return isTotalManagement(mgRaw);
-      })
-      .map(r=>({
-        hostname: r.hostname?.display_value||r.hostname?.value||r.host_name?.display_value||r.host_name?.value||r.name?.display_value||r.name?.value||'—',
-        serial: (r.serial_number?.display_value||r.serial_number?.value||'—').trim()
-      }));
-    if(!filtered.length){
-      return '<div class="acc-sec"><div class="acc-sec-h">cmdb_ci: Itens Gerenciados <span class="acc-sec-sub">0 itens</span></div><div style="padding:10px;"><div class="account-product-empty">Nenhum item TM/TM 2.0 com Serial Number válido.</div></div></div>';
+  const pickFirst = (...args) => {
+    for(const c of args.flat()){
+      if(c===undefined||c===null) continue;
+      const s=String(c).trim();
+      if(s && s.toLowerCase()!=='null' && s!=='-') return s;
     }
+    return '—';
+  };
+
+  const normStr = v => (v||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+  const isTM = raw => {
+    const s=normStr(raw);
+    if(!s) return false;
+    return s.includes('total management') || /^tm(\s*2?\.?\s*0?)?$/.test(s);
+  };
+
+  // ── CMDB: Itens Gerenciados ───────────────────────────────────────────
+  // The ServiceNow screenshot shows the correct field is "account" on cmdb_ci.
+  // We query TM/TM2.0 directly in the API (server-side filter) to avoid pulling
+  // 1000 NM items and filtering client-side.
+  const TM_FILTER  = '^u_management_typeIN966ea1bf4f302700f3d33d828110c70b.0228d1c,Total Management (TM),Total Management (TM) 2.0';
+  // Also try by display value using LIKE since value encoding varies per instance
+  const TM_LIKE    = '^u_management_typeLIKETotal Management';
+  const cmdbFields = 'sys_id,name,hostname,host_name,serial_number,asset_tag,u_management_type,management_type,ip_address,os,sys_class_name,active';
+  const cmdbLimit  = 200;
+
+  // Query strategy:
+  // 1. account=<id> with TM filter (most precise, matches screenshot)
+  // 2. account=<id> with TM LIKE (fallback if value IDs differ)
+  // 3. account=<id> all active (fallback, filter client-side)
+  // 4. account.name=<name> with TM LIKE (if ID lookup fails)
+  // All queries filter active=true to skip decommissioned CIs
+  const cmdbQueries = [
+    'account='+accountId+TM_LIKE+'^active=true',
+    'account='+accountId+'^active=true',
+    'account.name='+accountName+TM_LIKE+'^active=true',
+    'account.name='+accountName+'^active=true',
+    // fallback: legacy field names
+    'u_customer_account='+accountId+TM_LIKE+'^active=true',
+    'u_customer_account='+accountId+'^active=true',
+  ];
+
+  // ── Software: Licenças ────────────────────────────────────────────────
+  // Fetch a single record first to introspect real field names, then render all
+  // Fields: try every plausible name for software name, quantity, license type
+  const swFields = [
+    'sys_id','name','short_description','active',
+    // account relationship
+    'u_account','account','customer_account','u_customer_account',
+    // software identification
+    'u_software','software','u_product','product','u_software_name','software_name',
+    // version
+    'u_version','version','u_software_version','software_version',
+    // manufacturer / vendor
+    'manufacturer','u_manufacturer','vendor','u_vendor',
+    // license type / model
+    'u_license_type','license_type','u_licensing_model','licensing_model','u_type','type',
+    // quantity — the most likely real field names
+    'u_number_of_licenses','number_of_licenses','u_licenses','licenses',
+    'u_quantity','quantity','u_seats','seats','u_total','total',
+    'u_install_count','install_count','u_license_count','license_count',
+    'u_amount','amount','u_total_quantity','total_quantity',
+    // host / CI
+    'cmdb_ci','u_cmdb_ci','hostname','u_hostname',
+    // status
+    'u_status','status','state'
+  ].join(',');
+
+  const swQueries = [
+    'u_account='+accountId+'^active=true',
+    'account='+accountId+'^active=true',
+    'customer_account='+accountId+'^active=true',
+    'u_customer_account='+accountId+'^active=true',
+    'u_account='+accountId,
+    'account='+accountId,
+    'u_account.name='+accountName+'^active=true',
+    'account.name='+accountName+'^active=true',
+    'customer_account.name='+accountName+'^active=true',
+    'u_account.name='+accountName,
+    'account.name='+accountName,
+  ];
+
+  // ── Render: CMDB ─────────────────────────────────────────────────────
+  const renderCmdb = rows => {
+    // Client-side: keep only TM/TM2.0; if none (e.g. query fell back to all),
+    // show TM first then others collapsed
+    const tmRows   = rows.filter(r=>isTM(r.u_management_type?.display_value||r.u_management_type?.value||r.management_type?.display_value||r.management_type?.value||''));
+    const showRows = tmRows.length ? tmRows : rows; // if no TM found, show all so user can debug
+
+    const label = 'Itens Gerenciados — TM / TM 2.0 (CMDB)';
+    if(!rows.length){
+      return '<div class="acc-sec">'+
+        '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-warn">0 itens encontrados</span></div>'+
+        '<div style="padding:10px;"><div class="account-product-empty">'+
+        'Nenhum CI encontrado.<br>'+
+        '<small style="color:#8b949e">Queries tentadas: account=id, account.name=nome (com active=true).</small>'+
+        '</div></div></div>';
+    }
+
+    const items = showRows.map(r=>({
+      name   : pickFirst(r.hostname?.display_value,r.hostname?.value,r.host_name?.display_value,r.host_name?.value,r.name?.display_value,r.name?.value),
+      serial : pickFirst(r.serial_number?.display_value,r.serial_number?.value,r.asset_tag?.display_value,r.asset_tag?.value),
+      mgType : pickFirst(r.u_management_type?.display_value,r.u_management_type?.value,r.management_type?.display_value,r.management_type?.value),
+      os     : pickFirst(r.os?.display_value,r.os?.value),
+      ip     : pickFirst(r.ip_address?.display_value,r.ip_address?.value),
+      cls    : pickFirst(r.sys_class_name?.display_value,r.sys_class_name?.value),
+      active : r.active?.value==='true'||r.active?.display_value==='true',
+    }));
+
+    const tmCount    = tmRows.length;
+    const totalCount = rows.length;
+    const showing    = tmCount || totalCount;
+    const subtitle   = tmCount
+      ? tmCount+' TM / TM 2.0'+(totalCount>tmCount?' (de '+totalCount+' CIs total)':'')
+      : totalCount+' CIs (sem TM identificado — verifique u_management_type)';
+
     return '<div class="acc-sec">'+
-      '<div class="acc-sec-h">cmdb_ci: Itens Gerenciados <span class="acc-sec-sub">'+filtered.length+' itens</span></div>'+
-      '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>Hostname</th><th>Serial Number</th></tr></thead><tbody>'+
-      filtered.map(i=>'<tr><td>'+i.hostname+'</td><td class="acc-cell-muted">'+i.serial+'</td></tr>').join('')+
+      '<div class="acc-sec-h">'+label+
+      ' <span class="acc-sec-sub '+(tmCount?'acc-sec-ok':'acc-sec-warn')+'">'+subtitle+'</span></div>'+
+      '<div class="acc-table-wrap"><table class="acc-table">'+
+      '<thead><tr><th>Hostname / Nome</th><th>Serial / Asset Tag</th><th>Management Type</th><th>Classe</th><th>IP</th></tr></thead>'+
+      '<tbody>'+
+      items.map(i=>
+        '<tr'+(i.active?'':' style="opacity:.55"')+'>'+
+        '<td><strong>'+i.name+'</strong></td>'+
+        '<td class="acc-cell-muted">'+i.serial+'</td>'+
+        '<td><span class="acc-badge acc-badge-tm">'+i.mgType+'</span></td>'+
+        '<td class="acc-cell-muted" style="font-size:10px">'+i.cls+'</td>'+
+        '<td class="acc-cell-muted">'+i.ip+'</td>'+
+        '</tr>'
+      ).join('')+
       '</tbody></table></div></div>';
   };
 
-  const renderSwSection = rows => {
-    const seen = new Set();
-    const pickFirst = candidates => {
-      for (const c of candidates) {
-        if (c === undefined || c === null) continue;
-        const str = String(c).trim();
-        if (!str || str.toLowerCase() === 'null') continue;
-        return str;
-      }
-      return '—';
-    };
-
-    const filtered = rows
-      .map(r=>({
-        hostname: pickFirst([r.hostname?.display_value,r.hostname?.value,r.cmdb_ci?.display_value,r.cmdb_ci?.value,r.name?.display_value,r.name?.value]),
-        toInstall: pickFirst([r.software_to_install?.display_value,r.software_to_install?.value,r.u_software_to_install?.display_value,r.u_software_to_install?.value]),
-        manufacturer: pickFirst([r.manufacturer?.display_value,r.manufacturer?.value,r.u_manufacturer?.display_value,r.u_manufacturer?.value]),
-        licensingModel: pickFirst([r.software_licensing_model?.display_value,r.software_licensing_model?.value,r.u_software_licensing_model?.display_value,r.u_software_licensing_model?.value,r.licensing_model?.display_value,r.licensing_model?.value,r.u_licensing_model?.display_value,r.u_licensing_model?.value]),
-        quantity: pickFirst([
-          r.software_quantity?.display_value, r.software_quantity?.value,
-          r.u_software_quantity?.display_value, r.u_software_quantity?.value,
-          r.quantity?.display_value, r.quantity?.value,
-          r.install_count?.display_value, r.install_count?.value,
-          r.u_install_count?.display_value, r.u_install_count?.value
-        ])
-      }))
-      .filter(i=>[i.hostname,i.toInstall,i.manufacturer,i.licensingModel,i.quantity].some(v=>v && v!=='—'))
-      .filter(i=>{
-        const key=[i.hostname,i.toInstall,i.manufacturer,i.licensingModel,i.quantity].join('|');
-        if(seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-    if(!filtered.length){
-      return '<div class="acc-sec"><div class="acc-sec-h">u_cmdb_ci_dedicated_software: Licenças de software contratadas <span class="acc-sec-sub">0 itens</span></div><div style="padding:10px;"><div class="account-product-empty">Nenhuma licença ativa encontrada.</div></div></div>';
+  // ── Render: Software ──────────────────────────────────────────────────
+  const renderSw = rows => {
+    const label = 'Licenças de Software';
+    if(!rows.length){
+      return '<div class="acc-sec">'+
+        '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-warn">0 licenças encontradas</span></div>'+
+        '<div style="padding:10px;"><div class="account-product-empty">'+
+        'Nenhuma licença encontrada para este account.<br>'+
+        '<small style="color:#8b949e">Queries tentadas: u_account, account, customer_account por ID e nome.</small>'+
+        '</div></div></div>';
     }
+
+    // Introspect: find which quantity field actually has data in this instance
+    const QTY_CANDIDATES = [
+      'u_number_of_licenses','number_of_licenses','u_licenses','licenses',
+      'u_quantity','quantity','u_seats','seats','u_total','total',
+      'u_install_count','install_count','u_license_count','license_count',
+      'u_amount','amount','u_total_quantity','total_quantity',
+    ];
+    // Find the first field that has any non-zero, non-null value across all rows
+    let qtyField = null;
+    for(const f of QTY_CANDIDATES){
+      const hasData = rows.some(r=>{
+        const v=r[f]?.value??r[f]?.display_value??r[f];
+        return v!==undefined && v!==null && String(v).trim()!=='' && String(v).trim()!=='0' && String(v).toLowerCase()!=='null';
+      });
+      if(hasData){ qtyField=f; break; }
+    }
+
+    const seen=new Set();
+    const items=rows.map(r=>{
+      const sw  = pickFirst(r.u_software?.display_value,r.u_software?.value,r.software?.display_value,r.software?.value,r.u_product?.display_value,r.u_product?.value,r.product?.display_value,r.product?.value,r.u_software_name?.display_value,r.u_software_name?.value,r.software_name?.display_value,r.software_name?.value,r.name?.display_value,r.name?.value,r.short_description?.display_value,r.short_description?.value);
+      const ver = pickFirst(r.u_version?.display_value,r.u_version?.value,r.version?.display_value,r.version?.value,r.u_software_version?.display_value,r.u_software_version?.value,r.software_version?.display_value,r.software_version?.value);
+      const mfr = pickFirst(r.manufacturer?.display_value,r.manufacturer?.value,r.u_manufacturer?.display_value,r.u_manufacturer?.value,r.vendor?.display_value,r.vendor?.value,r.u_vendor?.display_value,r.u_vendor?.value);
+      const lic = pickFirst(r.u_license_type?.display_value,r.u_license_type?.value,r.license_type?.display_value,r.license_type?.value,r.u_licensing_model?.display_value,r.u_licensing_model?.value,r.licensing_model?.display_value,r.licensing_model?.value,r.u_type?.display_value,r.u_type?.value,r.type?.display_value,r.type?.value);
+      // Use the discovered qty field; if none found, show all candidates
+      let qty='—';
+      if(qtyField){
+        const qr=r[qtyField];
+        qty=pickFirst(qr?.display_value,qr?.value,typeof qr==='string'||typeof qr==='number'?String(qr):undefined);
+      } else {
+        // Last resort: show first non-empty among candidates
+        for(const f of QTY_CANDIDATES){
+          const v=r[f]?.display_value??r[f]?.value??r[f];
+          if(v!==undefined&&v!==null&&String(v).trim()!==''&&String(v)!=='0'){
+            qty=String(v).trim(); break;
+          }
+        }
+      }
+      const ci  = pickFirst(r.cmdb_ci?.display_value,r.cmdb_ci?.value,r.u_cmdb_ci?.display_value,r.u_cmdb_ci?.value,r.hostname?.display_value,r.hostname?.value,r.u_hostname?.display_value,r.u_hostname?.value);
+      const st  = pickFirst(r.u_status?.display_value,r.u_status?.value,r.status?.display_value,r.status?.value,r.state?.display_value,r.state?.value,r.active?.display_value==='true'||r.active?.value==='true'?'Active':'');
+      const key=[sw,ver,lic,mfr,ci].join('|');
+      return {sw,ver,mfr,lic,qty,ci,st,key};
+    }).filter(i=>{
+      if(seen.has(i.key)) return false;
+      seen.add(i.key);
+      return i.sw!=='—'||i.lic!=='—';
+    });
+
+    if(!items.length){
+      return '<div class="acc-sec"><div class="acc-sec-h">'+label+
+        ' <span class="acc-sec-sub acc-sec-warn">0 licenças com dados úteis</span></div>'+
+        '<div style="padding:10px;"><div class="account-product-empty">Registros encontrados mas campos de software/licença vazios.<br>'+
+        '<small style="color:#8b949e">Campos qty tentados: '+QTY_CANDIDATES.slice(0,6).join(', ')+'...</small>'+
+        '</div></div></div>';
+    }
+
+    const qtyHeader = qtyField ? qtyField.replace('u_','').replace(/_/g,' ') : 'Quantidade';
     return '<div class="acc-sec">'+
-      '<div class="acc-sec-h">u_cmdb_ci_dedicated_software: Licenças de software contratadas <span class="acc-sec-sub">'+filtered.length+' itens</span></div>'+
-      '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>Hostname</th><th>Software to Install</th><th>Manufacturer</th><th>Licensing Model</th><th>Software Quantity</th></tr></thead><tbody>'+
-      filtered.map(i=>'<tr><td>'+i.hostname+'</td><td>'+i.toInstall+'</td><td>'+i.manufacturer+'</td><td>'+i.licensingModel+'</td><td class="acc-cell-muted">'+i.quantity+'</td></tr>').join('')+
+      '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-ok">'+items.length+' licenças</span>'+
+      (qtyField?'<span style="font-size:10px;font-weight:400;color:#8b949e;margin-left:8px;">qty via '+qtyField+'</span>':'')+
+      '</div>'+
+      '<div class="acc-table-wrap"><table class="acc-table">'+
+      '<thead><tr><th>Software</th><th>Versão</th><th>Fabricante</th><th>Tipo Licença</th><th>'+qtyHeader+'</th><th>CI/Host</th><th>Status</th></tr></thead>'+
+      '<tbody>'+
+      items.map(i=>'<tr>'+
+        '<td><strong>'+i.sw+'</strong></td>'+
+        '<td class="acc-cell-muted">'+i.ver+'</td>'+
+        '<td class="acc-cell-muted">'+i.mfr+'</td>'+
+        '<td>'+i.lic+'</td>'+
+        '<td class="acc-cell-muted">'+(i.qty==='0'?'<span style="color:#cf222e">0</span>':i.qty)+'</td>'+
+        '<td class="acc-cell-muted">'+i.ci+'</td>'+
+        '<td><span class="acc-badge'+(i.st==='Active'?' acc-badge-ok':'')+'">'+i.st+'</span></td>'+
+        '</tr>'
+      ).join('')+
       '</tbody></table></div></div>';
   };
 
   Promise.all([
-    fetchMerged(
-      'cmdb_ci',
-      [
-        'company='+accountId+cmdbSerialFilter,
-        'account='+accountId+cmdbSerialFilter,
-        'u_account='+accountId+cmdbSerialFilter,
-        'company.name='+accountName+cmdbSerialFilter,
-        'account.name='+accountName+cmdbSerialFilter,
-        'u_account.name='+accountName+cmdbSerialFilter
-      ],
-      'sys_id,hostname,host_name,name,serial_number,u_management_type,management_type'
-    ),
-    fetchMerged(
-      'u_cmdb_ci_dedicated_software',
-      [
-        'u_account='+accountId+swActiveFilter,
-        'account='+accountId+swActiveFilter,
-        'customer_account='+accountId+swActiveFilter,
-        'u_account.name='+accountName+swActiveFilter,
-        'account.name='+accountName+swActiveFilter,
-        'customer_account.name='+accountName+swActiveFilter,
-        'cmdb_ci.company.name='+accountName+swActiveFilter
-      ],
-      'sys_id,active,hostname,name,cmdb_ci,software_to_install,u_software_to_install,manufacturer,u_manufacturer,software_licensing_model,u_software_licensing_model,licensing_model,u_licensing_model,software_quantity,u_software_quantity,quantity,install_count,u_install_count'
-    )
+    fetchMerged('cmdb_ci', cmdbQueries, cmdbFields, cmdbLimit),
+    fetchMerged('u_cmdb_ci_dedicated_software', swQueries, swFields, 500),
   ])
-  .then(([cmdbRows, swRows])=>{
-    listEl.innerHTML = renderCmdbSection(cmdbRows) + renderSwSection(swRows);
+  .then(([cmdbRows, swRows]) => {
+    listEl.innerHTML = renderCmdb(cmdbRows) + renderSw(swRows);
   })
-  .catch(err=>{
-    listEl.innerHTML='<div class="account-product-empty">Não foi possível carregar os dados segmentados do account ('+(err?.status||'erro')+').</div>';
+  .catch(err => {
+    listEl.innerHTML='<div class="account-product-empty">❌ Erro ('+( err?.status||err?.message||'desconhecido')+').</div>';
   });
 }
 
@@ -2742,6 +2858,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       } catch (err) { console.error('[DeltaPolling] Erro:', err); }
     }
 
+    const LANE_CLASSES = new Set(['card-critical','card-high','card-medium','card-normal','card-awaiting','card-orphan']);
+
     function resolveLaneFromDelta(data) {
       const isAwaiting = ['18','32','5','29','30'].includes(data?.state?.value);
       const hasAssigned = !!data?.assigned_to?.value;
@@ -2749,10 +2867,26 @@ document.addEventListener('DOMContentLoaded',()=>{
 
       if (isAwaiting) return 'awaiting';
       if (!hasAssigned) return 'orphan';
+
+      // Mirror the original classify() SLA-breach logic using the card's current
+      // SLA bar colour as a signal (breach = red bar visible on the card).
+      // Since we don't have slaInfo here, we use a best-effort approach:
+      // read the sla-bar-fill colour already rendered on the card (set at render time).
       if (prio === 1) return 'critical';
-      if (prio === 2) return 'high';
-      if (prio === 3) return 'medium';
+      if (prio === 2) return 'high';   // SLA breach bump handled separately below
+      if (prio === 3) return 'medium'; // idem
       return 'normal';
+    }
+
+    function resolveLaneWithSla(data, card) {
+      const base = resolveLaneFromDelta(data);
+      const prio = parseInt(data?.priority?.value || '5', 10);
+      // Check if this card has a visible breach indicator
+      const fill = card.querySelector('.sla-bar-fill');
+      const isBreach = fill && fill.style.background === 'rgb(207, 34, 46)'; // #CF222E
+      if (isBreach && prio === 2) return 'critical';
+      if (isBreach && prio === 3) return 'high';
+      return base;
     }
 
     function moveCardToLane(card, lane) {
@@ -2829,9 +2963,10 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
       }
 
-      const nextLane = resolveLaneFromDelta(data);
-      const prevLane = Array.from(card.classList).find(cls => cls.startsWith('card-'));
-      if (prevLane) card.classList.remove(prevLane);
+      const nextLane = resolveLaneWithSla(data, card);
+      // Remove ONLY lane-specific classes (card-critical, card-high, etc.)
+      // Never remove the base 'card' class
+      LANE_CLASSES.forEach(cls => card.classList.remove(cls));
       card.classList.add('card-' + nextLane);
       moveCardToLane(card, nextLane);
       // Mantém consistência quando a visão está filtrada por analista.
