@@ -1014,7 +1014,7 @@ tr:hover td{background:#F6F8FA;}
   <!-- Reports accordion (only in Cases Ativos) -->
   <div class="accordion-wrap" id="accordion-wrap">
   <div class="accordion-item" id="acc-analyst">
-    <div class="accordion-hdr">
+    <div class="accordion-hdr" id="acc-hdr-analyst">
       <span class="acc-icon">📊</span>
       <span class="acc-title">Reports</span>
       <span class="acc-badge" id="acc-badge-analyst"></span>
@@ -2262,6 +2262,17 @@ function openCaseModal(sysId, number, cardEl) {
   numEl.textContent = number;
   link.href = _BASE + '/sn_customerservice_case.do?sysparm_query=number=' + number;
   if (noteTA) noteTA.value = '';
+  const legacyQuickActions = Array.from(document.querySelectorAll('#modal-footer button')).filter(btn => {
+    const txt = (btn.textContent || '').trim().toLowerCase();
+    const oc = (btn.getAttribute('onclick') || '').toLowerCase();
+    return txt === 'schedule'
+      || txt === 'awaiting info'
+      || txt === 'awaiting customer approval'
+      || oc.includes('modalsetstate')
+      || oc.includes('toggleschedulecontrols')
+      || oc.includes('applyscheduledstate');
+  });
+  legacyQuickActions.forEach(btn => btn.remove());
   body.innerHTML = '<div style="text-align:center;color:#57606A;font-size:13px;padding:40px 0;">Carregando...</div>';
   title.textContent = '';
 
@@ -2818,6 +2829,14 @@ document.addEventListener('visibilitychange',()=>{
   else startPolling();
 });
 document.addEventListener('DOMContentLoaded',()=>{
+  const accHdr=document.getElementById('acc-hdr-analyst');
+  if(accHdr && !accHdr.dataset.bound){
+    accHdr.dataset.bound='1';
+    accHdr.addEventListener('click',e=>{
+      if(e.target.closest('.refresh-btn')) return;
+      toggleAcc('analyst');
+    });
+  }
   dedupeManagerToolbar();
   populateManagerDropdown('manager-sel', currentFila).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
