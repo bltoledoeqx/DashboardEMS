@@ -704,6 +704,7 @@ a{text-decoration:none;}
 .refresh-btn:hover{background:var(--bg);color:#0969DA;border-color:#0969DA;transform:rotate(90deg);}
 .board-toolbar select{font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;font-family:var(--sans);}
 .board-toolbar select:hover{border-color:var(--border2);}
+.backlog-filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .board-wrap{padding:14px 16px;overflow-x:auto;}
 .board-inner{display:flex;gap:10px;align-items:flex-start;min-width:max-content;}
 
@@ -1152,7 +1153,20 @@ tr:hover td{background:#F6F8FA;}
 
 <div class="page" id="page-backlog">
   <div class="board-toolbar" style="padding:8px 20px;">
-    <span style="font-size:12px;color:var(--muted);">Filtros: Manager / Analista (aba Cases Ativos)</span>
+    <div class="backlog-filters">
+      <label for="backlog-fila-sel">📌 Fila:</label>
+      <select id="backlog-fila-sel" onchange="switchFilaBacklog(this.value)">
+        <option value="all">Todos</option>
+        <option value="l1">L1</option>
+        <option value="l2">L2</option>
+        <option value="event">Event</option>
+      </select>
+      <div class="toolbar-sep"></div>
+      <label for="backlog-analyst-sel">👤 Analista:</label>
+      <select id="backlog-analyst-sel" onchange="switchAnalystBacklogFromToolbar(this.value)">
+        <option value="">— Todos —</option>
+      </select>
+    </div>
     <div class="toolbar-sep"></div>
     <button onclick="refreshBacklog()" class="refresh-btn" title="Atualizar Backlog">↻</button>
   </div>
@@ -1528,10 +1542,12 @@ function switchFila(key){
   currentFila=safeKey;
   const filaSel=document.getElementById('fila-sel');
   if(filaSel && filaSel.value!==safeKey) filaSel.value=safeKey;
+  const filaSelBacklog=document.getElementById('backlog-fila-sel');
+  if(filaSelBacklog && filaSelBacklog.value!==safeKey) filaSelBacklog.value=safeKey;
   const ativosBoards={'all':${JSON.stringify(renderBoard('all',ativosMap))},'l1':${JSON.stringify(renderBoard('l1',ativosMap))},'l2':${JSON.stringify(renderBoard('l2',ativosMap))},'event':${JSON.stringify(renderBoard('event',ativosMap))}};
   const backlogBoards={'all':${JSON.stringify(renderBoard('all',backlogMap,false))},'l1':${JSON.stringify(renderBoard('l1',backlogMap,false))},'l2':${JSON.stringify(renderBoard('l2',backlogMap,false))},'event':${JSON.stringify(renderBoard('event',backlogMap,false))}};
   const bAtivos=document.getElementById('board-wrap');
-  const bBacklog=document.getElementById('board-wrap-backlog');
+  const bBacklog=document.getElementById('board-wrap-backlog-tab');
   if(bAtivos)bAtivos.innerHTML=ativosBoards[safeKey]||'';
   if(bBacklog)bBacklog.innerHTML=backlogBoards[safeKey]||'';
   initCardDragAndDrop();
@@ -1544,6 +1560,7 @@ function switchFila(key){
   populateManagerDropdown('manager-sel', safeKey).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
     populateAnalystDropdown('analyst-sel', safeKey, managerId, '— Todos —');
+    syncBacklogAnalystDropdown();
     switchAnalyst(document.getElementById('analyst-sel')?.value||'');
     applyAnalystTableFilter();
   });
@@ -1559,6 +1576,13 @@ function switchFila(key){
 function updateReportsByFila(){
   const key=currentFila||'all';
   const showAll=key==='all';
+  const analystWrap=document.querySelector('.acc-analyst-wrap');
+  if(analystWrap) analystWrap.style.display=showAll?'none':'flex';
+  const kpiCol=document.querySelector('.acc-kpis-col');
+  if(kpiCol){
+    kpiCol.style.width=showAll?'100%':'';
+    kpiCol.style.maxWidth=showAll?'100%':'';
+  }
   ['l1','l2','event'].forEach(k=>{
     const tableWrap=document.getElementById('ana-table-wrap-acc-'+k);
     const tableCard=tableWrap?.closest('.acc-report-card');
@@ -1571,8 +1595,27 @@ function updateReportsByFila(){
 
 function switchManager(managerId){
   populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
+  syncBacklogAnalystDropdown();
   const analystId=document.getElementById('analyst-sel')?.value||'';
   switchAnalyst(analystId);
+}
+
+function syncBacklogAnalystDropdown(){
+  const src=document.getElementById('analyst-sel');
+  const dst=document.getElementById('backlog-analyst-sel');
+  if(!src||!dst) return;
+  dst.innerHTML=src.innerHTML;
+  dst.value=src.value||'';
+}
+
+function switchFilaBacklog(key){
+  switchFila(key);
+}
+
+function switchAnalystBacklogFromToolbar(analystId){
+  const mainSel=document.getElementById('analyst-sel');
+  if(mainSel) mainSel.value=analystId||'';
+  switchAnalyst(analystId||'');
 }
 
 function switchAnalystBacklog(analystId){
@@ -2107,6 +2150,10 @@ function showToast(msg,type='success'){
 
 // ── Analyst board ──────────────────────────────────────────────────────────
 function switchAnalyst(userId){
+  const asel=document.getElementById('analyst-sel');
+  if(asel&&asel.value!==userId) asel.value=userId||'';
+  const bsel=document.getElementById('backlog-analyst-sel');
+  if(bsel&&bsel.value!==userId) bsel.value=userId||'';
   // Filter existing boards by analyst instead of rendering separate section
   const analystContent=document.getElementById('analyst-board-content');
   if(analystContent) analystContent.innerHTML='';
@@ -2867,6 +2914,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   populateManagerDropdown('manager-sel', currentFila).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
     populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
+    syncBacklogAnalystDropdown();
   });
   document.querySelectorAll('th[data-col]').forEach(th=>{th.addEventListener('click',e=>{e.stopPropagation();openFil(th,parseInt(th.getAttribute('data-col')));});});
   pgInit();
