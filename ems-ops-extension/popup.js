@@ -993,6 +993,14 @@ tr:hover td{background:#F6F8FA;}
 
 <!-- Reports Accordion -->
   <div class="board-toolbar">
+    <label for="fila-sel">📌 Fila:</label>
+    <select id="fila-sel" onchange="switchFila(this.value)">
+      <option value="all">Todos</option>
+      <option value="l1">L1</option>
+      <option value="l2">L2</option>
+      <option value="event">Event</option>
+    </select>
+    <div class="toolbar-sep"></div>
     <label for="manager-sel">👔 Manager:</label>
     <select id="manager-sel" onchange="switchManager(this.value)">
       <option value="">— Todos —</option>
@@ -1516,22 +1524,26 @@ function initCardDragAndDrop(){
 }
 
 function switchFila(key){
-  currentFila=key;
-  const ativosBoards={'l1':${JSON.stringify(renderBoard('l1',ativosMap))},'l2':${JSON.stringify(renderBoard('l2',ativosMap))},'event':${JSON.stringify(renderBoard('event',ativosMap))}};
-  const backlogBoards={'l1':${JSON.stringify(renderBoard('l1',backlogMap,false))},'l2':${JSON.stringify(renderBoard('l2',backlogMap,false))},'event':${JSON.stringify(renderBoard('event',backlogMap,false))}};
+  const safeKey=['all','l1','l2','event'].includes(key)?key:'all';
+  currentFila=safeKey;
+  const filaSel=document.getElementById('fila-sel');
+  if(filaSel && filaSel.value!==safeKey) filaSel.value=safeKey;
+  const ativosBoards={'all':${JSON.stringify(renderBoard('all',ativosMap))},'l1':${JSON.stringify(renderBoard('l1',ativosMap))},'l2':${JSON.stringify(renderBoard('l2',ativosMap))},'event':${JSON.stringify(renderBoard('event',ativosMap))}};
+  const backlogBoards={'all':${JSON.stringify(renderBoard('all',backlogMap,false))},'l1':${JSON.stringify(renderBoard('l1',backlogMap,false))},'l2':${JSON.stringify(renderBoard('l2',backlogMap,false))},'event':${JSON.stringify(renderBoard('event',backlogMap,false))}};
   const bAtivos=document.getElementById('board-wrap');
   const bBacklog=document.getElementById('board-wrap-backlog');
-  if(bAtivos)bAtivos.innerHTML=ativosBoards[key]||'';
-  if(bBacklog)bBacklog.innerHTML=backlogBoards[key]||'';
+  if(bAtivos)bAtivos.innerHTML=ativosBoards[safeKey]||'';
+  if(bBacklog)bBacklog.innerHTML=backlogBoards[safeKey]||'';
   initCardDragAndDrop();
   const ba=document.getElementById('section-badge-ativos');
-  if(ba){const c=(ativosBoards[key]||'').match(/data-count="(\d+)"/g)||[];const tot=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,'')),0);ba.textContent=tot+' cases · <20 dias';}
-  const tbl=document.getElementById('_at_'+key)?.innerHTML||'';
+  if(ba){const c=(ativosBoards[safeKey]||'').match(/data-count="(\d+)"/g)||[];const tot=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,'')),0);ba.textContent=tot+' cases · <20 dias';}
+  const tbl=document.getElementById('_at_'+safeKey)?.innerHTML||'';
   document.getElementById('ana-table-wrap').innerHTML=tbl;
+  updateReportsByFila();
   initAccordion();
-  populateManagerDropdown('manager-sel', key).then(()=>{
+  populateManagerDropdown('manager-sel', safeKey).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
-    populateAnalystDropdown('analyst-sel', key, managerId, '— Todos —');
+    populateAnalystDropdown('analyst-sel', safeKey, managerId, '— Todos —');
     switchAnalyst(document.getElementById('analyst-sel')?.value||'');
     applyAnalystTableFilter();
   });
@@ -1542,6 +1554,19 @@ function switchFila(key){
   });
   ['sem-type-score','last-interacted-score','support-attention-score','customer-satisfaction-score'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
   fetchAccordionScores();
+}
+
+function updateReportsByFila(){
+  const key=currentFila||'all';
+  const showAll=key==='all';
+  ['l1','l2','event'].forEach(k=>{
+    const tableWrap=document.getElementById('ana-table-wrap-acc-'+k);
+    const tableCard=tableWrap?.closest('.acc-report-card');
+    if(tableCard) tableCard.style.display=(showAll||k===key)?'':'none';
+    const rmEl=document.getElementById('resolved-month-score-'+k);
+    const rmCard=rmEl?.closest('.acc-report-card');
+    if(rmCard) rmCard.style.display=(showAll||k===key)?'':'none';
+  });
 }
 
 function switchManager(managerId){
@@ -1638,6 +1663,7 @@ function toggleAcc(key){
 }
 
 function initAccordion(){
+  updateReportsByFila();
   const queues=['l1','l2','event'];
   queues.forEach(q=>{
     const wrap=document.getElementById('ana-table-wrap-acc-'+q);
@@ -2856,6 +2882,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(target)obs.observe(target,{childList:true,subtree:true,characterData:true});
     else setTimeout(tryInitAccordion,500);
   }
+  updateReportsByFila();
   // Start layered polling
 	  startPolling();
     initCardDragAndDrop();
