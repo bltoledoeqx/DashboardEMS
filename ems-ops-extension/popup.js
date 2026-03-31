@@ -108,6 +108,7 @@ function runEMSOps(userToken, userMes) {
   const SLA_F     = 'task,planned_end_time,has_breached,percentage,sla,original_breach_time';
   const BATCH     = 50;
   const BASE      = window.location.origin;
+  const TZ_BR     = 'America/Sao_Paulo';
   const MES_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   const nowD      = new Date();
@@ -457,7 +458,7 @@ function runEMSOps(userToken, userMes) {
 
     const pmByGroup = postList.reduce((a,p)=>{ a[p.group]=(a[p.group]||0)+1; return a; },{});
     const pmByType  = postList.reduce((a,p)=>{ a[p.uType]=(a[p.uType]||0)+1; return a; },{});
-    const ts        = new Date().toLocaleString('pt-BR');
+    const ts        = new Date().toLocaleString('pt-BR',{timeZone:TZ_BR});
     const gmembersJson = JSON.stringify(GROUP_MEMBERS);
 
     // ── Analytics: table by analyst + resolved today chart ─────────────
@@ -577,356 +578,8 @@ function runEMSOps(userToken, userMes) {
     return `<!DOCTYPE html><html lang="pt-BR"><head>
 <meta charset="UTF-8"><title>EMS Ops — ${mesNome} ${YEAR}</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-:root{
-  --bg:#F6F8FA;--surface:#FFFFFF;--surface2:#F6F8FA;
-  --border:#D0D7DE;--border2:#BFC8D3;
-  --text:#24292F;--text2:#57606A;--muted:#8C959F;
-  --red:#CF222E;--ora:#BF8700;--blue:#0550AE;
-  --green:#1A7F37;--gray:#57606A;--await:#0969DA;
-  --sans:'Inter',system-ui,sans-serif;--mono:'IBM Plex Mono',monospace;
-}
-*{margin:0;padding:0;box-sizing:border-box;}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;}
-a{text-decoration:none;}
-
-/* HEADER */
-.header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:0 1px 3px rgba(27,31,36,.04);}
-.logo{display:flex;align-items:center;gap:10px;}
-.logo-mark{width:28px;height:28px;background:#0969DA;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;}
-.logo-text{font-size:15px;font-weight:600;color:var(--text);}
-.header-right{display:flex;align-items:center;gap:12px;}
-.h-ts{font-family:var(--mono);font-size:11px;color:var(--muted);}
-.h-count{font-size:12px;font-weight:500;color:var(--text2);background:var(--bg);padding:3px 10px;border-radius:20px;border:1px solid var(--border);}
-
-/* TABS */
-.tabs{background:var(--surface);border-bottom:1px solid var(--border);display:flex;padding:0 20px;gap:2px;position:sticky;top:49px;z-index:100;}
-.tab{padding:9px 16px;font-size:13px;font-weight:500;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;transition:all .15s;white-space:nowrap;}
-.tab:hover{color:var(--text);background:var(--bg);}
-.tab.active{color:#0969DA;border-bottom-color:#0969DA;font-weight:600;}
-.refresh-wrap{margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 4px;}
-.refresh-track{width:72px;height:3px;background:var(--border);border-radius:4px;overflow:hidden;}
-.refresh-fill{height:100%;width:100%;background:#0969DA;border-radius:4px;transition:width 1s linear;}
-.refresh-txt{font-family:var(--mono);font-size:11px;color:var(--muted);min-width:40px;}
-.refresh-btn{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:13px;cursor:pointer;color:var(--text2);transition:all .15s;}
-.refresh-btn:hover{background:var(--bg);border-color:var(--border2);}
-
-/* MONTH BAR */
-.month-bar{background:var(--surface);border-bottom:1px solid var(--border);padding:7px 20px;display:flex;align-items:center;gap:10px;}
-.month-lbl{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;}
-.month-btns{display:flex;gap:4px;flex-wrap:wrap;}
-.mbtn{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:12px;font-weight:400;color:var(--text2);cursor:pointer;transition:all .15s;font-family:var(--sans);}
-.mbtn:hover:not(:disabled){background:var(--bg);border-color:var(--border2);color:var(--text);}
-.mbtn.active{background:#0969DA;color:#fff;border-color:#0969DA;font-weight:600;}
-.mbtn:disabled{opacity:.5;cursor:not-allowed;}
-
-/* KPI */
-.kpi-bar{background:var(--surface);border-bottom:1px solid var(--border);display:flex;}
-.kpi{flex:1;padding:10px 14px;text-align:center;border-right:1px solid var(--border);}
-.kpi:last-child{border-right:none;}
-.kpi:hover{background:var(--bg);}
-.kpi-val{font-family:var(--mono);font-size:22px;font-weight:600;line-height:1.1;display:block;}
-.kpi-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:2px;display:block;}
-
-/* SLA STRIP */
-.sla-strip{background:var(--surface);border-bottom:1px solid var(--border);padding:7px 20px;display:flex;align-items:center;gap:12px;}
-.sla-strip-lbl{font-size:11px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;white-space:nowrap;}
-.sla-track-outer{flex:1;height:5px;background:var(--border);border-radius:4px;overflow:hidden;display:flex;}
-.sla-seg{height:100%;}
-.sla-legend{display:flex;gap:10px;}
-/* ACCORDION */
-.accordion-wrap{background:var(--surface);border-bottom:1px solid var(--border);}
-.accordion-item{border-bottom:1px solid var(--border);}
-.accordion-item:last-child{border-bottom:none;}
-.accordion-hdr{display:flex;align-items:center;gap:10px;padding:10px 20px;cursor:pointer;user-select:none;transition:background .15s;}
-.accordion-hdr:hover{background:var(--bg);}
-.acc-icon{font-size:14px;}
-.acc-title{font-size:13px;font-weight:600;color:var(--text);flex:1;}
-.acc-badge{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:10px;border:1px solid var(--border);}
-.acc-arrow{font-size:12px;color:var(--muted);transition:transform .2s;margin-left:4px;}
-.accordion-body{padding:10px 16px 12px;border-top:1px solid var(--border);background:var(--bg);}
-.acc-grid{display:flex;gap:8px;align-items:flex-start;}
-.acc-report-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;flex-shrink:0;}
-/* Analyst table */
-.acc-report-card.acc-analyst{width:240px;overflow:hidden;}
-.acc-report-card.acc-analyst .ana-table{table-layout:fixed;width:100%;}
-.acc-report-card.acc-analyst .ana-table th:first-child,
-.acc-report-card.acc-analyst .ana-table td:first-child{width:auto;overflow:hidden;text-overflow:ellipsis;}
-.acc-report-card.acc-analyst .ana-table th.ana-num,
-.acc-report-card.acc-analyst .ana-table td.ana-num{width:42px;}
-/* score cards */
-.acc-scores-wrap{display:flex;flex-shrink:0;max-width:100%;}
-.acc-scores-row{display:flex;gap:8px;align-items:stretch;flex-wrap:nowrap;}
-.acc-report-card.acc-score-card{width:132px;display:flex;flex-direction:column;justify-content:center;}
-/* Resolved chart — fixed width */
-.acc-report-card.acc-resolved-card{width:280px;flex-shrink:0;}
-.acc-report-title{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;}
-.acc-report-link{font-size:10px;color:#0969DA;text-decoration:none;font-weight:400;text-transform:none;letter-spacing:0;}
-.acc-report-link:hover{text-decoration:underline;}
-.acc-score-wrap{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:6px 0;}
-.acc-score-num{font-size:26px;font-weight:700;color:#CF222E;line-height:1;}
-.acc-score-lbl{font-size:10px;color:var(--muted);margin-top:4px;text-align:center;}
-.acc-score-rating{color:#BF8700;}
-.acc-score-month{color:#0969DA;}
-/* resolved handled above */
-.res-chart-wrap{display:flex;flex-direction:column;gap:5px;padding:4px 0;}
-.res-chart-row{display:flex;align-items:center;gap:6px;margin-bottom:2px;}
-.res-chart-name{font-size:10px;color:var(--text);width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0;}
-.res-chart-bar-wrap{flex:1;background:var(--border);border-radius:2px;height:10px;overflow:hidden;}
-.res-chart-bar{height:100%;border-radius:2px;background:#2563EB;transition:width .4s ease;}
-.res-chart-count{font-size:10px;font-weight:700;color:#2563EB;min-width:20px;text-align:right;}
-.res-chart-total{font-size:10px;color:var(--muted);padding:4px 0 2px;border-top:1px solid var(--border);margin-top:4px;text-align:right;}
-.sla-li{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);}
-/* COLLAPSIBLE SECTIONS */
-.board-section{border-bottom:2px solid var(--border);}
-.section-hdr{display:flex;align-items:center;gap:10px;padding:9px 20px;cursor:pointer;background:var(--surface);user-select:none;transition:background .15s;border-bottom:1px solid var(--border);}
-.section-hdr:hover{background:#EBF0F5;}
-.section-icon{font-size:12px;color:var(--muted);transition:transform .2s;display:inline-block;width:14px;}
-.section-title{font-size:13px;font-weight:600;color:var(--text);}
-.section-badge{font-size:11px;color:var(--muted);background:var(--bg);padding:2px 10px;border-radius:10px;border:1px solid var(--border);margin-left:auto;}
-.section-body{overflow:hidden;}
-.section-body.collapsed{display:none;}
-.section-refresh-btn{margin-left:8px;background:none;border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:12px;cursor:pointer;color:var(--muted);transition:all .15s;}
-.section-refresh-btn:hover{background:var(--bg);color:var(--text);border-color:var(--border2);}
-.sla-dot{width:7px;height:7px;border-radius:50%;}
-
-/* PAGES */
-.page{display:none;}.page.active{display:block;}
-
-/* BOARD */
-.board-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:10px;}
-.board-toolbar label{font-size:12px;font-weight:500;color:var(--text2);}
-.toolbar-sep{width:1px;height:20px;background:var(--border);margin:0 4px;}
-.refresh-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:14px;cursor:pointer;color:var(--text2);transition:all .2s;line-height:1;}
-.refresh-btn:hover{background:var(--bg);color:#0969DA;border-color:#0969DA;transform:rotate(90deg);}
-.board-toolbar select{font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;font-family:var(--sans);}
-.board-toolbar select:hover{border-color:var(--border2);}
-.board-wrap{padding:14px 16px;overflow-x:auto;}
-.board-inner{display:flex;gap:10px;align-items:flex-start;min-width:max-content;}
-
-/* LANES */
-.lane{width:258px;background:var(--surface);border:1px solid var(--border);border-radius:8px;display:flex;flex-direction:column;max-height:calc(100vh - 280px);}
-.lane-hdr{padding:9px 12px;border-bottom:1px solid var(--border);border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:space-between;}
-.lane-title{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--text);}
-.lane-dot{width:7px;height:7px;border-radius:50%;}
-.lane-count{font-family:var(--mono);font-size:12px;font-weight:600;padding:0 7px;border-radius:10px;background:var(--bg);border:1px solid var(--border);}
-.lane-body{padding:8px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px;}
-.lane-body::-webkit-scrollbar{width:3px;}
-.lane-body::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
-.lane-empty{color:var(--muted);font-size:12px;text-align:center;padding:20px 0;}
-.analytics-wrap{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px;}
-.ana-section{min-width:0;}
-.ana-section-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:8px;}
-.ana-table{border-collapse:collapse;font-size:11px;width:100%;}
-.ana-table thead th{padding:4px 6px;text-align:left;font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);border-bottom:2px solid var(--border);background:var(--bg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.ana-table thead th.ana-num{text-align:right;width:44px;max-width:44px;}
-.ana-table tbody tr:hover td{background:#F0F6FF;}
-.ana-table tbody td{padding:3px 6px;border-bottom:1px solid var(--bg);vertical-align:middle;}
-.ana-table tbody td.ana-num{text-align:right;width:44px;max-width:44px;}
-.ana-table tbody td:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px;}
-.ana-name{color:var(--text);white-space:nowrap;}
-.ana-num{text-align:center;}
-.ana-zero{color:var(--muted);}
-.ana-link{color:#0969DA;font-weight:600;text-decoration:none;}
-.ana-link:hover{text-decoration:underline;}
-.ana-total{font-weight:700;color:var(--text);}
-.ana-total-link{color:var(--text)!important;font-weight:700;}
-.ana-foot td{padding:5px 10px;font-weight:700;border-top:2px solid var(--border);color:var(--text);background:var(--bg);}
-.ana-empty{font-size:12px;color:var(--muted);padding:8px 0;}
-.lane-rt{width:220px;min-width:220px;}
-.lane-bl{width:258px;min-width:258px;}
-.mbtn-backlog{background:#EDE9FE;color:#6E40C9;border-color:#C4B5FD;font-weight:600;}
-.mbtn-backlog.active{background:#6E40C9;color:#fff;border-color:#6E40C9;}
-
-/* REASSIGN BUTTON */
-.card-reassign-btn,.card-iu-btn{display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:10px;cursor:pointer;color:var(--muted);transition:all .15s;}
-.card-iu-btn{margin-left:auto;}
-.card:hover .card-reassign-btn,.card:hover .card-iu-btn{display:inline-flex;align-items:center;}
-.card-reassign-btn:hover,.card-iu-btn:hover{background:#EFF6FF;color:#0969DA;border-color:#0969DA;}
-.tag-iu{font-variant-numeric:tabular-nums;}
-.card.dragging{opacity:.55;transform:scale(.99);}
-.lane-body.drop-target{outline:2px dashed #0969DA;outline-offset:-4px;border-radius:8px;}
-/* REASSIGN DROPDOWN */
-.reassign-dd{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(27,31,36,.15);z-index:2000;width:210px;max-height:280px;display:flex;flex-direction:column;}
-.iu-dd{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(27,31,36,.15);z-index:2000;width:230px;padding:10px;display:flex;flex-direction:column;gap:8px;}
-.iu-dd label{font-size:10px;font-weight:600;color:#57606A;text-transform:uppercase;}
-.iu-dd select{width:100%;font-size:12px;padding:5px 6px;border:1px solid #D0D7DE;border-radius:4px;}
-.iu-dd-actions{display:flex;justify-content:flex-end;gap:6px;}
-.reassign-title{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);padding:8px 12px 4px;}
-.reassign-search{padding:6px 10px;border:none;border-bottom:1px solid var(--border);font-size:12px;outline:none;font-family:var(--sans);color:var(--text);}
-.reassign-list{overflow-y:auto;flex:1;}
-.reassign-opt{padding:7px 12px;font-size:12px;cursor:pointer;color:var(--text);}
-.reassign-opt:hover{background:var(--bg);}
-.reassign-current{color:#0969DA;font-weight:600;}
-/* TOAST */
-.toast{position:fixed;bottom:24px;right:24px;background:#24292F;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;z-index:3000;opacity:0;transform:translateY(8px);transition:all .25s;}
-.toast.toast-show{opacity:1;transform:none;}
-.toast.toast-error{background:#CF222E;}
-.toast.toast-warn{background:#BF8700;}
-/* ANALYST BOARD */
-.analyst-board-wrap{background:var(--bg);border-top:2px solid var(--border);}
-.analyst-board-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:10px;}
-.analyst-board-toolbar label{font-size:12px;font-weight:500;color:var(--text2);}
-.analyst-board-toolbar select{font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);font-family:var(--sans);cursor:pointer;min-width:220px;}
-.analyst-board-header{display:flex;align-items:center;justify-content:space-between;padding:8px 20px;background:var(--surface);border-bottom:1px solid var(--border);}
-.analyst-board-name{font-size:14px;font-weight:600;color:var(--text);}
-.analyst-board-count{font-family:var(--mono);font-size:12px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:10px;border:1px solid var(--border);}
-.analyst-loading,.analyst-empty{padding:24px 20px;font-size:13px;color:var(--muted);text-align:center;}
-/* CASE MODAL */
-.modal-detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px;}
-.modal-detail-item{display:flex;flex-direction:column;gap:2px;}
-.modal-detail-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:#57606A;}
-.modal-detail-val{font-size:12px;color:#24292F;}
-.modal-section-title{font-size:11px;font-weight:600;color:#57606A;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid #D0D7DE;padding-bottom:4px;margin-bottom:6px;}
-.modal-desc{font-size:12px;color:#24292F;line-height:1.5;background:#F6F8FA;border-radius:4px;padding:8px;}
-.modal-journal{border-left:4px solid #D0D7DE;padding:10px 12px;margin-bottom:8px;border-radius:0 6px 6px 0;}
-.modal-j-meta{font-size:10px;color:#57606A;margin-bottom:4px;display:flex;align-items:center;gap:6px;}
-.modal-j-author{font-weight:700;color:#24292F;font-size:11px;}
-.modal-j-time{font-size:10px;color:#8B949E;}
-.modal-j-text{font-size:12px;color:#24292F;line-height:1.5;white-space:pre-wrap;margin-top:4px;}
-.modal-j-badge{font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;letter-spacing:.3px;}
-.modal-j-wn{background:#DBEAFE;color:#1D4ED8;}
-.modal-j-cm{background:#F3F4F6;color:#374151;}
-/* work note = analista interno = azul */
-.modal-journal-wn{background:#F0F7FF;border-left-color:#2563EB;}
-.modal-journal-wn .modal-j-author{color:#1D4ED8;}
-/* comment = externo/cliente = laranja quente */
-.modal-journal-client{background:#FFFBF5;border-left-color:#F97316;}
-.modal-journal-client .modal-j-author{color:#C2410C;}
-/* comment de sistema/automação = cinza */
-.modal-journal-cm{background:#F9FAFB;border-left-color:#9CA3AF;}
-.modal-account-btn{background:none;border:none;padding:0;text-align:left;font-size:12px;color:#0969DA;cursor:pointer;text-decoration:underline;font-family:inherit;}
-.modal-account-btn:hover{color:#1D4ED8;}
-.account-products-list{display:flex;flex-direction:column;gap:8px;max-height:42vh;overflow:auto;padding-right:4px;}
-.account-product-item{padding:8px 10px;background:#F6F8FA;border:1px solid #D0D7DE;border-radius:6px;font-size:12px;color:#24292F;}
-.account-product-empty{font-size:12px;color:#57606A;padding:8px;border:1px dashed #D0D7DE;border-radius:6px;background:#fff;}
-.acc-sec{margin-bottom:12px;border:1px solid #D0D7DE;border-radius:8px;overflow:hidden;background:#fff;}
-.acc-sec-h{padding:8px 10px;background:#F6F8FA;border-bottom:1px solid #D0D7DE;font-size:12px;font-weight:700;color:#1f2937;display:flex;justify-content:space-between;align-items:center;}
-.acc-sec-sub{font-size:11px;font-weight:500;color:#57606A;}
-.acc-table-wrap{max-height:260px;overflow:auto;}
-.acc-table{width:100%;border-collapse:collapse;font-size:12px;}
-.acc-table th{position:sticky;top:0;background:#fff;border-bottom:1px solid #D0D7DE;text-align:left;padding:8px;color:#57606A;font-size:11px;text-transform:uppercase;letter-spacing:.3px;}
-.acc-table td{padding:8px;border-bottom:1px solid #EEF2F7;color:#1f2937;vertical-align:top;}
-.acc-cell-muted{color:#57606A;font-size:11px;}
-.acc-sec-warn{color:#CF222E !important;}
-.acc-sec-tm{font-size:11px;font-weight:600;color:#1A7F37;background:#DCFCE7;padding:1px 7px;border-radius:8px;border:1px solid #86EFAC;margin-left:6px;}
-.acc-badge{display:inline-block;font-size:10px;color:#57606A;background:#F6F8FA;padding:1px 6px;border-radius:8px;border:1px solid #D0D7DE;}
-.acc-badge-tm{color:#1A7F37;background:#DCFCE7;border-color:#86EFAC;font-weight:600;}
-.acc-badge-ok{color:#0550AE;background:#EFF6FF;border-color:#BFDBFE;}
-.acc-sep-row td{background:#F6F8FA !important;border-bottom:1px solid #D0D7DE !important;}
-.acc-sec-ok{color:#1A7F37 !important;font-weight:600;}
-.modal-state-badge{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11px;font-weight:500;}
-.card.modal-active{outline:2px solid #0969DA;outline-offset:1px;}
-.rt-row{display:flex;align-items:center;gap:5px;margin-bottom:3px;}
-.rt-name{font-size:11px;color:var(--text2);width:90px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.rt-track{flex:1;height:12px;background:var(--bg);border-radius:3px;overflow:hidden;border:1px solid var(--border);}
-.rt-fill{height:100%;border-radius:3px;}
-.rt-val{font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text);width:20px;text-align:right;flex-shrink:0;}
-
-
-
-/* CARDS */
-.card{background:var(--surface);border:1px solid var(--border);border-left:3px solid;border-radius:6px;padding:10px 10px 8px;transition:box-shadow .15s,transform .12s;animation:su .2s ease;}
-@keyframes su{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
-.card:hover{box-shadow:0 2px 8px rgba(27,31,36,.1);transform:translateY(-1px);}
-.card-critical{border-left-color:var(--red)}.card-high{border-left-color:var(--ora)}
-.card-medium{border-left-color:var(--blue)}.card-normal{border-left-color:var(--green)}
-.card-awaiting{border-left-color:var(--await)}.card-orphan{border-left-color:var(--gray)}
-.card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:6px;}
-.card-num{font-family:var(--mono);font-size:11px;font-weight:600;color:#0969DA;}
-.card-num:hover{text-decoration:underline;}
-.badge-await{font-size:10px;background:#DBEAFE;color:#1D4ED8;border:1px solid #BFDBFE;padding:1px 6px;border-radius:4px;}
-.badge-internal{font-size:9px;padding:1px 6px;border-radius:4px;background:#F3E8FF;color:#7C3AED;font-weight:600;border:1px solid #DDD6FE;}
-.card-desc{font-size:12px;line-height:1.45;color:var(--text);margin-bottom:8px;}
-.sla-bar-wrap{margin-bottom:7px;}
-.sla-bar-label{display:flex;justify-content:space-between;margin-bottom:2px;}
-.sla-bar-name{font-size:10px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;}
-.sla-bar-pct{font-family:var(--mono);font-size:10px;font-weight:600;}
-.sla-bar-track{height:4px;background:var(--bg);border-radius:3px;overflow:hidden;border:1px solid var(--border);}
-.sla-bar-fill{height:100%;border-radius:3px;}
-.sla-time{font-size:10px;color:var(--muted);display:block;margin-top:2px;text-align:right;}
-.card-tags{display:flex;flex-wrap:wrap;gap:3px;margin-bottom:7px;}
-.tag{font-size:10px;padding:1px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg);color:var(--text2);}
-.tag-state{background:#EFF2F5;color:#0550AE;border-color:#B6C4D1;}
-.tag-type{background:#FFF8C5;color:#7D4E00;border-color:#E3B34160;}
-.card-footer{display:flex;justify-content:space-between;align-items:center;}
-.card-assigned{font-size:10px;color:var(--muted);}
-.card-assigned.unassigned{color:var(--ora);font-weight:600;}
-.card-time{font-family:var(--mono);font-size:10px;color:var(--muted);}
-
-/* POST-MORTEM */
-.pm-wrap{padding:18px 20px;}
-.pm-title{font-size:17px;font-weight:600;margin-bottom:14px;color:var(--text);}
-.pm-stats{display:flex;gap:10px;margin-bottom:18px;}
-.pm-stat{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
-.pm-stat-val{font-family:var(--mono);font-size:24px;font-weight:600;line-height:1;}
-.pm-stat-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-top:4px;}
-.pm-stat-hint{font-size:10px;color:var(--muted);margin-top:2px;font-style:italic;}
-.pm-breakdown{display:flex;gap:10px;margin-bottom:18px;}
-.pm-break{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 14px;}
-.pm-break-title{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:var(--muted);margin-bottom:8px;}
-.pm-break-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bg);font-size:12px;}
-.pm-break-row:last-child{border:none;}
-.pm-break-val{font-family:var(--mono);font-weight:600;}
-
-/* TABLE */
-.table-wrap{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden;}
-.filter-bar{display:flex;flex-wrap:wrap;gap:5px;padding:7px 12px;background:#F0F6FF;border-bottom:1px solid #B6C4D1;}
-.filter-bar:empty{display:none;}
-.pm-pagination{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:var(--surface);border:1px solid var(--border);border-radius:8px 8px 0 0;border-bottom:none;margin-top:4px;}
-.pg-info{font-size:12px;color:var(--muted);}
-.pg-btns{display:flex;align-items:center;gap:6px;}
-.pg-btn{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:3px 12px;font-size:12px;font-weight:500;cursor:pointer;color:var(--text2);font-family:var(--sans);}
-.pg-btn:hover:not(:disabled){background:var(--bg);border-color:var(--border2);color:var(--text);}
-.pg-btn:disabled{opacity:.4;cursor:not-allowed;}
-.pg-pages{display:flex;gap:3px;}
-.pg-page{background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:2px 7px;font-size:12px;cursor:pointer;color:var(--text2);min-width:28px;text-align:center;}
-.pg-page:hover{background:var(--bg);}
-.pg-page.active{background:#0969DA;color:#fff;border-color:#0969DA;font-weight:600;}
-.filter-tag{display:flex;align-items:center;gap:4px;background:var(--surface);border:1px solid #B6C4D1;border-radius:4px;padding:2px 8px;color:#0550AE;font-size:11px;}
-.filter-tag button{background:none;border:none;cursor:pointer;color:#0550AE;font-size:13px;line-height:1;padding:0;}
-table{width:100%;border-collapse:collapse;font-size:13px;}
-thead{background:var(--bg);}
-th{padding:8px 12px;text-align:left;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap;}
-th[data-col]{cursor:pointer;user-select:none;}
-th[data-col]:hover{background:#EBF0F5;color:var(--text);}
-th[data-col].active-filter{color:#0969DA;}
-.th-arr{font-size:9px;color:var(--muted);margin-left:3px;}
-td{padding:8px 12px;border-bottom:1px solid var(--bg);vertical-align:middle;color:var(--text);}
-tr:last-child td{border:none;}
-tr:hover td{background:#F6F8FA;}
-.td-desc{color:var(--text2);max-width:190px;}
-.td-sm{color:var(--text2);font-size:12px;max-width:130px;}
-.mono{font-family:var(--mono);font-size:11px;}
-.val-red{color:var(--red);font-weight:600;}
-.muted-val{color:var(--muted);}
-.case-link{font-family:var(--mono);font-size:11px;font-weight:600;color:#0969DA;}
-.case-link:hover{text-decoration:underline;}
-.sla-pill{font-size:10px;font-weight:600;padding:2px 7px;border-radius:10px;}
-.pill-breach{background:#FFEBE9;color:#CF222E;border:1px solid #FFD1CC;}
-.pill-ok{background:#DAFBE1;color:#116329;border:1px solid #A7F3C0;}
-.pill-none{background:#F6F8FA;color:#57606A;border:1px solid #D0D7DE;}
-.pm-sla-wrap{min-width:70px;}
-.pm-sla-pct{font-family:var(--mono);font-size:11px;font-weight:600;display:block;margin-bottom:2px;}
-.pm-sla-track{height:3px;background:var(--bg);border-radius:2px;overflow:hidden;border:1px solid var(--border);}
-.pm-sla-fill{height:100%;border-radius:2px;}
-
-/* FILTER DROPDOWN */
-.fdd{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(27,31,36,.12);z-index:1000;min-width:200px;max-width:280px;max-height:320px;display:flex;flex-direction:column;}
-.fdd-search{padding:8px 10px;border:none;border-bottom:1px solid var(--border);font-size:13px;outline:none;width:100%;font-family:var(--sans);color:var(--text);}
-.fdd-opts{overflow-y:auto;flex:1;}
-.fdd-opt{display:flex;align-items:center;gap:8px;padding:7px 12px;cursor:pointer;font-size:13px;color:var(--text);}
-.fdd-opt:hover{background:var(--bg);}
-.fdd-opt input{flex-shrink:0;accent-color:#0969DA;}
-.fdd-foot{padding:7px 10px;border-top:1px solid var(--border);display:flex;gap:6px;justify-content:flex-end;}
-.fdd-foot button{font-size:12px;padding:4px 12px;border-radius:6px;cursor:pointer;border:1px solid var(--border);font-family:var(--sans);}
-.fdd-apply{background:#0969DA;color:#fff;border-color:#0969DA!important;}
-.fdd-clear{background:var(--surface);color:var(--text2);}
-
-/* TOKEN ERROR */
-#tok-err{position:fixed;inset:0;background:rgba(27,31,36,.5);z-index:9999;display:none;align-items:center;justify-content:center;}
-.tok-modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 36px;text-align:center;max-width:360px;box-shadow:0 8px 24px rgba(27,31,36,.12);}
-</style></head><body>
+<link href="${chrome.runtime.getURL('dashboard.css')}" rel="stylesheet">
+</head><body>
 
 <div id="tok-err" style="display:none">
   <div class="tok-modal">
@@ -990,6 +643,14 @@ tr:hover td{background:#F6F8FA;}
 
 <!-- Reports Accordion -->
   <div class="board-toolbar">
+    <label for="fila-sel">📌 Fila:</label>
+    <select id="fila-sel" onchange="switchFila(this.value)">
+      <option value="all">Todos</option>
+      <option value="l1">L1</option>
+      <option value="l2">L2</option>
+      <option value="event">Event</option>
+    </select>
+    <div class="toolbar-sep"></div>
     <label for="manager-sel">👔 Manager:</label>
     <select id="manager-sel" onchange="switchManager(this.value)">
       <option value="">— Todos —</option>
@@ -1011,91 +672,97 @@ tr:hover td{background:#F6F8FA;}
   <!-- Reports accordion (only in Cases Ativos) -->
   <div class="accordion-wrap" id="accordion-wrap">
   <div class="accordion-item" id="acc-analyst">
-    <div class="accordion-hdr" onclick="toggleAcc('analyst')">
+    <div class="accordion-hdr" id="acc-hdr-analyst">
       <span class="acc-icon">📊</span>
       <span class="acc-title">Reports</span>
       <span class="acc-badge" id="acc-badge-analyst"></span>
       <span class="acc-arrow" id="acc-arrow-analyst">▾</span>
       <button class="refresh-btn" onclick="event.stopPropagation();refreshReports()" title="Atualizar Reports" style="font-size:13px;margin-left:4px;">↻</button>
     </div>
-    <div class="accordion-body" id="acc-body-analyst" style="display:none">
+    <div class="accordion-body" id="acc-body-analyst" data-open="0" style="display:none">
       <div class="acc-grid">
-        <div class="acc-report-card acc-analyst">
-          <div class="acc-report-title">Cases Ativos por Analista
-            <span id="ana-queue-wrap">
-              <select id="ana-queue-sel" onchange="changeAnalystReportQueue(this.value)" style="font-size:10px;padding:1px 6px;border:1px solid #d0d7de;border-radius:6px;">
-                <option value="all">All</option><option value="l1">L1</option><option value="l2">L2</option><option value="event">Event</option>
-              </select>
-            </span>
+        <div class="acc-analyst-wrap">
+          <div class="acc-report-card acc-analyst">
+            <div class="acc-report-title">Cases Ativos por Analista · L1</div>
+            <div id="ana-table-wrap-acc-l1"></div>
           </div>
-          <div id="ana-table-wrap-acc"></div>
-        </div>
-        <div class="acc-scores-wrap">
-          <div class="acc-scores-row">
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Sem Type
-                <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=afec7b28933bb290771238797bba106e" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
-              </div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num" id="sem-type-score">—</div>
-                <div class="acc-score-lbl">sem tipo</div>
-              </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Last Client
-                <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=132e7da233211ed497e2fba45d5c7bb5" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
-              </div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num" id="last-interacted-score">—</div>
-                <div class="acc-score-lbl">últ. interação cliente</div>
-              </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Support Attention
-                <a href="#" target="_blank" class="acc-report-link" id="support-attention-link">Abrir no Snow ↗</a>
-              </div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num" id="support-attention-score">—</div>
-                <div class="acc-score-lbl">requerem atenção</div>
-              </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Rating EMS (Ano)</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-rating" id="rating-score">—</div>
-                <div class="acc-score-lbl">nota média</div>
-              </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Customer Satisfaction</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-rating" id="customer-satisfaction-score">—</div>
-                <div class="acc-score-lbl">(% promotors - detractors) / total</div>
-              </div>
-            </div>
+          <div class="acc-report-card acc-analyst">
+            <div class="acc-report-title">Cases Ativos por Analista · L2</div>
+            <div id="ana-table-wrap-acc-l2"></div>
+          </div>
+          <div class="acc-report-card acc-analyst">
+            <div class="acc-report-title">Cases Ativos por Analista · Event</div>
+            <div id="ana-table-wrap-acc-event"></div>
           </div>
         </div>
-        <div class="acc-scores-wrap" style="margin-top:6px;">
-          <div class="acc-scores-row">
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Resolvidos no Mês · L1</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-month" id="resolved-month-score-l1">—</div>
-                <div class="acc-score-lbl">casos resolvidos</div>
+        <div class="acc-kpis-col">
+          <div class="acc-scores-wrap">
+            <div class="acc-scores-row">
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Sem Type
+                  <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=afec7b28933bb290771238797bba106e" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
+                </div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num" id="sem-type-score">—</div>
+                  <div class="acc-score-lbl">sem tipo</div>
+                </div>
+              </div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Last Client
+                  <a href="https://equinixcsm.service-now.com/sys_report_template.do?jvar_report_id=132e7da233211ed497e2fba45d5c7bb5" target="_blank" class="acc-report-link">Abrir no Snow ↗</a>
+                </div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num" id="last-interacted-score">—</div>
+                  <div class="acc-score-lbl">últ. interação cliente</div>
+                </div>
+              </div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Support Attention
+                  <a href="#" target="_blank" class="acc-report-link" id="support-attention-link">Abrir no Snow ↗</a>
+                </div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num" id="support-attention-score">—</div>
+                  <div class="acc-score-lbl">requerem atenção</div>
+                </div>
+              </div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Rating EMS (Ano)</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-rating" id="rating-score">—</div>
+                  <div class="acc-score-lbl">nota média</div>
+                </div>
+              </div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Customer Satisfaction</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-rating" id="customer-satisfaction-score">—</div>
+                  <div class="acc-score-lbl">(% promotors - detractors) / total</div>
+                </div>
               </div>
             </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Resolvidos no Mês · L2</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-month" id="resolved-month-score-l2">—</div>
-                <div class="acc-score-lbl">casos resolvidos</div>
+          </div>
+          <div class="acc-scores-wrap">
+            <div class="acc-scores-row">
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Resolvidos no Mês · L1</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-month" id="resolved-month-score-l1">—</div>
+                  <div class="acc-score-lbl">casos resolvidos</div>
+                </div>
               </div>
-            </div>
-            <div class="acc-report-card acc-score-card">
-              <div class="acc-report-title">Resolvidos no Mês · Event</div>
-              <div class="acc-score-wrap">
-                <div class="acc-score-num acc-score-month" id="resolved-month-score-event">—</div>
-                <div class="acc-score-lbl">casos resolvidos</div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Resolvidos no Mês · L2</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-month" id="resolved-month-score-l2">—</div>
+                  <div class="acc-score-lbl">casos resolvidos</div>
+                </div>
+              </div>
+              <div class="acc-report-card acc-score-card">
+                <div class="acc-report-title">Resolvidos no Mês · Event</div>
+                <div class="acc-score-wrap">
+                  <div class="acc-score-num acc-score-month" id="resolved-month-score-event">—</div>
+                  <div class="acc-score-lbl">casos resolvidos</div>
+                </div>
               </div>
             </div>
           </div>
@@ -1135,7 +802,20 @@ tr:hover td{background:#F6F8FA;}
 
 <div class="page" id="page-backlog">
   <div class="board-toolbar" style="padding:8px 20px;">
-    <span style="font-size:12px;color:var(--muted);">Filtros: Manager / Analista (aba Cases Ativos)</span>
+    <div class="backlog-filters">
+      <label for="backlog-fila-sel">📌 Fila:</label>
+      <select id="backlog-fila-sel" onchange="switchFilaBacklog(this.value)">
+        <option value="all">Todos</option>
+        <option value="l1">L1</option>
+        <option value="l2">L2</option>
+        <option value="event">Event</option>
+      </select>
+      <div class="toolbar-sep"></div>
+      <label for="backlog-analyst-sel">👤 Analista:</label>
+      <select id="backlog-analyst-sel" onchange="switchAnalystBacklogFromToolbar(this.value)">
+        <option value="">— Todos —</option>
+      </select>
+    </div>
     <div class="toolbar-sep"></div>
     <button onclick="refreshBacklog()" class="refresh-btn" title="Atualizar Backlog">↻</button>
   </div>
@@ -1235,16 +915,14 @@ function refreshReports(){
     const elR=document.getElementById(id);
     if(elR)elR.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
   });
-  // Also reload analyst table
-  const tbl=document.getElementById('_at_'+currentFila)?.innerHTML||'';
-  initAccordion(tbl);
+  // Also reload analyst tables
+  initAccordion();
 }
 function refreshMyCases(){
   initMyCases();
 }
 
 let currentFila='all';
-let currentAnalystReportQueue='all';
 window._GMEMBERS=${gmembersJson};
 window._GID_MAP={'all':_IDS,'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
 window._MANAGER_CACHE={};
@@ -1382,41 +1060,38 @@ function getRatingAssigneeFilter(){
 }
 
 function applyAnalystTableFilter(){
-  const gid=window._GID_MAP?.[currentFila]||'';
   const managerId=document.getElementById('manager-sel')?.value||'';
-  const queueWrap=document.getElementById('ana-queue-wrap');
-  const queueSel=document.getElementById('ana-queue-sel');
-  const qKey=(queueSel?.value||currentAnalystReportQueue||'all');
-  const srcKey=managerId?'all':qKey;
-  const src=document.getElementById('_at_'+srcKey)?.innerHTML||'';
-  const anaAcc=document.getElementById('ana-table-wrap-acc');
-  if(anaAcc && src && anaAcc.dataset.src!==srcKey){anaAcc.innerHTML=src;anaAcc.dataset.src=srcKey;}
-  if(queueWrap) queueWrap.style.display=managerId?'none':'inline-flex';
-
-  const rows=document.querySelectorAll('#ana-table-wrap-acc .ana-table tbody tr');
-  if(!rows.length) return;
   const analystId=document.getElementById('analyst-sel')?.value||'';
-  let allowNames=null;
-  if(analystId){
-    const member=(window._MANAGER_CACHE?.[gid]?.members||window._GMEMBERS?.[gid]||[]).find(m=>m.id===analystId);
-    allowNames=new Set(member?[member.name]:[]);
-  }else if(managerId){
-    allowNames=new Set(getMembersByManager(gid,managerId).map(m=>m.name));
-  }
+  const queueCfg=[
+    {key:'l1', gid:window._GID_MAP?.l1||''},
+    {key:'l2', gid:window._GID_MAP?.l2||''},
+    {key:'event', gid:window._GID_MAP?.event||''}
+  ];
   let visible=0;
-  rows.forEach(r=>{
-    const name=(r.cells?.[0]?.innerText||r.cells?.[0]?.textContent||'').trim();
-    const show=!allowNames||allowNames.has(name);
-    r.style.display=show?'':'none';
-    if(show) visible++;
+  queueCfg.forEach(cfg=>{
+    const wrap=document.getElementById('ana-table-wrap-acc-'+cfg.key);
+    const src=document.getElementById('_at_'+cfg.key)?.innerHTML||'';
+    if(wrap && src && wrap.dataset.src!==cfg.key){wrap.innerHTML=src;wrap.dataset.src=cfg.key;}
+    const rows=document.querySelectorAll('#ana-table-wrap-acc-'+cfg.key+' .ana-table tbody tr');
+    let allowNames=null;
+    if(analystId){
+      let foundName='';
+      const member=(window._MANAGER_CACHE?.[cfg.gid]?.members||window._GMEMBERS?.[cfg.gid]||[]).find(m=>m.id===analystId);
+      if(member?.name) foundName=member.name;
+      allowNames=new Set(foundName?[foundName]:[]);
+    }else if(managerId){
+      const members=getMembersByManager(cfg.gid,managerId);
+      allowNames=new Set(members.map(m=>m.name));
+    }
+    rows.forEach(r=>{
+      const name=(r.cells?.[0]?.innerText||r.cells?.[0]?.textContent||'').trim();
+      const show=!allowNames||allowNames.has(name);
+      r.style.display=show?'':'none';
+      if(show) visible++;
+    });
   });
   const badge=document.getElementById('acc-badge-analyst');
   if(badge) badge.textContent=visible?visible+' analistas':'';
-}
-
-function changeAnalystReportQueue(queueKey){
-  currentAnalystReportQueue=queueKey||'all';
-  applyAnalystTableFilter();
 }
 
 function showPage(id,el){
@@ -1430,10 +1105,9 @@ function showPage(id,el){
   }
   if(id==='kanban'){
     // Re-init accordion in case it wasn't loaded yet
-    const anaAcc=document.getElementById('ana-table-wrap-acc');
-    if(!anaAcc||!anaAcc.innerHTML||anaAcc.innerHTML.trim().length<10){
-      const src=document.getElementById('_at_'+currentFila)?.innerHTML||document.getElementById('_at_l1')?.innerHTML||'';
-      if(src&&src.trim().length>10) initAccordion(src);
+    const anaL1=document.getElementById('ana-table-wrap-acc-l1');
+    if(!anaL1||!anaL1.innerHTML||anaL1.innerHTML.trim().length<10){
+      initAccordion();
     }
   }
 }
@@ -1513,22 +1187,30 @@ function initCardDragAndDrop(){
 }
 
 function switchFila(key){
-  currentFila=key;
-  const ativosBoards={'l1':${JSON.stringify(renderBoard('l1',ativosMap))},'l2':${JSON.stringify(renderBoard('l2',ativosMap))},'event':${JSON.stringify(renderBoard('event',ativosMap))}};
-  const backlogBoards={'l1':${JSON.stringify(renderBoard('l1',backlogMap,false))},'l2':${JSON.stringify(renderBoard('l2',backlogMap,false))},'event':${JSON.stringify(renderBoard('event',backlogMap,false))}};
+  // Central queue switch: keeps Cases Ativos, Backlog and Reports in sync.
+  const safeKey=['all','l1','l2','event'].includes(key)?key:'all';
+  currentFila=safeKey;
+  const filaSel=document.getElementById('fila-sel');
+  if(filaSel && filaSel.value!==safeKey) filaSel.value=safeKey;
+  const filaSelBacklog=document.getElementById('backlog-fila-sel');
+  if(filaSelBacklog && filaSelBacklog.value!==safeKey) filaSelBacklog.value=safeKey;
+  const ativosBoards={'all':${JSON.stringify(renderBoard('all',ativosMap))},'l1':${JSON.stringify(renderBoard('l1',ativosMap))},'l2':${JSON.stringify(renderBoard('l2',ativosMap))},'event':${JSON.stringify(renderBoard('event',ativosMap))}};
+  const backlogBoards={'all':${JSON.stringify(renderBoard('all',backlogMap,false))},'l1':${JSON.stringify(renderBoard('l1',backlogMap,false))},'l2':${JSON.stringify(renderBoard('l2',backlogMap,false))},'event':${JSON.stringify(renderBoard('event',backlogMap,false))}};
   const bAtivos=document.getElementById('board-wrap');
-  const bBacklog=document.getElementById('board-wrap-backlog');
-  if(bAtivos)bAtivos.innerHTML=ativosBoards[key]||'';
-  if(bBacklog)bBacklog.innerHTML=backlogBoards[key]||'';
+  const bBacklog=document.getElementById('board-wrap-backlog-tab');
+  if(bAtivos)bAtivos.innerHTML=ativosBoards[safeKey]||'';
+  if(bBacklog)bBacklog.innerHTML=backlogBoards[safeKey]||'';
   initCardDragAndDrop();
   const ba=document.getElementById('section-badge-ativos');
-  if(ba){const c=(ativosBoards[key]||'').match(/data-count="(\d+)"/g)||[];const tot=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,'')),0);ba.textContent=tot+' cases · <20 dias';}
-  const tbl=document.getElementById('_at_'+key)?.innerHTML||'';
+  if(ba){const c=(ativosBoards[safeKey]||'').match(/data-count="(\d+)"/g)||[];const tot=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,'')),0);ba.textContent=tot+' cases · <20 dias';}
+  const tbl=document.getElementById('_at_'+safeKey)?.innerHTML||'';
   document.getElementById('ana-table-wrap').innerHTML=tbl;
-  initAccordion(tbl);
-  populateManagerDropdown('manager-sel', key).then(()=>{
+  updateReportsByFila();
+  initAccordion();
+  populateManagerDropdown('manager-sel', safeKey).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
-    populateAnalystDropdown('analyst-sel', key, managerId, '— Todos —');
+    populateAnalystDropdown('analyst-sel', safeKey, managerId, '— Todos —');
+    syncBacklogAnalystDropdown();
     switchAnalyst(document.getElementById('analyst-sel')?.value||'');
     applyAnalystTableFilter();
   });
@@ -1541,10 +1223,53 @@ function switchFila(key){
   fetchAccordionScores();
 }
 
+function updateReportsByFila(){
+  // Adjust Reports visibility by selected queue to avoid empty space in "Todos".
+  const key=currentFila||'all';
+  const showAll=key==='all';
+  const analystWrap=document.querySelector('.acc-analyst-wrap');
+  if(analystWrap) analystWrap.style.display=showAll?'none':'flex';
+  const kpiCol=document.querySelector('.acc-kpis-col');
+  if(kpiCol){
+    kpiCol.style.width=showAll?'100%':'';
+    kpiCol.style.maxWidth=showAll?'100%':'';
+  }
+  ['l1','l2','event'].forEach(k=>{
+    const tableWrap=document.getElementById('ana-table-wrap-acc-'+k);
+    const tableCard=tableWrap?.closest('.acc-report-card');
+    if(tableCard) tableCard.style.display=(showAll||k===key)?'':'none';
+    const rmEl=document.getElementById('resolved-month-score-'+k);
+    const rmCard=rmEl?.closest('.acc-report-card');
+    if(rmCard) rmCard.style.display=(showAll||k===key)?'':'none';
+  });
+}
+
 function switchManager(managerId){
   populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
+  syncBacklogAnalystDropdown();
   const analystId=document.getElementById('analyst-sel')?.value||'';
   switchAnalyst(analystId);
+}
+
+function syncBacklogAnalystDropdown(){
+  // Mirrors analyst options from Cases Ativos to Backlog toolbar.
+  const src=document.getElementById('analyst-sel');
+  const dst=document.getElementById('backlog-analyst-sel');
+  if(!src||!dst) return;
+  dst.innerHTML=src.innerHTML;
+  dst.value=src.value||'';
+}
+
+function switchFilaBacklog(key){
+  // Backlog queue selector reuses the same central queue switch.
+  switchFila(key);
+}
+
+function switchAnalystBacklogFromToolbar(analystId){
+  // Backlog analyst selector controls the same analyst filter state.
+  const mainSel=document.getElementById('analyst-sel');
+  if(mainSel) mainSel.value=analystId||'';
+  switchAnalyst(analystId||'');
 }
 
 function switchAnalystBacklog(analystId){
@@ -1613,22 +1338,38 @@ function toggleAcc(key){
   const body=document.getElementById('acc-body-'+key);
   const arrow=document.getElementById('acc-arrow-'+key);
   if(!body)return;
-  const open=body.style.display!=='none';
-  body.style.display=open?'none':'block';
-  if(arrow)arrow.style.transform=open?'':'rotate(180deg)';
-  if(!open)fetchAccordionScores();
+  const open=(body.dataset.open==='1') || (body.style.display!=='none');
+  if(open){
+    body.style.display='none';
+    body.dataset.open='0';
+    if(arrow)arrow.style.transform='';
+    return;
+  }
+  body.style.display='block';
+  body.dataset.open='1';
+  if(arrow)arrow.style.transform='rotate(180deg)';
+  fetchAccordionScores();
 }
 
-function initAccordion(html){
-  const anaAcc=document.getElementById('ana-table-wrap-acc');
-  // Try passed html, then current fila hidden div, then l1 fallback
-  const src=html||document.getElementById('_at_'+currentFila)?.innerHTML||document.getElementById('_at_l1')?.innerHTML||'';
-  if(anaAcc){
-    if(src&&src.trim()!=='') anaAcc.innerHTML=src;
-    else anaAcc.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px;">Sem dados disponíveis para esta fila.</div>';
-  }
+function initAccordion(){
+  updateReportsByFila();
+  const queues=['l1','l2','event'];
+  queues.forEach(q=>{
+    const wrap=document.getElementById('ana-table-wrap-acc-'+q);
+    const src=document.getElementById('_at_'+q)?.innerHTML||'';
+    if(!wrap) return;
+    if(src&&src.trim()!==''){
+      wrap.innerHTML=src;
+      wrap.dataset.src=q;
+    }else{
+      wrap.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px;">Sem dados disponíveis para esta fila.</div>';
+    }
+  });
   const badge=document.getElementById('acc-badge-analyst');
-  if(badge){const rows=document.querySelectorAll('#ana-table-wrap-acc .ana-table tbody tr');badge.textContent=rows.length?rows.length+' analistas':'';}
+  if(badge){
+    const rows=document.querySelectorAll('#ana-table-wrap-acc-l1 .ana-table tbody tr,#ana-table-wrap-acc-l2 .ana-table tbody tr,#ana-table-wrap-acc-event .ana-table tbody tr');
+    badge.textContent=rows.length?rows.length+' analistas':'';
+  }
   applyAnalystTableFilter();
   fetchAccordionScores();
 }
@@ -2055,6 +1796,10 @@ function showToast(msg,type='success'){
 
 // ── Analyst board ──────────────────────────────────────────────────────────
 function switchAnalyst(userId){
+  const asel=document.getElementById('analyst-sel');
+  if(asel&&asel.value!==userId) asel.value=userId||'';
+  const bsel=document.getElementById('backlog-analyst-sel');
+  if(bsel&&bsel.value!==userId) bsel.value=userId||'';
   // Filter existing boards by analyst instead of rendering separate section
   const analystContent=document.getElementById('analyst-board-content');
   if(analystContent) analystContent.innerHTML='';
@@ -2236,18 +1981,31 @@ function openCaseModal(sysId, number, cardEl) {
   numEl.textContent = number;
   link.href = _BASE + '/sn_customerservice_case.do?sysparm_query=number=' + number;
   if (noteTA) noteTA.value = '';
+  const legacyQuickActions = Array.from(document.querySelectorAll('#modal-footer button')).filter(btn => {
+    const txt = (btn.textContent || '').trim().toLowerCase();
+    const oc = (btn.getAttribute('onclick') || '').toLowerCase();
+    return txt === 'schedule'
+      || txt === 'awaiting info'
+      || txt === 'awaiting customer approval'
+      || oc.includes('modalsetstate')
+      || oc.includes('toggleschedulecontrols')
+      || oc.includes('applyscheduledstate');
+  });
+  legacyQuickActions.forEach(btn => btn.remove());
   body.innerHTML = '<div style="text-align:center;color:#57606A;font-size:13px;padding:40px 0;">Carregando...</div>';
   title.textContent = '';
 
-  // Fetch case details + journal in parallel
+  // Fetch case details + journal + attachments in parallel
   const h = {'Accept':'application/json','X-UserToken':_TOK};
   const fields = 'number,short_description,description,assigned_to,priority,state,impact,urgency,opened_at,account,contact,u_type,category,sys_id';
   Promise.all([
     fetch(_BASE+'/api/now/table/sn_customerservice_case/'+sysId+'?sysparm_fields='+fields+'&sysparm_display_value=all', {headers:h}).then(r=>r.json()),
     fetch(_BASE+'/api/now/table/sys_journal_field?sysparm_query=element_id='+sysId+'&sysparm_display_value=all&sysparm_limit=20', {headers:h}).then(r=>r.json()),
-  ]).then(([caseData, journalData]) => {
+    fetch(_BASE+'/api/now/attachment?sysparm_query='+encodeURIComponent('table_name=sn_customerservice_case^table_sys_id='+sysId)+'&sysparm_fields=sys_id,file_name,size_bytes,sys_created_on&sysparm_display_value=all&sysparm_limit=100', {headers:h}).then(r=>r.json()).catch(()=>({result:[]})),
+  ]).then(([caseData, journalData, attachmentData]) => {
     const c = caseData.result;
     const j = journalData.result || [];
+    const at = attachmentData.result || [];
     if (!c) { body.innerHTML = '<div style="color:#CF222E;padding:20px;">Erro ao carregar caso.</div>'; return; }
 
     // Fetch contact phone in background (non-blocking)
@@ -2264,8 +2022,14 @@ function openCaseModal(sysId, number, cardEl) {
     const stateColors = {'1':'background:#EFF6FF;color:#0550AE','10':'background:#EFF6FF;color:#0550AE','21':'background:#DBEAFE;color:#1D4ED8','8':'background:#DCFCE7;color:#166534','18':'background:#FEF9C3;color:#854D0E','32':'background:#FEF9C3;color:#854D0E','5':'background:#F3E8FF;color:#6B21A8','29':'background:#FEE2E2;color:#991B1B','30':'background:#FEE2E2;color:#991B1B'};
     const sc = stateColors[c.state?.value] || 'background:#F6F8FA;color:#57606A';
 
-    const fmtDate = d => d ? new Date(d).toLocaleString('pt-BR') : '—';
+    const fmtDate = d => d ? new Date(d).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}) : '—';
     const val = f => f?.display_value || f?.value || '—';
+    const fmtBytes = n => {
+      const x = parseInt(n||'0',10)||0;
+      if(x < 1024) return x+' B';
+      if(x < 1024*1024) return (x/1024).toFixed(1)+' KB';
+      return (x/(1024*1024)).toFixed(1)+' MB';
+    };
 
     // Show current state badge
     const stateBadge=document.getElementById('modal-state-badge'); if(stateBadge) stateBadge.textContent='Estado atual: '+val(c.state);
@@ -2312,6 +2076,24 @@ function openCaseModal(sysId, number, cardEl) {
       '<div>' +
         '<div class="modal-section-title">Descrição</div>' +
         '<div class="modal-desc">'+(c.description?.display_value||c.description?.value||'Sem descrição.')+'</div>' +
+      '</div>' +
+      '<div>' +
+        '<div class="modal-section-title">Anexos ('+at.length+')</div>' +
+        '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">' +
+          '<input id="modal-attach-file" type="file" style="font-size:11px;flex:1;">' +
+          '<button type="button" onclick="uploadModalAttachment()" style="font-size:11px;padding:4px 10px;border:1px solid #0969DA;background:#0969DA;color:#fff;border-radius:4px;cursor:pointer;">Anexar</button>' +
+        '</div>' +
+        (at.length ? '<div style="display:flex;flex-direction:column;gap:6px;">'+at.map(a=>{
+          const aid = a.sys_id?.value || a.sys_id || '';
+          const fn = a.file_name?.display_value || a.file_name?.value || a.file_name || 'anexo';
+          const sz = fmtBytes(a.size_bytes?.value || a.size_bytes);
+          const dt = fmtDate(a.sys_created_on?.value || a.sys_created_on);
+          return '<a href="'+_BASE+'/sys_attachment.do?sys_id='+aid+'" target="_blank" rel="noopener noreferrer" '+
+            'style="display:flex;justify-content:space-between;gap:8px;padding:7px 8px;border:1px solid #D0D7DE;border-radius:6px;text-decoration:none;color:#24292F;">'+
+            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 '+fn+'</span>'+
+            '<span style="font-size:10px;color:#57606A;white-space:nowrap;">'+sz+' · '+dt+'</span>'+
+          '</a>';
+        }).join('')+'</div>' : '<div style="color:#57606A;font-size:12px;">Sem anexos.</div>') +
       '</div>' +
       '<div>' +
         '<div class="modal-section-title">Notas de Trabalho ('+(sorted.length)+')</div>' +
@@ -2419,214 +2201,157 @@ function openAccountProductsModal(accountId, accountName){
     return '—';
   };
 
-  const normStr = v => (v||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
-  const isTM = raw => {
-    const s=normStr(raw);
-    if(!s) return false;
-    return s.includes('total management') || /^tm(\s*2?\.?\s*0?)?$/.test(s);
-  };
-
   // ── CMDB: Itens Gerenciados ───────────────────────────────────────────
-  // The ServiceNow screenshot shows the correct field is "account" on cmdb_ci.
-  // We query TM/TM2.0 directly in the API (server-side filter) to avoid pulling
-  // 1000 NM items and filtering client-side.
-  const TM_FILTER  = '^u_management_typeIN966ea1bf4f302700f3d33d828110c70b.0228d1c,Total Management (TM),Total Management (TM) 2.0';
-  // Also try by display value using LIKE since value encoding varies per instance
-  const TM_LIKE    = '^u_management_typeLIKETotal Management';
-  const cmdbFields = 'sys_id,name,hostname,host_name,serial_number,asset_tag,u_management_type,management_type,ip_address,os,sys_class_name,active';
-  const cmdbLimit  = 200;
-
-  // Query strategy:
-  // 1. account=<id> with TM filter (most precise, matches screenshot)
-  // 2. account=<id> with TM LIKE (fallback if value IDs differ)
-  // 3. account=<id> all active (fallback, filter client-side)
-  // 4. account.name=<name> with TM LIKE (if ID lookup fails)
-  // All queries filter active=true to skip decommissioned CIs
+  // Adapted to the account from current modal/case (account sys_id/name).
+  // Equivalent to requested logic:
+  // u_account=<account>^u_active_flag=true^u_management_type!=no_management
+  // OR u_account=<account>^u_active_flag=true^u_management_type=NULL
+  const cmdbFields = 'sys_id,name,hostname,ip_address,u_management_type,management_type,sys_class_name,u_active_flag,active';
+  const cmdbLimit  = 10000;
   const cmdbQueries = [
-    'account='+accountId+TM_LIKE+'^active=true',
-    'account='+accountId+'^active=true',
-    'account.name='+accountName+TM_LIKE+'^active=true',
-    'account.name='+accountName+'^active=true',
-    // fallback: legacy field names
-    'u_customer_account='+accountId+TM_LIKE+'^active=true',
-    'u_customer_account='+accountId+'^active=true',
+    'u_account='+accountId+'^u_active_flag=true^u_management_type!=no_management^NQu_account='+accountId+'^u_active_flag=true^u_management_type=NULL',
+    'u_account.name='+accountName+'^u_active_flag=true^u_management_type!=no_management^NQu_account.name='+accountName+'^u_active_flag=true^u_management_type=NULL'
   ];
 
   // ── Software: Licenças ────────────────────────────────────────────────
-  // Fetch a single record first to introspect real field names, then render all
-  // Fields: try every plausible name for software name, quantity, license type
+  // Confirmed fields from instance test script.
   const swFields = [
-    'sys_id','name','short_description','active',
-    // account relationship
-    'u_account','account','customer_account','u_customer_account',
-    // software identification
-    'u_software','software','u_product','product','u_software_name','software_name',
-    // version
-    'u_version','version','u_software_version','software_version',
-    // manufacturer / vendor
-    'manufacturer','u_manufacturer','vendor','u_vendor',
-    // license type / model
-    'u_license_type','license_type','u_licensing_model','licensing_model','u_type','type',
-    // quantity — the most likely real field names
-    'u_number_of_licenses','number_of_licenses','u_licenses','licenses',
-    'u_quantity','quantity','u_seats','seats','u_total','total',
-    'u_install_count','install_count','u_license_count','license_count',
-    'u_amount','amount','u_total_quantity','total_quantity',
-    // host / CI
-    'cmdb_ci','u_cmdb_ci','hostname','u_hostname',
-    // status
-    'u_status','status','state'
+    'sys_id',
+    'u_software_to_install',
+    'manufacturer',
+    'u_licensing_model',
+    'u_software_quantity'
   ].join(',');
-
-  const swQueries = [
-    'u_account='+accountId+'^active=true',
-    'account='+accountId+'^active=true',
-    'customer_account='+accountId+'^active=true',
-    'u_customer_account='+accountId+'^active=true',
-    'u_account='+accountId,
-    'account='+accountId,
-    'u_account.name='+accountName+'^active=true',
-    'account.name='+accountName+'^active=true',
-    'customer_account.name='+accountName+'^active=true',
-    'u_account.name='+accountName,
-    'account.name='+accountName,
-  ];
 
   // ── Render: CMDB ─────────────────────────────────────────────────────
   const renderCmdb = rows => {
-    // Client-side: keep only TM/TM2.0; if none (e.g. query fell back to all),
-    // show TM first then others collapsed
-    const tmRows   = rows.filter(r=>isTM(r.u_management_type?.display_value||r.u_management_type?.value||r.management_type?.display_value||r.management_type?.value||''));
-    const showRows = tmRows.length ? tmRows : rows; // if no TM found, show all so user can debug
-
-    const label = 'Itens Gerenciados — TM / TM 2.0 (CMDB)';
+    const label = 'Itens Gerenciados';
     if(!rows.length){
       return '<div class="acc-sec">'+
         '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-warn">0 itens encontrados</span></div>'+
-        '<div style="padding:10px;"><div class="account-product-empty">'+
-        'Nenhum CI encontrado.<br>'+
-        '<small style="color:#8b949e">Queries tentadas: account=id, account.name=nome (com active=true).</small>'+
-        '</div></div></div>';
+        '<div style="padding:10px;"><div class="account-product-empty">Nenhum CI encontrado.</div></div></div>';
     }
 
-    const items = showRows.map(r=>({
-      name   : pickFirst(r.hostname?.display_value,r.hostname?.value,r.host_name?.display_value,r.host_name?.value,r.name?.display_value,r.name?.value),
-      serial : pickFirst(r.serial_number?.display_value,r.serial_number?.value,r.asset_tag?.display_value,r.asset_tag?.value),
+    const ignoredHostnames = new Set(['server','—','managedservices-custom']);
+    const items = rows.map(r=>({
+      sysId  : pickFirst(r.sys_id?.value),
+      name   : pickFirst(r.hostname?.display_value,r.hostname?.value,r.name?.display_value,r.name?.value),
       mgType : pickFirst(r.u_management_type?.display_value,r.u_management_type?.value,r.management_type?.display_value,r.management_type?.value),
-      os     : pickFirst(r.os?.display_value,r.os?.value),
       ip     : pickFirst(r.ip_address?.display_value,r.ip_address?.value),
       cls    : pickFirst(r.sys_class_name?.display_value,r.sys_class_name?.value),
-      active : r.active?.value==='true'||r.active?.display_value==='true',
-    }));
+    })).filter(i=>!ignoredHostnames.has((i.name||'').trim().toLowerCase()));
 
-    const tmCount    = tmRows.length;
-    const totalCount = rows.length;
-    const showing    = tmCount || totalCount;
-    const subtitle   = tmCount
-      ? tmCount+' TM / TM 2.0'+(totalCount>tmCount?' (de '+totalCount+' CIs total)':'')
-      : totalCount+' CIs (sem TM identificado — verifique u_management_type)';
+    const grouped = items.reduce((acc, it) => {
+      const key = it.cls || 'Sem Class';
+      if(!acc[key]) acc[key] = [];
+      acc[key].push(it);
+      return acc;
+    }, {});
+
+    const sections = Object.keys(grouped).sort((a,b)=>a.localeCompare(b)).map(cls=>{
+      const gRows = grouped[cls];
+      return '<div class="acc-table-wrap" style="margin-top:10px;">'+
+        '<div style="font-size:11px;font-weight:700;color:#57606A;padding:6px 2px;">'+cls+' ('+gRows.length+')</div>'+
+        '<table class="acc-table">'+
+        '<thead><tr><th>Hostname</th><th>IP Address</th><th>Management type</th></tr></thead>'+
+        '<tbody>'+
+        gRows.map(i=>'<tr class="managed-item-row" data-mi-search="'+
+          [i.name,i.ip,i.mgType,cls].join(' ').toLowerCase().replace(/"/g,'&quot;')+'">'+
+          '<td><a href="'+_BASE+'/cmdb_ci.do?sys_id='+encodeURIComponent(i.sysId||'')+'" target="_blank" rel="noopener noreferrer" '+
+          'class="managed-item-row-link"><strong>'+i.name+'</strong></a></td>'+
+          '<td class="acc-cell-muted">'+i.ip+'</td>'+
+          '<td><span class="acc-badge acc-badge-tm">'+i.mgType+'</span></td>'+
+          '</tr>').join('')+
+        '</tbody></table></div>';
+    }).join('');
 
     return '<div class="acc-sec">'+
-      '<div class="acc-sec-h">'+label+
-      ' <span class="acc-sec-sub '+(tmCount?'acc-sec-ok':'acc-sec-warn')+'">'+subtitle+'</span></div>'+
-      '<div class="acc-table-wrap"><table class="acc-table">'+
-      '<thead><tr><th>Hostname / Nome</th><th>Serial / Asset Tag</th><th>Management Type</th><th>Classe</th><th>IP</th></tr></thead>'+
-      '<tbody>'+
-      items.map(i=>
-        '<tr'+(i.active?'':' style="opacity:.55"')+'>'+
-        '<td><strong>'+i.name+'</strong></td>'+
-        '<td class="acc-cell-muted">'+i.serial+'</td>'+
-        '<td><span class="acc-badge acc-badge-tm">'+i.mgType+'</span></td>'+
-        '<td class="acc-cell-muted" style="font-size:10px">'+i.cls+'</td>'+
-        '<td class="acc-cell-muted">'+i.ip+'</td>'+
-        '</tr>'
-      ).join('')+
-      '</tbody></table></div></div>';
+      '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-ok">'+items.length+' itens</span></div>'+
+      '<div style="padding:8px 0 4px 0;">'+
+        '<input id="managed-items-find" type="search" placeholder="Find hostname, IP, class..." '+
+        'oninput="filterManagedItemsRows(this.value)" '+
+        'style="width:100%;font-size:12px;padding:7px 9px;border:1px solid #D0D7DE;border-radius:6px;">'+
+      '</div>'+
+      sections+
+      '</div>';
   };
 
   // ── Render: Software ──────────────────────────────────────────────────
   const renderSw = rows => {
-    const label = 'Licenças de Software';
+    const label = 'Software Licensing';
     if(!rows.length){
       return '<div class="acc-sec">'+
         '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-warn">0 licenças encontradas</span></div>'+
-        '<div style="padding:10px;"><div class="account-product-empty">'+
-        'Nenhuma licença encontrada para este account.<br>'+
-        '<small style="color:#8b949e">Queries tentadas: u_account, account, customer_account por ID e nome.</small>'+
-        '</div></div></div>';
+        '<div style="padding:10px;"><div class="account-product-empty">Nenhum registro encontrado.</div></div></div>';
     }
+    const toNum = v => {
+      let s = String(v ?? '').trim();
+      if(!s) return 0;
+      s = s.replace(/[^\d,.-]/g, '');
+      if(!s) return 0;
 
-    // Introspect: find which quantity field actually has data in this instance
-    const QTY_CANDIDATES = [
-      'u_number_of_licenses','number_of_licenses','u_licenses','licenses',
-      'u_quantity','quantity','u_seats','seats','u_total','total',
-      'u_install_count','install_count','u_license_count','license_count',
-      'u_amount','amount','u_total_quantity','total_quantity',
-    ];
-    // Find the first field that has any non-zero, non-null value across all rows
-    let qtyField = null;
-    for(const f of QTY_CANDIDATES){
-      const hasData = rows.some(r=>{
-        const v=r[f]?.value??r[f]?.display_value??r[f];
-        return v!==undefined && v!==null && String(v).trim()!=='' && String(v).trim()!=='0' && String(v).toLowerCase()!=='null';
-      });
-      if(hasData){ qtyField=f; break; }
-    }
+      const lastComma = s.lastIndexOf(',');
+      const lastDot = s.lastIndexOf('.');
 
-    const seen=new Set();
-    const items=rows.map(r=>{
-      const sw  = pickFirst(r.u_software?.display_value,r.u_software?.value,r.software?.display_value,r.software?.value,r.u_product?.display_value,r.u_product?.value,r.product?.display_value,r.product?.value,r.u_software_name?.display_value,r.u_software_name?.value,r.software_name?.display_value,r.software_name?.value,r.name?.display_value,r.name?.value,r.short_description?.display_value,r.short_description?.value);
-      const ver = pickFirst(r.u_version?.display_value,r.u_version?.value,r.version?.display_value,r.version?.value,r.u_software_version?.display_value,r.u_software_version?.value,r.software_version?.display_value,r.software_version?.value);
-      const mfr = pickFirst(r.manufacturer?.display_value,r.manufacturer?.value,r.u_manufacturer?.display_value,r.u_manufacturer?.value,r.vendor?.display_value,r.vendor?.value,r.u_vendor?.display_value,r.u_vendor?.value);
-      const lic = pickFirst(r.u_license_type?.display_value,r.u_license_type?.value,r.license_type?.display_value,r.license_type?.value,r.u_licensing_model?.display_value,r.u_licensing_model?.value,r.licensing_model?.display_value,r.licensing_model?.value,r.u_type?.display_value,r.u_type?.value,r.type?.display_value,r.type?.value);
-      // Use the discovered qty field; if none found, show all candidates
-      let qty='—';
-      if(qtyField){
-        const qr=r[qtyField];
-        qty=pickFirst(qr?.display_value,qr?.value,typeof qr==='string'||typeof qr==='number'?String(qr):undefined);
-      } else {
-        // Last resort: show first non-empty among candidates
-        for(const f of QTY_CANDIDATES){
-          const v=r[f]?.display_value??r[f]?.value??r[f];
-          if(v!==undefined&&v!==null&&String(v).trim()!==''&&String(v)!=='0'){
-            qty=String(v).trim(); break;
-          }
+      if(lastComma>-1 && lastDot>-1){
+        if(lastComma > lastDot){
+          // 1.234,56 -> 1234.56
+          s = s.replace(/\./g, '').replace(',', '.');
+        } else {
+          // 1,234.56 -> 1234.56
+          s = s.replace(/,/g, '');
+        }
+      } else if(lastComma>-1){
+        // 123,45 -> 123.45 | 1,234 -> 1234
+        const commas = (s.match(/,/g)||[]).length;
+        s = commas>1 ? s.replace(/,/g, '') : s.replace(',', '.');
+      } else if(lastDot>-1){
+        // 1.234.567 -> 1234567 | 1234.56 -> 1234.56
+        const dots = (s.match(/\./g)||[]).length;
+        if(dots>1){
+          const i = s.lastIndexOf('.');
+          s = s.slice(0,i).replace(/\./g,'') + '.' + s.slice(i+1);
         }
       }
-      const ci  = pickFirst(r.cmdb_ci?.display_value,r.cmdb_ci?.value,r.u_cmdb_ci?.display_value,r.u_cmdb_ci?.value,r.hostname?.display_value,r.hostname?.value,r.u_hostname?.display_value,r.u_hostname?.value);
-      const st  = pickFirst(r.u_status?.display_value,r.u_status?.value,r.status?.display_value,r.status?.value,r.state?.display_value,r.state?.value,r.active?.display_value==='true'||r.active?.value==='true'?'Active':'');
-      const key=[sw,ver,lic,mfr,ci].join('|');
-      return {sw,ver,mfr,lic,qty,ci,st,key};
-    }).filter(i=>{
-      if(seen.has(i.key)) return false;
-      seen.add(i.key);
-      return i.sw!=='—'||i.lic!=='—';
+
+      const n = Number(s);
+      return Number.isFinite(n) ? n : 0;
+    };
+    const pickField = (obj, field) => {
+      return obj?.[field]?.display_value ?? obj?.[field]?.value ?? obj?.[field] ?? '—';
+    };
+    const agg = new Map();
+    rows.forEach(r=>{
+      const sw = pickField(r, 'u_software_to_install');
+      const mfr = pickField(r, 'manufacturer');
+      const model = pickField(r, 'u_licensing_model');
+      const qtyRaw = pickField(r, 'u_software_quantity');
+      const key = [sw, model].join('|');
+      if(!agg.has(key)){
+        agg.set(key, {
+          sw,
+          mfr,
+          model,
+          qty: 0
+        });
+      }
+      agg.get(key).qty += toNum(qtyRaw);
     });
 
-    if(!items.length){
-      return '<div class="acc-sec"><div class="acc-sec-h">'+label+
-        ' <span class="acc-sec-sub acc-sec-warn">0 licenças com dados úteis</span></div>'+
-        '<div style="padding:10px;"><div class="account-product-empty">Registros encontrados mas campos de software/licença vazios.<br>'+
-        '<small style="color:#8b949e">Campos qty tentados: '+QTY_CANDIDATES.slice(0,6).join(', ')+'...</small>'+
-        '</div></div></div>';
-    }
-
-    const qtyHeader = qtyField ? qtyField.replace('u_','').replace(/_/g,' ') : 'Quantidade';
+    const items = Array.from(agg.values())
+      .filter(i=>i.sw!=='—'||i.model!=='—')
+      .sort((a,b)=>a.sw.localeCompare(b.sw)||a.model.localeCompare(b.model));
     return '<div class="acc-sec">'+
       '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-ok">'+items.length+' licenças</span>'+
-      (qtyField?'<span style="font-size:10px;font-weight:400;color:#8b949e;margin-left:8px;">qty via '+qtyField+'</span>':'')+
       '</div>'+
       '<div class="acc-table-wrap"><table class="acc-table">'+
-      '<thead><tr><th>Software</th><th>Versão</th><th>Fabricante</th><th>Tipo Licença</th><th>'+qtyHeader+'</th><th>CI/Host</th><th>Status</th></tr></thead>'+
+      '<thead><tr><th>Software to Install</th><th>Manufacturer</th><th>Software Licensing Model</th><th>Software Quantity</th></tr></thead>'+
       '<tbody>'+
       items.map(i=>'<tr>'+
         '<td><strong>'+i.sw+'</strong></td>'+
-        '<td class="acc-cell-muted">'+i.ver+'</td>'+
         '<td class="acc-cell-muted">'+i.mfr+'</td>'+
-        '<td>'+i.lic+'</td>'+
-        '<td class="acc-cell-muted">'+(i.qty==='0'?'<span style="color:#cf222e">0</span>':i.qty)+'</td>'+
-        '<td class="acc-cell-muted">'+i.ci+'</td>'+
-        '<td><span class="acc-badge'+(i.st==='Active'?' acc-badge-ok':'')+'">'+i.st+'</span></td>'+
+        '<td>'+i.model+'</td>'+
+        '<td class="acc-cell-muted">'+String(i.qty)+'</td>'+
         '</tr>'
       ).join('')+
       '</tbody></table></div></div>';
@@ -2634,7 +2359,7 @@ function openAccountProductsModal(accountId, accountName){
 
   Promise.all([
     fetchMerged('cmdb_ci', cmdbQueries, cmdbFields, cmdbLimit),
-    fetchMerged('u_cmdb_ci_dedicated_software', swQueries, swFields, 500),
+    fetchMerged('u_cmdb_ci_dedicated_software', ['u_account='+accountId+'^u_active_flag=true'], swFields, 500),
   ])
   .then(([cmdbRows, swRows]) => {
     listEl.innerHTML = renderCmdb(cmdbRows) + renderSw(swRows);
@@ -2649,6 +2374,14 @@ function closeAccountProductsModal(){
   if(ov) ov.style.display='none';
 }
 
+function filterManagedItemsRows(query){
+  const q=(query||'').toLowerCase().trim();
+  document.querySelectorAll('#account-products-list .managed-item-row').forEach(row=>{
+    const hay=(row.getAttribute('data-mi-search')||'').toLowerCase();
+    row.style.display = !q || hay.includes(q) ? '' : 'none';
+  });
+}
+
 function closeCaseModal() {
   const modal = document.getElementById('case-modal');
   const overlay = document.getElementById('case-modal-overlay');
@@ -2656,6 +2389,25 @@ function closeCaseModal() {
   setTimeout(() => { overlay.style.display = 'none'; }, 260);
   if (_modalActiveCard) { _modalActiveCard.classList.remove('modal-active'); _modalActiveCard = null; }
   _modalSysId = null;
+}
+
+async function uploadModalAttachment(){
+  if(!_modalSysId) return;
+  const input = document.getElementById('modal-attach-file');
+  const file = input?.files?.[0];
+  if(!file){ showToast('Selecione um arquivo','warn'); return; }
+  const fd = new FormData();
+  fd.append('file', file);
+  const url = _BASE + '/api/now/attachment/file?table_name=sn_customerservice_case&table_sys_id=' + encodeURIComponent(_modalSysId) + '&file_name=' + encodeURIComponent(file.name);
+  try{
+    const r = await fetch(url, {method:'POST', headers:{'X-UserToken':_TOK}, body:fd});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    showToast('✅ Anexo enviado');
+    const numEl=document.getElementById('modal-num');
+    if(numEl) openCaseModal(_modalSysId, numEl.textContent, _modalActiveCard||document.createElement('div'));
+  }catch(e){
+    showToast('❌ Erro ao anexar arquivo','error');
+  }
 }
 
 let _modalNoteType = 'work_notes';
@@ -2796,17 +2548,26 @@ document.addEventListener('visibilitychange',()=>{
   else startPolling();
 });
 document.addEventListener('DOMContentLoaded',()=>{
+  const accHdr=document.getElementById('acc-hdr-analyst');
+  if(accHdr && !accHdr.dataset.bound){
+    accHdr.dataset.bound='1';
+    accHdr.addEventListener('click',e=>{
+      if(e.target.closest('.refresh-btn')) return;
+      toggleAcc('analyst');
+    });
+  }
   dedupeManagerToolbar();
   populateManagerDropdown('manager-sel', currentFila).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
     populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
+    syncBacklogAnalystDropdown();
   });
   document.querySelectorAll('th[data-col]').forEach(th=>{th.addEventListener('click',e=>{e.stopPropagation();openFil(th,parseInt(th.getAttribute('data-col')));});});
   pgInit();
   // Load analyst table — try immediately, then watch for content via MutationObserver
   function tryInitAccordion(){
     const src=document.getElementById('_at_'+currentFila)?.innerHTML||document.getElementById('_at_l1')?.innerHTML||'';
-    if(src&&src.trim().length>10){initAccordion(src);return true;}
+    if(src&&src.trim().length>10){initAccordion();return true;}
     return false;
   }
   if(!tryInitAccordion()){
@@ -2815,6 +2576,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(target)obs.observe(target,{childList:true,subtree:true,characterData:true});
     else setTimeout(tryInitAccordion,500);
   }
+  updateReportsByFila();
   // Start layered polling
 	  startPolling();
     initCardDragAndDrop();
@@ -2834,17 +2596,54 @@ document.addEventListener('DOMContentLoaded',()=>{
     const _FIELDS = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
 
     async function fetchDeltas() {
-      const visibleIds = Array.from(document.querySelectorAll('.card[data-sysid]')).map(c=>c.dataset.sysid).filter(Boolean);
-      let query = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>' + lastSyncTime;
-      if (visibleIds.length) {
-        query += '^NQsys_idIN' + visibleIds.join(',') + '^sys_updated_on>' + lastSyncTime;
+      const visibleIds = Array.from(document.querySelectorAll('.card[data-sysid]'))
+        .map(c => c.dataset.sysid)
+        .filter(Boolean);
+
+      const baseQuery = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>' + lastSyncTime;
+      const endpoint = _BASE + '/api/now/table/sn_customerservice_case';
+      const params = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all&sysparm_limit=100';
+      const visibleBatchSize = 40;
+
+      async function fetchByQuery(query) {
+        const url = endpoint + '?sysparm_query=' + encodeURIComponent(query) + params;
+        const response = await fetch(url, { headers: _HEADERS });
+        const raw = await response.text();
+        if (!response.ok) {
+          const msg = raw ? ': ' + raw.slice(0, 180) : '';
+          throw new Error('delta_polling HTTP ' + response.status + msg);
+        }
+        let data = {};
+        if (raw) {
+          try { data = JSON.parse(raw); }
+          catch (_) { throw new Error('delta_polling retornou JSON inválido (HTTP ' + response.status + ')'); }
+        }
+        return data.result || [];
       }
-      const url = _BASE + '/api/now/table/sn_customerservice_case?sysparm_query=' + encodeURIComponent(query) + '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all&sysparm_limit=100';
 
       try {
-        const response = await fetch(url, { headers: _HEADERS });
-        const data = await response.json();
-        const cases = data.result || [];
+        const out = [];
+        const seen = new Set();
+        const addCases = list => {
+          list.forEach(c => {
+            const sid = c?.sys_id?.value;
+            if (!sid || seen.has(sid)) return;
+            seen.add(sid);
+            out.push(c);
+          });
+        };
+
+        addCases(await fetchByQuery(baseQuery));
+
+        if (visibleIds.length) {
+          for (let i = 0; i < visibleIds.length; i += visibleBatchSize) {
+            const batch = visibleIds.slice(i, i + visibleBatchSize);
+            const q = 'sys_idIN' + batch.join(',') + '^sys_updated_on>' + lastSyncTime;
+            addCases(await fetchByQuery(q));
+          }
+        }
+
+        const cases = out;
 
         if (cases.length > 0) {
           console.log('[DeltaPolling] ' + cases.length + ' casos alterados.');
