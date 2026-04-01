@@ -753,9 +753,15 @@ a{text-decoration:none;}
 
 
 /* CARDS */
-.card{background:var(--surface);border:1px solid var(--border);border-left:3px solid;border-radius:6px;padding:10px 10px 8px;transition:box-shadow .15s,transform .12s;animation:su .2s ease;}
+.card{background:var(--surface);border:1px solid var(--border);border-left:3px solid;border-radius:6px;padding:10px 10px 8px;transition:box-shadow .15s,transform .18s,outline-color .2s;animation:su .2s ease;}
 @keyframes su{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 .card:hover{box-shadow:0 2px 8px rgba(27,31,36,.1);transform:translateY(-1px);}
+.card-new{animation:cardNew .75s ease;}
+.card-updated{animation:cardPulse .95s ease;outline:2px solid #0969DA;outline-offset:1px;}
+.card-moved{animation:cardMoved .55s ease;}
+@keyframes cardNew{0%{transform:translateY(8px) scale(.985);opacity:.6}60%{transform:translateY(-2px) scale(1.01);opacity:1}100%{transform:none;opacity:1}}
+@keyframes cardPulse{0%{box-shadow:0 0 0 0 rgba(9,105,218,.35)}70%{box-shadow:0 0 0 10px rgba(9,105,218,0)}100%{box-shadow:none}}
+@keyframes cardMoved{0%{transform:translateX(-8px) scale(.99)}60%{transform:translateX(2px) scale(1.008)}100%{transform:none}}
 .card-critical{border-left-color:var(--red)}.card-high{border-left-color:var(--ora)}
 .card-medium{border-left-color:var(--blue)}.card-normal{border-left-color:var(--green)}
 .card-awaiting{border-left-color:var(--await)}.card-orphan{border-left-color:var(--gray)}
@@ -2927,7 +2933,10 @@ document.addEventListener('DOMContentLoaded',()=>{
           cases.forEach(c => {
             const card = document.querySelector('.card[data-sysid="' + c.sys_id.value + '"]');
             if (card) updateCard(card, c);
-            else console.log('[DeltaPolling] Novo caso detectado: ' + c.number.display_value);
+            else {
+              console.log('[DeltaPolling] Novo caso detectado: ' + c.number.display_value);
+              insertNewCaseCard(c);
+            }
           });
           lastSyncTime = cases.reduce((p, c) => (c.sys_updated_on.value > p ? c.sys_updated_on.value : p), lastSyncTime);
         }
@@ -2972,6 +2981,87 @@ document.addEventListener('DOMContentLoaded',()=>{
       if (!targetBody || card.parentElement === targetBody) return;
       targetBody.insertBefore(card, targetBody.firstChild);
       updateLaneCounters(board);
+    }
+
+    function queueMatchesCurrent(groupId) {
+      if (currentFila === 'all') return true;
+      const selected = window._GID_MAP?.[currentFila] || '';
+      return !selected || selected.split(',').includes(groupId);
+    }
+
+    function escapeHtml(v) {
+      return String(v ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
+    }
+
+    function pulseCard(card, changedLane) {
+      card.classList.remove('card-updated', 'card-moved');
+      void card.offsetWidth;
+      card.classList.add('card-updated');
+      if (changedLane) card.classList.add('card-moved');
+      setTimeout(() => card.classList.remove('card-updated', 'card-moved'), 1100);
+    }
+
+    function buildCardElement(data, lane) {
+      const number = data?.number?.display_value || '';
+      const sysId = data?.sys_id?.value || '';
+      const assName = data?.assigned_to?.display_value || '';
+      const assId = data?.assigned_to?.value || '';
+      const stateLabel = data?.state?.display_value || 'N/A';
+      const isAwaiting = ['18','32','5','29','30'].includes(data?.state?.value || '');
+      const priorityLabel = data?.priority?.display_value || 'N/A';
+      const prioVal = parseInt(data?.priority?.value || '5', 10);
+      const colors = ['', '#CF222E', '#BF8700', '#0550AE', '#1A7F37', '#57606A'];
+      const prioColor = colors[prioVal] || '#57606A';
+      const impactVal = data?.impact?.value || '—';
+      const urgencyVal = data?.urgency?.value || '—';
+      const gid = data?.assignment_group?.value || '';
+      const desc = (data?.short_description?.display_value || '').substring(0, 60);
+      const caseUrl = _BASE + '/sn_customerservice_case.do?sysparm_query=number=' + encodeURIComponent(number);
+
+      const card = document.createElement('div');
+      card.className = 'card card-' + lane + ' card-new';
+      card.dataset.sysid = sysId;
+      card.dataset.assignedid = assId;
+      card.dataset.assignedname = assName;
+      card.dataset.impact = impactVal;
+      card.dataset.urgency = urgencyVal;
+      card.onclick = () => openCaseModal(sysId, number, card);
+
+      card.innerHTML =
+        '<div class="card-top">' +
+          '<a class="card-num" href="' + caseUrl + '" target="_blank">' + escapeHtml(number) + ' ↗</a>' +
+          (isAwaiting ? '<span class="badge-await">⏳ ' + escapeHtml(stateLabel) + '</span>' : '') +
+          '<button class="card-iu-btn" title="Alterar Impact/Urgency" data-sysid="' + escapeHtml(sysId) + '" data-impact="' + escapeHtml(impactVal) + '" data-urgency="' + escapeHtml(urgencyVal) + '" onclick="openImpactUrgencyBtn(event,this)">⚡ I/U</button>' +
+          '<button class="card-reassign-btn" title="Reatribuir" data-sysid="' + escapeHtml(sysId) + '" data-gid="' + escapeHtml(gid) + '" data-assigned="' + escapeHtml(assName) + '" onclick="openReassignBtn(event,this)">👤 ✎</button>' +
+        '</div>' +
+        '<p class="card-desc">' + escapeHtml(desc || '—') + '</p>' +
+        '<div class="sla-bar-wrap"><span class="sla-bar-name" style="color:#0969DA">Atualizado agora</span></div>' +
+        '<div class="card-tags">' +
+          '<span class="tag" style="color:' + prioColor + ';background:' + prioColor + '15;border-color:' + prioColor + '40">' + escapeHtml(priorityLabel) + '</span>' +
+          '<span class="tag tag-state">' + escapeHtml(stateLabel) + '</span>' +
+          '<span class="tag tag-iu">I:' + escapeHtml(impactVal) + ' · U:' + escapeHtml(urgencyVal) + '</span>' +
+        '</div>' +
+        '<div class="card-footer">' +
+          '<span class="card-assigned' + (assName ? '' : ' unassigned') + '">' + (assName ? ('👤 ' + escapeHtml(assName)) : '⚠ Sem responsável') + '</span>' +
+          '<span class="card-time">🔄 agora</span>' +
+        '</div>';
+
+      setTimeout(() => card.classList.remove('card-new'), 900);
+      return card;
+    }
+
+    function insertNewCaseCard(data) {
+      const gid = data?.assignment_group?.value || '';
+      if (!queueMatchesCurrent(gid)) return;
+      const lane = resolveLaneFromDelta(data);
+      const targetBody = document.querySelector('.board-inner .lane[data-lane="' + lane + '"] .lane-body');
+      if (!targetBody) return;
+      const empty = targetBody.querySelector('.lane-empty');
+      if (empty) empty.remove();
+      const card = buildCardElement(data, lane);
+      targetBody.prepend(card);
+      updateLaneCounters(card.closest('.board-inner'));
+      reapplyAnalystFilters();
     }
 
     function updateLaneCounters(board) {
@@ -3039,12 +3129,14 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
       }
 
+      const prevLane = Array.from(LANE_CLASSES).find(cls => card.classList.contains(cls)) || '';
       const nextLane = resolveLaneWithSla(data, card);
       // Remove ONLY lane-specific classes (card-critical, card-high, etc.)
       // Never remove the base 'card' class
       LANE_CLASSES.forEach(cls => card.classList.remove(cls));
       card.classList.add('card-' + nextLane);
       moveCardToLane(card, nextLane);
+      pulseCard(card, prevLane !== ('card-' + nextLane));
       // Mantém consistência quando a visão está filtrada por analista.
       reapplyAnalystFilters();
     }
