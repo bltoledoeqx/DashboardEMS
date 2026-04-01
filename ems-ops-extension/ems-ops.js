@@ -2260,218 +2260,68 @@ function openCaseModal(sysId, number, cardEl) {
   if (_modalActiveCard) _modalActiveCard.classList.remove('modal-active');
   _modalActiveCard = cardEl;
   cardEl.classList.add('modal-active');
+  closeCaseModal();
+  const url = '/sn_customerservice_case.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_view=case&sysparm_nostack=true&sysparm_query=no_related_lists=true';
 
-  const overlay = document.getElementById('case-modal-overlay');
-  const modal   = document.getElementById('case-modal');
-  const numEl   = document.getElementById('modal-num');
-  const link    = document.getElementById('modal-snow-link');
-  const body    = document.getElementById('modal-body');
-  const title   = document.getElementById('modal-title');
+  const overlay = document.createElement('div');
+  overlay.id = 'case-iframe-overlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;';
 
-  const noteTA  = document.getElementById('modal-note-ta');
+  const modal = document.createElement('div');
+  modal.style.cssText = 'width:95%;height:95%;background:#fff;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;';
 
-  overlay.style.display = 'block';
-  overlay.style.pointerEvents = 'all';
-  modal.style.transform = 'translate(-50%, -50%) scale(1)';
-  numEl.textContent = number;
-  link.href = _BASE + '/sn_customerservice_case.do?sysparm_query=number=' + number;
-  if (noteTA) noteTA.value = '';
-  const legacyQuickActions = Array.from(document.querySelectorAll('#modal-footer button')).filter(btn => {
-    const txt = (btn.textContent || '').trim().toLowerCase();
-    const oc = (btn.getAttribute('onclick') || '').toLowerCase();
-    return txt === 'schedule'
-      || txt === 'awaiting info'
-      || txt === 'awaiting customer approval'
-      || oc.includes('modalsetstate')
-      || oc.includes('toggleschedulecontrols')
-      || oc.includes('applyscheduledstate');
-  });
-  legacyQuickActions.forEach(btn => btn.remove());
-  body.innerHTML = '<div style="text-align:center;color:#57606A;font-size:13px;padding:40px 0;">Carregando...</div>';
-  title.textContent = '';
+  const header = document.createElement('div');
+  header.style.cssText = 'background:#111;color:#fff;padding:12px;display:flex;justify-content:space-between;align-items:center;font-size:14px;';
+  header.innerHTML = '<span id="case-iframe-title">'+emsEscapeHtml(number||'Case')+'</span><div><button id="reloadBtn">🔄</button><button id="closeBtn">✖</button></div>';
 
-  // Fetch case details + journal + attachments in parallel
+  const bodyWrap = document.createElement('div');
+  bodyWrap.style.cssText = 'flex:1;display:flex;min-height:0;';
+
+  const iframe = document.createElement('iframe');
+  iframe.src = url;
+  iframe.style.cssText = 'flex:1;border:none;width:100%;';
+
+  const sidecar = document.createElement('div');
+  sidecar.style.cssText = 'width:min(36vw,520px);min-width:320px;border-left:1px solid #D0D7DE;background:#fff;display:flex;flex-direction:column;';
+  sidecar.innerHTML = '<div style="padding:10px 12px;border-bottom:1px solid #D0D7DE;background:#F6F8FA;font-size:12px;font-weight:700;color:#1f2937;">Account Products <span id="case-sidecar-account" style="font-weight:500;color:#57606A;">—</span></div><div id="case-sidecar-list" style="padding:10px 12px;overflow:auto;flex:1;"></div>';
+
+  bodyWrap.appendChild(iframe);
+  bodyWrap.appendChild(sidecar);
+  modal.appendChild(header);
+  modal.appendChild(bodyWrap);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  header.querySelector('#closeBtn').onclick = () => closeCaseModal();
+  header.querySelector('#reloadBtn').onclick = () => { iframe.src = iframe.src; };
+
   const h = {'Accept':'application/json','X-UserToken':_TOK};
-  const fields = 'number,short_description,description,assigned_to,priority,state,impact,urgency,opened_at,account,contact,u_type,category,sys_id,follow_up,u_scheduled_date,u_schedule_date,u_next_action_date';
-  Promise.all([
-    fetch(_BASE+'/api/now/table/sn_customerservice_case/'+sysId+'?sysparm_fields='+fields+'&sysparm_display_value=all', {headers:h}).then(r=>r.json()),
-    fetch(_BASE+'/api/now/table/sys_journal_field?sysparm_query='+encodeURIComponent('element_id='+sysId+'^ORDERBYDESCsys_created_on')+'&sysparm_fields=sys_created_on,sys_created_by,element,value&sysparm_display_value=all&sysparm_limit=50', {headers:h}).then(r=>r.json()),
-    fetch(_BASE+'/api/now/table/task_sla?sysparm_query='+encodeURIComponent('task='+sysId+'^ORDERBYDESCsys_updated_on')+'&sysparm_fields=sla,stage,has_breached,business_percentage,business_time_left,target,planned_end_time,sys_updated_on&sysparm_display_value=all&sysparm_limit=10', {headers:h}).then(r=>r.json()).catch(()=>({result:[]})),
-    fetch(_BASE+'/api/now/attachment?sysparm_query='+encodeURIComponent('table_name=sn_customerservice_case^table_sys_id='+sysId)+'&sysparm_fields=sys_id,file_name,size_bytes,sys_created_on&sysparm_display_value=all&sysparm_limit=100', {headers:h}).then(r=>r.json()).catch(()=>({result:[]})),
-  ]).then(([caseData, journalData, taskSlaData, attachmentData]) => {
-    const c = caseData.result;
-    const j = journalData.result || [];
-    const slaRows = taskSlaData.result || [];
-    const at = attachmentData.result || [];
-    if (!c) { body.innerHTML = '<div style="color:#CF222E;padding:20px;">Erro ao carregar caso.</div>'; return; }
-
-    // Fetch contact phone in background (non-blocking)
-    const contactId = c.contact?.value;
-    let contactInfo = null;
-    const contactPromise = contactId
-      ? fetch(_BASE+'/api/now/table/customer_contact/'+contactId+'?sysparm_fields=name,phone,mobile_phone,email&sysparm_display_value=all', {headers:h})
-          .then(r=>r.json()).then(d=>{ contactInfo = d.result; renderContactInfo(contactInfo, c); }).catch(()=>{})
-      : Promise.resolve();
-
-    title.textContent = c.short_description?.display_value || '';
-
-    const prioColor = {'1':'#CF222E','2':'#BF8700','3':'#0550AE','4':'#1A7F37','5':'#57606A'};
-    const stateColors = {'1':'background:#EFF6FF;color:#0550AE','10':'background:#EFF6FF;color:#0550AE','21':'background:#DBEAFE;color:#1D4ED8','8':'background:#DCFCE7;color:#166534','18':'background:#FEF9C3;color:#854D0E','32':'background:#FEF9C3;color:#854D0E','5':'background:#F3E8FF;color:#6B21A8','29':'background:#FEE2E2;color:#991B1B','30':'background:#FEE2E2;color:#991B1B'};
-    const sc = stateColors[c.state?.value] || 'background:#F6F8FA;color:#57606A';
-
-    const fmtDate = d => d ? new Date(d).toLocaleString('pt-BR',{timeZone:'America/Sao_Paulo'}) : '—';
-    const val = f => f?.display_value || f?.value || '—';
-    const fmtBytes = n => {
-      const x = parseInt(n||'0',10)||0;
-      if(x < 1024) return x+' B';
-      if(x < 1024*1024) return (x/1024).toFixed(1)+' KB';
-      return (x/(1024*1024)).toFixed(1)+' MB';
-    };
-
-    // Show current state badge
-    const stateBadge=document.getElementById('modal-state-badge'); if(stateBadge) stateBadge.textContent='Estado atual: '+val(c.state);
-
-    // Sort journal newest first
-    const sorted = j.sort((a,b) => new Date(b.sys_created_on?.value||0) - new Date(a.sys_created_on?.value||0));
-    const slaHtml = slaRows.length ? '<div style="display:flex;flex-direction:column;gap:6px;">' + slaRows.map(sla => {
-      const name = sla.sla?.display_value || 'SLA';
-      const stage = sla.stage?.display_value || '—';
-      const pct = sla.business_percentage?.display_value || sla.business_percentage?.value || '—';
-      const left = sla.business_time_left?.display_value || sla.business_time_left?.value || '—';
-      const breached = (sla.has_breached?.display_value || sla.has_breached?.value || '').toString().toLowerCase() === 'true';
-      return '<div style="border:1px solid #D0D7DE;border-radius:6px;padding:8px;background:#fff;">' +
-        '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">' +
-          '<strong style="font-size:12px;">'+emsEscapeHtml(name)+'</strong>' +
-          '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:'+(breached?'#FEE2E2':'#DCFCE7')+';color:'+(breached?'#991B1B':'#166534')+';">'+(breached?'Breached':'On track')+'</span>' +
-        '</div>' +
-        '<div style="font-size:11px;color:#57606A;margin-top:4px;">Stage: '+emsEscapeHtml(stage)+' · Progress: '+emsEscapeHtml(pct)+' · Time left: '+emsEscapeHtml(left)+'</div>' +
-      '</div>';
-    }).join('') + '</div>' : '<div style="color:#57606A;font-size:12px;">Sem SLAs vinculados.</div>';
-
-    body.innerHTML =
-      '<div>' +
-        '<div class="modal-detail-grid">' +
-          detailItem('State', '<span class="modal-state-badge" style="'+sc+'">'+emsEscapeHtml(val(c.state))+'</span>') +
-          detailItem('Prioridade', '<span style="color:'+( prioColor[c.priority?.value]||'#57606A')+';font-weight:600">'+emsEscapeHtml(val(c.priority))+'</span>') +
-          detailItem('Analista', emsEscapeHtml(val(c.assigned_to))) +
-          '<div class="modal-detail-item">'+
-            '<span class="modal-detail-lbl">Account</span>'+
-            '<button type="button" id="modal-account-btn" class="modal-account-btn">'+emsEscapeHtml(val(c.account))+'</button>'+
-          '</div>' +
-          '<div class="modal-detail-item" id="modal-contact-info"><span class="modal-detail-lbl">Contato</span><span class="modal-detail-val" style="color:#57606A;font-size:11px;">Carregando...</span></div>' +
-          '<div class="modal-detail-item">'+
-            '<span class="modal-detail-lbl">Impact</span>'+
-            '<div style="display:flex;gap:6px;align-items:center;">'+
-              '<select id="modal-impact" style="font-size:12px;padding:4px 6px;border:1px solid #D0D7DE;border-radius:4px;">'+
-                '<option value="1" '+((c.impact?.value==='1')?'selected':'')+'>1 - Alto</option>'+
-                '<option value="2" '+((c.impact?.value==='2')?'selected':'')+'>2 - Médio</option>'+
-                '<option value="3" '+((c.impact?.value==='3')?'selected':'')+'>3 - Baixo</option>'+
-              '</select>'+
-            '</div>'+
-          '</div>' +
-          '<div class="modal-detail-item">'+
-            '<span class="modal-detail-lbl">Urgency</span>'+
-            '<div style="display:flex;gap:6px;align-items:center;">'+
-              '<select id="modal-urgency" style="font-size:12px;padding:4px 6px;border:1px solid #D0D7DE;border-radius:4px;">'+
-                '<option value="1" '+((c.urgency?.value==='1')?'selected':'')+'>1 - Alto</option>'+
-                '<option value="2" '+((c.urgency?.value==='2')?'selected':'')+'>2 - Médio</option>'+
-                '<option value="3" '+((c.urgency?.value==='3')?'selected':'')+'>3 - Baixo</option>'+
-              '</select>'+
-              '<button type="button" onclick="saveModalImpactUrgency()" style="font-size:11px;padding:4px 8px;border:1px solid #0969DA;background:#0969DA;color:#fff;border-radius:4px;cursor:pointer;">Salvar</button>'+
-            '</div>'+
-          '</div>' +
-          detailItem('Tipo', emsEscapeHtml(val(c.u_type))) +
-          detailItem('Aberto em', emsEscapeHtml(fmtDate(c.opened_at?.value))) +
-        '</div>' +
-      '</div>' +
-      '<div>' +
-        '<div class="modal-section-title">Descrição</div>' +
-        '<div class="modal-desc">'+emsEscapeHtml(c.description?.display_value||c.description?.value||'Sem descrição.')+'</div>' +
-      '</div>' +
-      '<div>' +
-        '<div class="modal-section-title">SLAs</div>' +
-        slaHtml +
-      '</div>' +
-      '<div>' +
-        '<div class="modal-section-title">Anexos ('+at.length+')</div>' +
-        '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;">' +
-          '<input id="modal-attach-file" type="file" style="font-size:11px;flex:1;">' +
-          '<button type="button" onclick="uploadModalAttachment()" style="font-size:11px;padding:4px 10px;border:1px solid #0969DA;background:#0969DA;color:#fff;border-radius:4px;cursor:pointer;">Anexar</button>' +
-        '</div>' +
-        (at.length ? '<div style="display:flex;flex-direction:column;gap:6px;">'+at.map(a=>{
-          const aid = a.sys_id?.value || a.sys_id || '';
-          const fn = a.file_name?.display_value || a.file_name?.value || a.file_name || 'anexo';
-          const sz = fmtBytes(a.size_bytes?.value || a.size_bytes);
-          const dt = fmtDate(a.sys_created_on?.value || a.sys_created_on);
-          return '<a href="'+_BASE+'/sys_attachment.do?sys_id='+aid+'" target="_blank" rel="noopener noreferrer" '+
-            'style="display:flex;justify-content:space-between;gap:8px;padding:7px 8px;border:1px solid #D0D7DE;border-radius:6px;text-decoration:none;color:#24292F;">'+
-            '<span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">📎 '+fn+'</span>'+
-            '<span style="font-size:10px;color:#57606A;white-space:nowrap;">'+sz+' · '+dt+'</span>'+
-          '</a>';
-        }).join('')+'</div>' : '<div style="color:#57606A;font-size:12px;">Sem anexos.</div>') +
-      '</div>' +
-      '<div>' +
-        '<div class="modal-section-title">Notas de Trabalho ('+(sorted.length)+')</div>' +
-        (sorted.length ? sorted.map(e => {
-          // element 'work_notes' = analista (interno), 'comments' = cliente (externo)
-          // work_notes = analista interno
-          // comments = analista (@equinix.com) ou cliente (outro domínio)
-          const isWN = e.element?.value === 'work_notes';
-          const isComment = e.element?.value === 'comments';
-          const rawAuthor = e.sys_created_by?.display_value || e.sys_created_by?.value || '?';
-          const isEquinix = rawAuthor.toLowerCase().includes('@equinix.com');
-          const isSystem = isComment && (rawAuthor==='system'||rawAuthor==='guest'||rawAuthor==='admin'||rawAuthor.startsWith('svc_'));
-          const isAnalystComment = isComment && isEquinix && !isSystem;
-          const isClient = isComment && !isEquinix && !isSystem;
-          let author = rawAuthor;
-          // For client comments: enrich with contact name+phone if available
-          if (isClient && contactInfo) {
-            const cEmail = contactInfo.email?.display_value || contactInfo.email?.value || '';
-            if (cEmail && rawAuthor.toLowerCase().includes(cEmail.split('@')[0].toLowerCase())) {
-              const cName  = contactInfo.name?.display_value  || contactInfo.name?.value  || '';
-              const cPhone = contactInfo.phone?.display_value || contactInfo.mobile_phone?.display_value || '';
-              author = (cName||rawAuthor.split('@')[0]) + (cPhone ? ' · ' + cPhone : '');
-            } else if (rawAuthor.includes('@')) {
-              author = rawAuthor.split('@')[0];
-            }
-          } else if (isClient && rawAuthor.includes('@')) {
-            author = rawAuthor.split('@')[0];
-          }
-          const when = fmtDate(e.sys_created_on?.value);
-          const txtRaw = e.value?.display_value || e.value?.value || '';
-          const txt = formatJournalValue(emsEscapeHtml(txtRaw));
-          const jClass=isWN?' modal-journal-wn':isSystem?' modal-journal-cm':isClient?' modal-journal-client':isAnalystComment?' modal-journal-wn':' modal-journal-cm';
-          const typeLabel=isWN?'Work Note':isSystem?'Sistema':isClient?'Cliente':isAnalystComment?'Comentário Analista':'Comentário';
-          return '<div class="modal-journal'+jClass+'">' +
-            '<div class="modal-j-meta"><span class="modal-j-author">'+emsEscapeHtml(author)+'</span><span class="modal-j-badge modal-j-'+(isWN?'wn':'cm')+'">'+typeLabel+'</span><span class="modal-j-time">'+emsEscapeHtml(when)+'</span>'+
-            '</div>' +
-            '<div class="modal-j-text">'+txt+'</div>' +
-          '</div>';
-        }).join('') : '<div style="color:#57606A;font-size:12px;">Nenhuma nota ainda.</div>') +
-      '</div>';
-
-    const accountBtn=document.getElementById('modal-account-btn');
-    if(accountBtn){
-      const accountId=c.account?.value||'';
-      const accountName=val(c.account);
-      accountBtn.onclick=()=>openAccountProductsModal(accountId,accountName);
-    }
-  }).catch(e => {
-    body.innerHTML = '<div style="color:#CF222E;padding:20px;">Erro: '+e.message+'</div>';
-  });
+  fetch(_BASE+'/api/now/table/sn_customerservice_case/'+sysId+'?sysparm_fields=number,account&sysparm_display_value=all',{headers:h})
+    .then(r=>r.json())
+    .then(data=>{
+      const c = data.result || {};
+      const accId = c.account?.value || '';
+      const accName = c.account?.display_value || c.account?.value || '—';
+      const num = c.number?.display_value || c.number?.value || number;
+      const ttl = document.getElementById('case-iframe-title');
+      if (ttl) ttl.textContent = num || 'Case';
+      const accLbl = document.getElementById('case-sidecar-account');
+      if (accLbl) accLbl.textContent = accName;
+      const listEl = document.getElementById('case-sidecar-list');
+      if (listEl) populateAccountProducts(listEl, accId, accName);
+    })
+    .catch(()=>{
+      const listEl = document.getElementById('case-sidecar-list');
+      if (listEl) listEl.innerHTML = '<div class="account-product-empty">Não foi possível carregar dados do account.</div>';
+    });
 }
 
 function detailItem(label, valueHtml) {
   return '<div class="modal-detail-item"><span class="modal-detail-lbl">'+label+'</span><span class="modal-detail-val">'+valueHtml+'</span></div>';
 }
 
-function openAccountProductsModal(accountId, accountName){
-  const ov=document.getElementById('account-products-overlay');
-  const nameEl=document.getElementById('account-products-name');
-  const listEl=document.getElementById('account-products-list');
-  if(!ov||!nameEl||!listEl) return;
-  nameEl.textContent=accountName||'—';
-  ov.style.display='flex';
+function populateAccountProducts(listEl, accountId, accountName){
+  if(!listEl) return;
   listEl.innerHTML='<div class="account-product-empty">⏳ Carregando dados do account...</div>';
   if(!accountId){
     listEl.innerHTML='<div class="account-product-empty">Account sem sys_id para consulta.</div>';
@@ -2685,6 +2535,16 @@ function openAccountProductsModal(accountId, accountName){
   });
 }
 
+function openAccountProductsModal(accountId, accountName){
+  const ov=document.getElementById('account-products-overlay');
+  const nameEl=document.getElementById('account-products-name');
+  const listEl=document.getElementById('account-products-list');
+  if(!ov||!nameEl||!listEl) return;
+  nameEl.textContent=accountName||'—';
+  ov.style.display='flex';
+  populateAccountProducts(listEl, accountId, accountName);
+}
+
 function closeAccountProductsModal(){
   const ov=document.getElementById('account-products-overlay');
   if(ov) ov.style.display='none';
@@ -2699,10 +2559,10 @@ function filterManagedItemsRows(query){
 }
 
 function closeCaseModal() {
-  const modal = document.getElementById('case-modal');
+  const dynamicOverlay = document.getElementById('case-iframe-overlay');
+  if (dynamicOverlay) dynamicOverlay.remove();
   const overlay = document.getElementById('case-modal-overlay');
-  modal.style.transform = 'translate(-50%, -48%) scale(0.96)';
-  setTimeout(() => { overlay.style.display = 'none'; }, 260);
+  if (overlay) overlay.style.display = 'none';
   if (_modalActiveCard) { _modalActiveCard.classList.remove('modal-active'); _modalActiveCard = null; }
   _modalSysId = null;
 }
