@@ -1859,11 +1859,16 @@ function pollKPIs(checkDelta){
   }).catch(()=>{});
 }
 
+window._SECTION_STATE = window._SECTION_STATE || {};
 function toggleSection(key) {
   const body  = document.getElementById('section-body-' + key);
   const icon  = document.getElementById('section-icon-' + key);
   if (!body) return;
-  const collapsed = body.classList.toggle('collapsed');
+  const nextCollapsed = !body.classList.contains('collapsed');
+  body.classList.toggle('collapsed', nextCollapsed);
+  body.style.display = nextCollapsed ? 'none' : '';
+  window._SECTION_STATE[key] = nextCollapsed;
+  const collapsed = nextCollapsed;
   if (icon) icon.style.transform = collapsed ? 'rotate(-90deg)' : '';
 }
 
@@ -2697,6 +2702,7 @@ document.addEventListener('click', e => {
 
 // ── Column filters ─────────────────────────────────────────────────────────
 const _fil={};let _dd=null;
+const _FILTER_VALUES_CACHE = {};
 function getCT(row,col){const c=row.cells[col];return c?(c.innerText||c.textContent||'').trim():'';}
 function applyFil(){
   const tb=document.getElementById('pmtbody');if(!tb)return;
@@ -2719,7 +2725,8 @@ function closeDd(){if(_dd){_dd.remove();_dd=null;}}
 function openFil(th,ci){
   closeDd();
   const tb=document.getElementById('pmtbody');if(!tb)return;
-  const vals=[...new Set(Array.from(tb.rows).map(r=>getCT(r,ci)).filter(Boolean))].sort();
+  const vals=_FILTER_VALUES_CACHE[ci] || ([...new Set(Array.from(tb.rows).map(r=>getCT(r,ci)).filter(Boolean))].sort());
+  _FILTER_VALUES_CACHE[ci]=vals;
   const cur=_fil[ci]||new Set();
   const dd=document.createElement('div');dd.className='fdd';
   dd.innerHTML='<input class="fdd-search" placeholder="Buscar..." oninput="filtOpts(this)"><div class="fdd-opts" id="ddopts">'+
@@ -2796,13 +2803,14 @@ document.addEventListener('DOMContentLoaded',()=>{
     const _HEADERS = { 'Accept': 'application/json', 'X-UserToken': _TOK };
     const _G_IDS = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
     const _FIELDS = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
+    const isTerminalState = st => ['3','6'].includes(String(st||''));
 
     async function fetchDeltas() {
       const visibleIds = Array.from(document.querySelectorAll('.card[data-sysid]'))
         .map(c => c.dataset.sysid)
         .filter(Boolean);
 
-      const baseQuery = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>' + lastSyncTime;
+      const baseQuery = 'assignment_groupIN' + _G_IDS + '^stateNOT IN3,6^sys_updated_on>' + lastSyncTime;
       const endpoint = _BASE + '/api/now/table/sn_customerservice_case';
       const params = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all&sysparm_limit=100';
       const visibleBatchSize = 40;
@@ -2851,8 +2859,16 @@ document.addEventListener('DOMContentLoaded',()=>{
           console.log('[DeltaPolling] ' + cases.length + ' casos alterados.');
           cases.forEach(c => {
             const card = document.querySelector('.card[data-sysid="' + c.sys_id.value + '"]');
+            if (card && isTerminalState(c?.state?.value)) {
+              const board = card.closest('.board-inner');
+              card.remove();
+              updateLaneCounters(board);
+              reapplyAnalystFilters();
+              return;
+            }
             if (card) updateCard(card, c);
             else {
+              if (isTerminalState(c?.state?.value)) return;
               console.log('[DeltaPolling] Novo caso detectado: ' + c.number.display_value);
               insertNewCaseCard(c);
             }
@@ -2970,6 +2986,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
 
     function insertNewCaseCard(data) {
+      if (isTerminalState(data?.state?.value)) return;
       const gid = data?.assignment_group?.value || '';
       if (!queueMatchesCurrent(gid)) return;
       const lane = resolveLaneFromDelta(data);
