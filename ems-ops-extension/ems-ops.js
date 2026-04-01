@@ -2292,7 +2292,7 @@ function openCaseModal(sysId, number, cardEl) {
 
   const sidecar = document.createElement('div');
   sidecar.style.cssText = 'width:min(36vw,520px);min-width:320px;border-left:1px solid #D0D7DE;background:#fff;display:flex;flex-direction:column;';
-  sidecar.innerHTML = '<div style="padding:10px 12px;border-bottom:1px solid #D0D7DE;background:#F6F8FA;font-size:12px;font-weight:700;color:#1f2937;">Account Products <span id="case-sidecar-account" style="font-weight:500;color:#57606A;">—</span></div><div id="case-sidecar-list" style="padding:10px 12px;overflow:auto;flex:1;"></div>';
+  sidecar.innerHTML = '<div style="padding:10px 12px;border-bottom:1px solid #D0D7DE;background:#F6F8FA;font-size:12px;font-weight:700;color:#1f2937;">CI Details <span id="case-sidecar-account" style="font-weight:500;color:#57606A;">—</span></div><div id="case-sidecar-list" style="padding:10px 12px;overflow:auto;flex:1;"></div>';
 
   bodyWrap.appendChild(iframe);
   bodyWrap.appendChild(sidecar);
@@ -2305,19 +2305,21 @@ function openCaseModal(sysId, number, cardEl) {
   header.querySelector('#reloadBtn').onclick = () => { iframe.src = iframe.src; };
 
   const h = {'Accept':'application/json','X-UserToken':_TOK};
-  fetch(_BASE+'/api/now/table/sn_customerservice_case/'+sysId+'?sysparm_fields=number,account&sysparm_display_value=all',{headers:h})
+  fetch(_BASE+'/api/now/table/sn_customerservice_case/'+sysId+'?sysparm_fields=number,account,cmdb_ci&sysparm_display_value=all',{headers:h})
     .then(r=>r.json())
     .then(data=>{
       const c = data.result || {};
       const accId = c.account?.value || '';
       const accName = c.account?.display_value || c.account?.value || '—';
+      const ciId = c.cmdb_ci?.value || '';
+      const ciName = c.cmdb_ci?.display_value || c.cmdb_ci?.value || '—';
       const num = c.number?.display_value || c.number?.value || number;
       const ttl = document.getElementById('case-iframe-title');
       if (ttl) ttl.textContent = num || 'Case';
       const accLbl = document.getElementById('case-sidecar-account');
-      if (accLbl) accLbl.textContent = accName;
+      if (accLbl) accLbl.textContent = ciName;
       const listEl = document.getElementById('case-sidecar-list');
-      if (listEl) populateAccountProducts(listEl, accId, accName);
+      if (listEl) populateAccountProducts(listEl, accId, accName, ciId, ciName);
     })
     .catch(()=>{
       const listEl = document.getElementById('case-sidecar-list');
@@ -2329,17 +2331,28 @@ function detailItem(label, valueHtml) {
   return '<div class="modal-detail-item"><span class="modal-detail-lbl">'+label+'</span><span class="modal-detail-val">'+valueHtml+'</span></div>';
 }
 
-function populateAccountProducts(listEl, accountId, accountName){
+function toggleCiPassword(btn){
+  const value = btn?.dataset?.value || '';
+  const targetId = btn?.dataset?.target || '';
+  const target = document.getElementById(targetId);
+  if(!target) return;
+  const masked = '••••••••';
+  const showing = target.textContent !== masked;
+  target.textContent = showing ? masked : value || masked;
+  btn.textContent = showing ? 'Show password' : 'Hide password';
+}
+
+function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
   if(!listEl) return;
-  listEl.innerHTML='<div class="account-product-empty">⏳ Carregando dados do account...</div>';
-  if(!accountId){
-    listEl.innerHTML='<div class="account-product-empty">Account sem sys_id para consulta.</div>';
+  listEl.innerHTML='<div class="account-product-empty">⏳ Carregando detalhes do CI...</div>';
+  if(!ciId){
+    listEl.innerHTML='<div class="account-product-empty">Chamado sem Configuration item (cmdb_ci).</div>';
     return;
   }
 
   const h={'Accept':'application/json','X-UserToken':_TOK};
   const cache = window._ACCOUNT_PRODUCTS_CACHE || { ttlMs: 120000, entries: {} };
-  const cacheKey = accountId + '::' + (accountName || '');
+  const cacheKey = 'ci::' + ciId;
   const now = Date.now();
   const hit = cache.entries?.[cacheKey];
   if (hit && (now - hit.ts) < (cache.ttlMs || 120000)) {
@@ -2347,7 +2360,6 @@ function populateAccountProducts(listEl, accountId, accountName){
     return;
   }
 
-  // ── fetch helper ──────────────────────────────────────────────────────
   const fetchTable = (table, query, fields, limit) => {
     const url = _BASE+'/api/now/table/'+table
       +'?sysparm_query='+encodeURIComponent(query)
@@ -2360,199 +2372,97 @@ function populateAccountProducts(listEl, accountId, accountName){
     }).then(d=>d.result||[]);
   };
 
-  // Try multiple queries, deduplicate by sys_id, skip 400/404
-  const fetchMerged = async (table, queries, fields, limit) => {
+  const fetchSingleCi = async () => {
+    const fields = 'sys_id,name,comments,ip_address,host_name,os,sys_class_name';
+    try{
+      const one = await fetch(_BASE+'/api/now/table/cmdb_ci_server/'+ciId+'?sysparm_fields='+fields+'&sysparm_display_value=all',{headers:h}).then(r=>r.json());
+      if(one?.result) return one.result;
+    }catch(e){}
+    try{
+      const one = await fetch(_BASE+'/api/now/table/cmdb_ci/'+ciId+'?sysparm_fields='+fields+'&sysparm_display_value=all',{headers:h}).then(r=>r.json());
+      return one?.result || null;
+    }catch(e){ return null; }
+  };
+
+  const fetchCredentials = async () => {
+    const fields = 'sys_id,u_user,u_username,user_name,u_password,password,u_password_clear,u_type,u_description,sys_updated_on';
+    const queries = ['u_ci='+ciId,'cmdb_ci='+ciId,'u_configuration_item='+ciId];
     const seen=new Set(), all=[];
     for(const q of queries){
-      try{
-        const rows=await fetchTable(table,q,fields,limit);
-        rows.forEach(r=>{
-          const id=r.sys_id?.value||JSON.stringify(r);
-          if(!seen.has(id)){ seen.add(id); all.push(r); }
-        });
-      } catch(e){ if(e?.status===400||e?.status===404) continue; throw e; }
+      for (const tbl of ['u_ci_credentials']) {
+        try{
+          const rows=await fetchTable(tbl,q,fields,200);
+          rows.forEach(r=>{
+            const id=r.sys_id?.value||JSON.stringify(r);
+            if(!seen.has(id)){ seen.add(id); all.push(r); }
+          });
+        } catch(e){ if(e?.status===400||e?.status===404) continue; throw e; }
+      }
     }
     return all;
   };
 
-  const pickFirst = (...args) => {
-    for(const c of args.flat()){
-      if(c===undefined||c===null) continue;
-      const s=String(c).trim();
-      if(s && s.toLowerCase()!=='null' && s!=='-') return s;
+  const getVal = (obj, ...keys) => {
+    for (const k of keys){
+      const v = obj?.[k]?.display_value ?? obj?.[k]?.value ?? obj?.[k];
+      if(v!==undefined && v!==null && String(v).trim()!=='') return String(v);
     }
     return '—';
   };
 
-  // ── CMDB: Itens Gerenciados ───────────────────────────────────────────
-  // Adapted to the account from current modal/case (account sys_id/name).
-  // Equivalent to requested logic:
-  // u_account=<account>^u_active_flag=true^u_management_type!=no_management
-  // OR u_account=<account>^u_active_flag=true^u_management_type=NULL
-  const cmdbFields = 'sys_id,name,hostname,ip_address,u_management_type,management_type,sys_class_name,u_active_flag,active';
-  const cmdbLimit  = 10000;
-  const cmdbQueries = [
-    'u_account='+accountId+'^u_active_flag=true^u_management_type!=no_management^NQu_account='+accountId+'^u_active_flag=true^u_management_type=NULL',
-    'u_account.name='+accountName+'^u_active_flag=true^u_management_type!=no_management^NQu_account.name='+accountName+'^u_active_flag=true^u_management_type=NULL'
-  ];
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
-  // ── Software: Licenças ────────────────────────────────────────────────
-  // Confirmed fields from instance test script.
-  const swFields = [
-    'sys_id',
-    'u_software_to_install',
-    'manufacturer',
-    'u_licensing_model',
-    'u_software_quantity'
-  ].join(',');
+  Promise.all([fetchSingleCi(), fetchCredentials()])
+  .then(([ci, creds]) => {
+    const ciComments = getVal(ci, 'comments');
+    const ciHtml =
+      '<div class="acc-sec">'+
+        '<div class="acc-sec-h">CI do chamado <span class="acc-sec-sub acc-sec-ok">'+esc(ciName || getVal(ci,'name'))+'</span></div>'+
+        '<div style="padding:10px;display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">'+
+          '<div><b>Nome:</b> '+esc(getVal(ci,'name'))+'</div>'+
+          '<div><b>IP:</b> '+esc(getVal(ci,'ip_address'))+'</div>'+
+          '<div><b>Hostname:</b> '+esc(getVal(ci,'host_name'))+'</div>'+
+          '<div><b>Classe:</b> '+esc(getVal(ci,'sys_class_name'))+'</div>'+
+        '</div>'+
+      '</div>';
 
-  // ── Render: CMDB ─────────────────────────────────────────────────────
-  const renderCmdb = rows => {
-    const label = 'Itens Gerenciados';
-    if(!rows.length){
-      return '<div class="acc-sec">'+
-        '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-warn">0 itens encontrados</span></div>'+
-        '<div style="padding:10px;"><div class="account-product-empty">Nenhum CI encontrado.</div></div></div>';
-    }
+    const commentsHtml =
+      '<div class="acc-sec">'+
+        '<div class="acc-sec-h">Comments (cmdb_ci_server)</div>'+
+        '<div style="padding:10px;font-size:12px;white-space:pre-wrap;background:#fff;">'+esc(ciComments)+'</div>'+
+      '</div>';
 
-    const ignoredHostnames = new Set(['server','—','managedservices-custom']);
-    const items = rows.map(r=>({
-      sysId  : pickFirst(r.sys_id?.value),
-      name   : pickFirst(r.hostname?.display_value,r.hostname?.value,r.name?.display_value,r.name?.value),
-      mgType : pickFirst(r.u_management_type?.display_value,r.u_management_type?.value,r.management_type?.display_value,r.management_type?.value),
-      ip     : pickFirst(r.ip_address?.display_value,r.ip_address?.value),
-      cls    : pickFirst(r.sys_class_name?.display_value,r.sys_class_name?.value),
-    })).filter(i=>!ignoredHostnames.has((i.name||'').trim().toLowerCase()));
-
-    const grouped = items.reduce((acc, it) => {
-      const key = it.cls || 'Sem Class';
-      if(!acc[key]) acc[key] = [];
-      acc[key].push(it);
-      return acc;
-    }, {});
-
-    const sections = Object.keys(grouped).sort((a,b)=>a.localeCompare(b)).map(cls=>{
-      const gRows = grouped[cls];
-      return '<div class="acc-table-wrap" style="margin-top:10px;">'+
-        '<div style="font-size:11px;font-weight:700;color:#57606A;padding:6px 2px;">'+cls+' ('+gRows.length+')</div>'+
-        '<table class="acc-table">'+
-        '<thead><tr><th>Hostname</th><th>IP Address</th><th>Management type</th></tr></thead>'+
-        '<tbody>'+
-        gRows.map(i=>'<tr class="managed-item-row" data-mi-search="'+
-          [i.name,i.ip,i.mgType,cls].join(' ').toLowerCase().replace(/"/g,'&quot;')+'">'+
-          '<td><a href="'+_BASE+'/cmdb_ci.do?sys_id='+encodeURIComponent(i.sysId||'')+'" target="_blank" rel="noopener noreferrer" '+
-          'class="managed-item-row-link"><strong>'+i.name+'</strong></a></td>'+
-          '<td class="acc-cell-muted">'+i.ip+'</td>'+
-          '<td><span class="acc-badge acc-badge-tm">'+i.mgType+'</span></td>'+
-          '</tr>').join('')+
-        '</tbody></table></div>';
+    const credRows = creds.map((r,idx) => {
+      const user = getVal(r,'u_user','u_username','user_name');
+      const pass = getVal(r,'u_password_clear','u_password','password');
+      const type = getVal(r,'u_type');
+      const desc = getVal(r,'u_description');
+      const rowId = 'ci-cred-pass-'+idx+'-'+Math.random().toString(36).slice(2,8);
+      return '<tr>'+
+        '<td>'+esc(user)+'</td>'+
+        '<td><span id="'+rowId+'">••••••••</span> <button type="button" data-target="'+rowId+'" data-value="'+esc(pass)+'" onclick="toggleCiPassword(this)" style="font-size:10px;">Show password</button></td>'+
+        '<td>'+esc(type)+'</td>'+
+        '<td>'+esc(desc)+'</td>'+
+      '</tr>';
     }).join('');
 
-    return '<div class="acc-sec">'+
-      '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-ok">'+items.length+' itens</span></div>'+
-      '<div style="padding:8px 0 4px 0;">'+
-        '<input id="managed-items-find" type="search" placeholder="Find hostname, IP, class..." '+
-        'oninput="filterManagedItemsRows(this.value)" '+
-        'style="width:100%;font-size:12px;padding:7px 9px;border:1px solid #D0D7DE;border-radius:6px;">'+
-      '</div>'+
-      sections+
+    const credsHtml =
+      '<div class="acc-sec">'+
+        '<div class="acc-sec-h">Usuários / Credenciais (u_ci_credentials) <span class="acc-sec-sub">'+creds.length+' registros</span></div>'+
+        (creds.length
+          ? '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>User</th><th>Password</th><th>Type</th><th>Description</th></tr></thead><tbody>'+credRows+'</tbody></table></div>'
+          : '<div style="padding:10px;"><div class="account-product-empty">Nenhuma credencial encontrada para este CI.</div></div>'
+        )+
       '</div>';
-  };
 
-  // ── Render: Software ──────────────────────────────────────────────────
-  const renderSw = rows => {
-    const label = 'Software Licensing';
-    if(!rows.length){
-      return '<div class="acc-sec">'+
-        '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-warn">0 licenças encontradas</span></div>'+
-        '<div style="padding:10px;"><div class="account-product-empty">Nenhum registro encontrado.</div></div></div>';
-    }
-    const toNum = v => {
-      let s = String(v ?? '').trim();
-      if(!s) return 0;
-      s = s.replace(/[^\d,.-]/g, '');
-      if(!s) return 0;
-
-      const lastComma = s.lastIndexOf(',');
-      const lastDot = s.lastIndexOf('.');
-
-      if(lastComma>-1 && lastDot>-1){
-        if(lastComma > lastDot){
-          // 1.234,56 -> 1234.56
-          s = s.replace(/\./g, '').replace(',', '.');
-        } else {
-          // 1,234.56 -> 1234.56
-          s = s.replace(/,/g, '');
-        }
-      } else if(lastComma>-1){
-        // 123,45 -> 123.45 | 1,234 -> 1234
-        const commas = (s.match(/,/g)||[]).length;
-        s = commas>1 ? s.replace(/,/g, '') : s.replace(',', '.');
-      } else if(lastDot>-1){
-        // 1.234.567 -> 1234567 | 1234.56 -> 1234.56
-        const dots = (s.match(/\./g)||[]).length;
-        if(dots>1){
-          const i = s.lastIndexOf('.');
-          s = s.slice(0,i).replace(/\./g,'') + '.' + s.slice(i+1);
-        }
-      }
-
-      const n = Number(s);
-      return Number.isFinite(n) ? n : 0;
-    };
-    const pickField = (obj, field) => {
-      return obj?.[field]?.display_value ?? obj?.[field]?.value ?? obj?.[field] ?? '—';
-    };
-    const agg = new Map();
-    rows.forEach(r=>{
-      const sw = pickField(r, 'u_software_to_install');
-      const mfr = pickField(r, 'manufacturer');
-      const model = pickField(r, 'u_licensing_model');
-      const qtyRaw = pickField(r, 'u_software_quantity');
-      const key = [sw, model].join('|');
-      if(!agg.has(key)){
-        agg.set(key, {
-          sw,
-          mfr,
-          model,
-          qty: 0
-        });
-      }
-      agg.get(key).qty += toNum(qtyRaw);
-    });
-
-    const items = Array.from(agg.values())
-      .filter(i=>i.sw!=='—'||i.model!=='—')
-      .sort((a,b)=>a.sw.localeCompare(b.sw)||a.model.localeCompare(b.model));
-    return '<div class="acc-sec">'+
-      '<div class="acc-sec-h">'+label+' <span class="acc-sec-sub acc-sec-ok">'+items.length+' licenças</span>'+
-      '</div>'+
-      '<div class="acc-table-wrap"><table class="acc-table">'+
-      '<thead><tr><th>Software to Install</th><th>Manufacturer</th><th>Software Licensing Model</th><th>Software Quantity</th></tr></thead>'+
-      '<tbody>'+
-      items.map(i=>'<tr>'+
-        '<td><strong>'+i.sw+'</strong></td>'+
-        '<td class="acc-cell-muted">'+i.mfr+'</td>'+
-        '<td>'+i.model+'</td>'+
-        '<td class="acc-cell-muted">'+String(i.qty)+'</td>'+
-        '</tr>'
-      ).join('')+
-      '</tbody></table></div></div>';
-  };
-
-  Promise.all([
-    fetchMerged('cmdb_ci', cmdbQueries, cmdbFields, cmdbLimit),
-    fetchMerged('u_cmdb_ci_dedicated_software', ['u_account='+accountId+'^u_active_flag=true'], swFields, 500),
-  ])
-  .then(([cmdbRows, swRows]) => {
-    const html = renderCmdb(cmdbRows) + renderSw(swRows);
+    const html = ciHtml + commentsHtml + credsHtml;
     listEl.innerHTML = html;
     if(!cache.entries) cache.entries = {};
     cache.entries[cacheKey] = { ts: Date.now(), html };
     window._ACCOUNT_PRODUCTS_CACHE = cache;
   })
   .catch(err => {
-    listEl.innerHTML='<div class="account-product-empty">❌ Erro ('+( err?.status||err?.message||'desconhecido')+').</div>';
+    listEl.innerHTML='<div class="account-product-empty">❌ Erro ao carregar CI ('+( err?.status||err?.message||'desconhecido')+').</div>';
   });
 }
 
@@ -2563,7 +2473,7 @@ function openAccountProductsModal(accountId, accountName){
   if(!ov||!nameEl||!listEl) return;
   nameEl.textContent=accountName||'—';
   ov.style.display='flex';
-  populateAccountProducts(listEl, accountId, accountName);
+  populateAccountProducts(listEl, accountId, accountName, '', '');
 }
 
 function closeAccountProductsModal(){
@@ -2788,7 +2698,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     openImpactUrgencyBtn,openReassignBtn,closeImpactUrgencyEditor,
     closeCaseModal,modalReassign,
     modalTabSwitch,saveModal,saveModalImpactUrgency,uploadModalAttachment,
-    closeAccountProductsModal,pgNav,pgGoTo,remFil,clrCol,applyCol
+    closeAccountProductsModal,toggleCiPassword,pgNav,pgGoTo,remFil,clrCol,applyCol
   });
 
   // ── Delta Polling (Real-time updates) ──────────────────────────────────
