@@ -2230,10 +2230,11 @@ function emsEscapeHtml(v) {
 
 function formatJournalValue(rawValue) {
   if (!rawValue) return '';
-  let out = String(rawValue).replace(/\r\n/g, '\n');
+  let out = String(rawValue);
+  out = out.split(String.fromCharCode(13,10)).join(String.fromCharCode(10));
   out = out.split('[code]').join('<pre class="modal-j-code">');
   out = out.split('[/code]').join('</pre>');
-  out = out.split('\n').join('<br>');
+  out = out.split(String.fromCharCode(10)).join('<br>');
   return out;
 }
 
@@ -2762,7 +2763,8 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   Object.assign(window,{
     showPage,changeMes,boardSearch,refreshKanban,refreshBacklog,refreshPostmortem,
-    switchFila,switchFilaBacklog,toggleSection,openCaseModal,openCaseModalBtn,
+    switchFila,switchFilaBacklog,switchManager,switchAnalyst,switchAnalystBacklogFromToolbar,switchResolvedTodayQueue,
+    toggleSection,openCaseModal,openCaseModalBtn,
     openImpactUrgencyBtn,openReassignBtn,closeImpactUrgencyEditor,
     closeCaseModal,modalReassign,
     modalTabSwitch,saveModal,saveModalImpactUrgency,uploadModalAttachment,
