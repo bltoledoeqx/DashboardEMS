@@ -3047,7 +3047,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     setInterval(fetchDeltas, POLLING_INTERVAL);
   })();
-	<\/script>
+	</script>
 <!-- Case Modal -->
 <div id="case-modal-overlay" style="display:none;position:fixed;inset:0;z-index:500;background:rgba(15,23,42,.45);backdrop-filter:blur(2px);">
   <div id="case-modal" style="position:absolute;top:50%;left:50%;width:min(920px,92vw);height:min(88vh,820px);background:#fff;border:1px solid #D0D7DE;border-radius:12px;display:flex;flex-direction:column;transform:translate(-50%, -48%) scale(0.96);transition:transform .18s ease;box-shadow:0 20px 55px rgba(15,23,42,.35);overflow:hidden;">
