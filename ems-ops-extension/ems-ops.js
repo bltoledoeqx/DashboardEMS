@@ -711,6 +711,7 @@ a{text-decoration:none;}
 .modal-j-author{font-weight:700;color:#24292F;font-size:11px;}
 .modal-j-time{font-size:10px;color:#8B949E;}
 .modal-j-text{font-size:12px;color:#24292F;line-height:1.5;white-space:pre-wrap;margin-top:4px;}
+.modal-j-code{background:#F6F8FA;border:1px solid #D0D7DE;border-radius:6px;padding:8px;white-space:pre-wrap;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
 .modal-j-badge{font-size:9px;padding:2px 7px;border-radius:10px;font-weight:600;letter-spacing:.3px;}
 .modal-j-wn{background:#DBEAFE;color:#1D4ED8;}
 .modal-j-cm{background:#F3F4F6;color:#374151;}
@@ -2223,6 +2224,17 @@ function pgGoTo(p){_pgPage=p;pgRender();document.getElementById('pm-pg-wrap')?.s
 let _modalSysId = null;
 let _modalActiveCard = null;
 
+function emsEscapeHtml(v) {
+  return String(v ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
+}
+
+function formatJournalValue(rawValue) {
+  if (!rawValue) return '';
+  return String(rawValue)
+    .replace(/\[code\]([\s\S]*?)\[\/code\]/gi, '<pre class="modal-j-code">$1</pre>')
+    .replace(/\r?\n/g, '<br>');
+}
+
 function renderContactInfo(contact, caseData) {
   const el = document.getElementById('modal-contact-info');
   if (!el) return;
@@ -2283,11 +2295,13 @@ function openCaseModal(sysId, number, cardEl) {
   const fields = 'number,short_description,description,assigned_to,priority,state,impact,urgency,opened_at,account,contact,u_type,category,sys_id,follow_up,u_scheduled_date,u_schedule_date,u_next_action_date';
   Promise.all([
     fetch(_BASE+'/api/now/table/sn_customerservice_case/'+sysId+'?sysparm_fields='+fields+'&sysparm_display_value=all', {headers:h}).then(r=>r.json()),
-    fetch(_BASE+'/api/now/table/sys_journal_field?sysparm_query=element_id='+sysId+'&sysparm_display_value=all&sysparm_limit=20', {headers:h}).then(r=>r.json()),
+    fetch(_BASE+'/api/now/table/sys_journal_field?sysparm_query='+encodeURIComponent('element_id='+sysId+'^ORDERBYDESCsys_created_on')+'&sysparm_fields=sys_created_on,sys_created_by,element,value&sysparm_display_value=all&sysparm_limit=50', {headers:h}).then(r=>r.json()),
+    fetch(_BASE+'/api/now/table/task_sla?sysparm_query='+encodeURIComponent('task='+sysId+'^ORDERBYDESCsys_updated_on')+'&sysparm_fields=sla,stage,has_breached,business_percentage,business_time_left,target,planned_end_time,sys_updated_on&sysparm_display_value=all&sysparm_limit=10', {headers:h}).then(r=>r.json()).catch(()=>({result:[]})),
     fetch(_BASE+'/api/now/attachment?sysparm_query='+encodeURIComponent('table_name=sn_customerservice_case^table_sys_id='+sysId)+'&sysparm_fields=sys_id,file_name,size_bytes,sys_created_on&sysparm_display_value=all&sysparm_limit=100', {headers:h}).then(r=>r.json()).catch(()=>({result:[]})),
-  ]).then(([caseData, journalData, attachmentData]) => {
+  ]).then(([caseData, journalData, taskSlaData, attachmentData]) => {
     const c = caseData.result;
     const j = journalData.result || [];
+    const slaRows = taskSlaData.result || [];
     const at = attachmentData.result || [];
     if (!c) { body.innerHTML = '<div style="color:#CF222E;padding:20px;">Erro ao carregar caso.</div>'; return; }
 
@@ -2319,16 +2333,30 @@ function openCaseModal(sysId, number, cardEl) {
 
     // Sort journal newest first
     const sorted = j.sort((a,b) => new Date(b.sys_created_on?.value||0) - new Date(a.sys_created_on?.value||0));
+    const slaHtml = slaRows.length ? '<div style="display:flex;flex-direction:column;gap:6px;">' + slaRows.map(sla => {
+      const name = sla.sla?.display_value || 'SLA';
+      const stage = sla.stage?.display_value || '—';
+      const pct = sla.business_percentage?.display_value || sla.business_percentage?.value || '—';
+      const left = sla.business_time_left?.display_value || sla.business_time_left?.value || '—';
+      const breached = (sla.has_breached?.display_value || sla.has_breached?.value || '').toString().toLowerCase() === 'true';
+      return '<div style="border:1px solid #D0D7DE;border-radius:6px;padding:8px;background:#fff;">' +
+        '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center;">' +
+          '<strong style="font-size:12px;">'+emsEscapeHtml(name)+'</strong>' +
+          '<span style="font-size:10px;padding:2px 7px;border-radius:10px;background:'+(breached?'#FEE2E2':'#DCFCE7')+';color:'+(breached?'#991B1B':'#166534')+';">'+(breached?'Breached':'On track')+'</span>' +
+        '</div>' +
+        '<div style="font-size:11px;color:#57606A;margin-top:4px;">Stage: '+emsEscapeHtml(stage)+' · Progress: '+emsEscapeHtml(pct)+' · Time left: '+emsEscapeHtml(left)+'</div>' +
+      '</div>';
+    }).join('') + '</div>' : '<div style="color:#57606A;font-size:12px;">Sem SLAs vinculados.</div>';
 
     body.innerHTML =
       '<div>' +
         '<div class="modal-detail-grid">' +
-          detailItem('State', '<span class="modal-state-badge" style="'+sc+'">'+val(c.state)+'</span>') +
-          detailItem('Prioridade', '<span style="color:'+( prioColor[c.priority?.value]||'#57606A')+';font-weight:600">'+val(c.priority)+'</span>') +
-          detailItem('Analista', val(c.assigned_to)) +
+          detailItem('State', '<span class="modal-state-badge" style="'+sc+'">'+emsEscapeHtml(val(c.state))+'</span>') +
+          detailItem('Prioridade', '<span style="color:'+( prioColor[c.priority?.value]||'#57606A')+';font-weight:600">'+emsEscapeHtml(val(c.priority))+'</span>') +
+          detailItem('Analista', emsEscapeHtml(val(c.assigned_to))) +
           '<div class="modal-detail-item">'+
             '<span class="modal-detail-lbl">Account</span>'+
-            '<button type="button" id="modal-account-btn" class="modal-account-btn">'+val(c.account)+'</button>'+
+            '<button type="button" id="modal-account-btn" class="modal-account-btn">'+emsEscapeHtml(val(c.account))+'</button>'+
           '</div>' +
           '<div class="modal-detail-item" id="modal-contact-info"><span class="modal-detail-lbl">Contato</span><span class="modal-detail-val" style="color:#57606A;font-size:11px;">Carregando...</span></div>' +
           '<div class="modal-detail-item">'+
@@ -2352,13 +2380,17 @@ function openCaseModal(sysId, number, cardEl) {
               '<button type="button" onclick="saveModalImpactUrgency()" style="font-size:11px;padding:4px 8px;border:1px solid #0969DA;background:#0969DA;color:#fff;border-radius:4px;cursor:pointer;">Salvar</button>'+
             '</div>'+
           '</div>' +
-          detailItem('Tipo', val(c.u_type)) +
-          detailItem('Aberto em', fmtDate(c.opened_at?.value)) +
+          detailItem('Tipo', emsEscapeHtml(val(c.u_type))) +
+          detailItem('Aberto em', emsEscapeHtml(fmtDate(c.opened_at?.value))) +
         '</div>' +
       '</div>' +
       '<div>' +
         '<div class="modal-section-title">Descrição</div>' +
-        '<div class="modal-desc">'+(c.description?.display_value||c.description?.value||'Sem descrição.')+'</div>' +
+        '<div class="modal-desc">'+emsEscapeHtml(c.description?.display_value||c.description?.value||'Sem descrição.')+'</div>' +
+      '</div>' +
+      '<div>' +
+        '<div class="modal-section-title">SLAs</div>' +
+        slaHtml +
       '</div>' +
       '<div>' +
         '<div class="modal-section-title">Anexos ('+at.length+')</div>' +
@@ -2406,11 +2438,12 @@ function openCaseModal(sysId, number, cardEl) {
             author = rawAuthor.split('@')[0];
           }
           const when = fmtDate(e.sys_created_on?.value);
-          const txt = e.value?.display_value || e.value?.value || '';
+          const txtRaw = e.value?.display_value || e.value?.value || '';
+          const txt = formatJournalValue(emsEscapeHtml(txtRaw));
           const jClass=isWN?' modal-journal-wn':isSystem?' modal-journal-cm':isClient?' modal-journal-client':isAnalystComment?' modal-journal-wn':' modal-journal-cm';
           const typeLabel=isWN?'Work Note':isSystem?'Sistema':isClient?'Cliente':isAnalystComment?'Comentário Analista':'Comentário';
           return '<div class="modal-journal'+jClass+'">' +
-            '<div class="modal-j-meta"><span class="modal-j-author">'+author+'</span><span class="modal-j-badge modal-j-'+(isWN?'wn':'cm')+'">'+typeLabel+'</span><span class="modal-j-time">'+when+'</span>'+
+            '<div class="modal-j-meta"><span class="modal-j-author">'+emsEscapeHtml(author)+'</span><span class="modal-j-badge modal-j-'+(isWN?'wn':'cm')+'">'+typeLabel+'</span><span class="modal-j-time">'+emsEscapeHtml(when)+'</span>'+
             '</div>' +
             '<div class="modal-j-text">'+txt+'</div>' +
           '</div>';
