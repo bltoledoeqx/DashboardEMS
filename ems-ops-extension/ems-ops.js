@@ -2230,9 +2230,11 @@ function emsEscapeHtml(v) {
 
 function formatJournalValue(rawValue) {
   if (!rawValue) return '';
-  return String(rawValue)
-    .replace(/\[code\]([\s\S]*?)\[\/code\]/gi, '<pre class="modal-j-code">$1</pre>')
-    .replace(/\r?\n/g, '<br>');
+  let out = String(rawValue).replace(/\r\n/g, '\n');
+  out = out.split('[code]').join('<pre class="modal-j-code">');
+  out = out.split('[/code]').join('</pre>');
+  out = out.split('\n').join('<br>');
+  return out;
 }
 
 function renderContactInfo(contact, caseData) {
@@ -2757,6 +2759,15 @@ document.addEventListener('DOMContentLoaded',()=>{
 	  startPolling();
     initCardDragAndDrop();
 	});
+
+  Object.assign(window,{
+    showPage,changeMes,boardSearch,refreshKanban,refreshBacklog,refreshPostmortem,
+    switchFila,switchFilaBacklog,toggleSection,openCaseModal,openCaseModalBtn,
+    openImpactUrgencyBtn,openReassignBtn,closeImpactUrgencyEditor,
+    closeCaseModal,modalReassign,
+    modalTabSwitch,saveModal,saveModalImpactUrgency,uploadModalAttachment,
+    closeAccountProductsModal,pgNav,pgGoTo,remFil,clrCol,applyCol
+  });
 
   // ── Delta Polling (Real-time updates) ──────────────────────────────────
   (function() {
