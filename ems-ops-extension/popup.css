@@ -1,188 +1,150 @@
-/* ── EMS Ops Dashboard — Popup Styles ─────────────────────────────────── */
+:root {
+  --bg: #080d16;
+  --bg-soft: #121a2d;
+  --panel: #111a2b;
+  --line: #2b3750;
+  --text: #e8eefb;
+  --muted: #98a7c4;
+  --accent: #5cc6ff;
+  --accent-2: #8b7cff;
+  --success: #3cd48f;
+  --error: #ff7c88;
+}
 
 * {
-  margin: 0;
-  padding: 0;
   box-sizing: border-box;
 }
 
 body {
-  width: 280px;
-  font-family: 'Segoe UI', sans-serif;
-  background: #1A1F2E;
-  color: #C9D1E0;
+  margin: 0;
+  width: 320px;
+  font-family: Inter, Segoe UI, sans-serif;
+  background:
+    radial-gradient(circle at 15% 10%, rgba(92, 198, 255, 0.2), transparent 40%),
+    radial-gradient(circle at 80% 5%, rgba(139, 124, 255, 0.18), transparent 35%),
+    var(--bg);
+  color: var(--text);
 }
 
-/* ── Header ──────────────────────────────────────────────────────────── */
-.header {
-  padding: 16px;
-  background: linear-gradient(135deg, #1E3A5F 0%, #162D4A 100%);
+.popup-shell {
+  padding: 14px;
+}
+
+.hero {
   display: flex;
+  gap: 10px;
   align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid #2A3548;
-}
-
-.logo-mark {
-  width: 36px;
-  height: 36px;
-  background: rgba(100, 180, 255, 0.15);
-  border: 1px solid rgba(100, 180, 255, 0.3);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  flex-shrink: 0;
-}
-
-.logo-text {
-  font-size: 15px;
-  font-weight: 700;
-  color: #E8EDF5;
-}
-
-.logo-sub {
-  font-size: 11px;
-  color: #7A8BA0;
-  margin-top: 1px;
-}
-
-/* ── Body ────────────────────────────────────────────────────────────── */
-.body {
-  padding: 14px 16px;
-}
-
-.info-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: #6A7A8F;
-  margin-bottom: 14px;
-  padding: 8px 10px;
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.07);
-}
-
-/* ── Button ──────────────────────────────────────────────────────────── */
-.btn-main {
-  width: 100%;
   padding: 12px;
-  background: linear-gradient(135deg, #1E3A5F, #162D4A);
-  color: #A8C8E8;
-  border: 1px solid #2A4A6A;
-  border-radius: 8px;
-  font-size: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: linear-gradient(120deg, rgba(17, 26, 43, 0.85), rgba(13, 20, 34, 0.95));
+}
+
+.hero__badge {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
   font-weight: 700;
-  cursor: pointer;
+  color: #001421;
+  background: linear-gradient(135deg, var(--accent), #7fe8ff);
+}
+
+.hero__kicker {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.hero__title {
+  margin: 1px 0 0;
+  font-size: 17px;
+}
+
+.panel {
+  margin-top: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(17, 26, 43, 0.9);
+}
+
+.panel__description {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.launch-btn {
+  width: 100%;
+  margin-top: 12px;
+  border: 1px solid #2e4671;
+  border-radius: 11px;
+  background: linear-gradient(120deg, #1d3158, #253a63 55%, #413b8f);
+  color: #ebf6ff;
+  padding: 11px 10px;
+  font-size: 13px;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: all 0.2s;
+  cursor: pointer;
 }
 
-.btn-main:hover {
-  background: linear-gradient(135deg, #243F6A, #1A3355);
-  border-color: #3A5A7A;
-  color: #C8E0F0;
-}
+.launch-btn:hover { filter: brightness(1.07); }
+.launch-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-.btn-main:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-main .spinner {
+.spinner {
+  display: none;
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(168, 200, 232, 0.3);
-  border-top-color: #A8C8E8;
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  display: none;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
+}
+
+.status {
+  min-height: 18px;
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.status.success { color: var(--success); }
+.status.error { color: var(--error); }
+
+.chips {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 10px;
+  border: 1px solid transparent;
+}
+
+.chip--critical { border-color: #de350b; color: #ff9f88; }
+.chip--high { border-color: #ff8b00; color: #ffc266; }
+.chip--medium { border-color: #0052cc; color: #83b2ff; }
+.chip--awaiting { border-color: #00b8d9; color: #81efff; }
+.chip--normal { border-color: #36b37e; color: #86e9ba; }
+.chip--orphan { border-color: #97a0af; color: #ced4df; }
+
+.footer {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 10px;
+  color: #72819b;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* ── Status ──────────────────────────────────────────────────────────── */
-.status {
-  margin-top: 10px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  font-size: 11px;
-  display: none;
-}
-
-.status.error {
-  background: rgba(222, 53, 11, 0.15);
-  border: 1px solid rgba(222, 53, 11, 0.3);
-  color: #FF8F73;
-  display: block;
-}
-
-.status.warning {
-  background: rgba(255, 139, 0, 0.15);
-  border: 1px solid rgba(255, 139, 0, 0.3);
-  color: #FFD700;
-  display: block;
-}
-
-.status.success {
-  background: rgba(54, 179, 126, 0.15);
-  border: 1px solid rgba(54, 179, 126, 0.3);
-  color: #79F2C0;
-  display: block;
-}
-
-/* ── Divider ─────────────────────────────────────────────────────────── */
-.divider {
-  border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-  margin: 14px 0;
-}
-
-/* ── Legend ───────────────────────────────────────────────────────────── */
-.legend {
-  font-size: 11px;
-  color: #556070;
-}
-
-.legend-title {
-  font-weight: 600;
-  color: #7A8BA0;
-  margin-bottom: 8px;
-  text-transform: uppercase;
-  letter-spacing: 0.6px;
-  font-size: 10px;
-}
-
-.legend-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 3px 0;
-}
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-/* ── Footer ──────────────────────────────────────────────────────────── */
-.footer {
-  padding: 10px 16px;
-  background: rgba(0, 0, 0, 0.2);
-  font-size: 10px;
-  color: #445566;
-  text-align: center;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  to { transform: rotate(360deg); }
 }
