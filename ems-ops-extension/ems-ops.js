@@ -1209,6 +1209,7 @@ window._GID_MAP={'all':_IDS,'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff7268
 window._MANAGER_CACHE={};
 window._MSH_NOC_GID=undefined;
 window._REPORTS_FETCH_CACHE={ttlMs:30000,entries:{},inflight:{}};
+window._ACCOUNT_PRODUCTS_CACHE={ttlMs:120000,entries:{}};
 
 function fetchJsonCached(url, options){
   const now=Date.now();
@@ -2332,6 +2333,14 @@ function populateAccountProducts(listEl, accountId, accountName){
   }
 
   const h={'Accept':'application/json','X-UserToken':_TOK};
+  const cache = window._ACCOUNT_PRODUCTS_CACHE || { ttlMs: 120000, entries: {} };
+  const cacheKey = accountId + '::' + (accountName || '');
+  const now = Date.now();
+  const hit = cache.entries?.[cacheKey];
+  if (hit && (now - hit.ts) < (cache.ttlMs || 120000)) {
+    listEl.innerHTML = hit.html;
+    return;
+  }
 
   // ── fetch helper ──────────────────────────────────────────────────────
   const fetchTable = (table, query, fields, limit) => {
@@ -2531,7 +2540,11 @@ function populateAccountProducts(listEl, accountId, accountName){
     fetchMerged('u_cmdb_ci_dedicated_software', ['u_account='+accountId+'^u_active_flag=true'], swFields, 500),
   ])
   .then(([cmdbRows, swRows]) => {
-    listEl.innerHTML = renderCmdb(cmdbRows) + renderSw(swRows);
+    const html = renderCmdb(cmdbRows) + renderSw(swRows);
+    listEl.innerHTML = html;
+    if(!cache.entries) cache.entries = {};
+    cache.entries[cacheKey] = { ts: Date.now(), html };
+    window._ACCOUNT_PRODUCTS_CACHE = cache;
   })
   .catch(err => {
     listEl.innerHTML='<div class="account-product-empty">❌ Erro ('+( err?.status||err?.message||'desconhecido')+').</div>';
