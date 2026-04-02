@@ -1811,6 +1811,9 @@ function startPolling(){
   //     pollKPIs(true);
   //   }
   // }, 600000);
+
+  // Delta polling: restart if already initialized (e.g. tab re-focus after hidden)
+  if (typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
 }
 
 function stopPolling(){
@@ -1818,6 +1821,8 @@ function stopPolling(){
   if(_pollL2)clearInterval(_pollL2);
   if(_pollL3)clearInterval(_pollL3);
   _pollL1=_pollL2=_pollL3=null;
+  if(window.__deltaPollingTimerId){clearInterval(window.__deltaPollingTimerId);window.__deltaPollingTimerId=null;}
+  window.__deltaPollingActive=false;
 }
 
 function pollKPIs(checkDelta){
@@ -2294,6 +2299,12 @@ function openCaseModal(sysId, number, cardEl) {
   sidecar.style.cssText = 'width:min(36vw,520px);min-width:320px;border-left:1px solid #D0D7DE;background:#fff;display:flex;flex-direction:column;';
   sidecar.innerHTML = '<div style="padding:10px 12px;border-bottom:1px solid #D0D7DE;background:#F6F8FA;font-size:12px;font-weight:700;color:#1f2937;">CI Details <span id="case-sidecar-account" style="font-weight:500;color:#57606A;">—</span></div><div id="case-sidecar-list" style="padding:10px 12px;overflow:auto;flex:1;"></div>';
 
+  // Captura referências diretas ANTES de qualquer operação assíncrona
+  // para evitar race condition ao abrir múltiplos modais em sequência.
+  const titleEl = header.querySelector('#case-iframe-title');
+  const accLbl  = sidecar.querySelector('#case-sidecar-account');
+  const listEl  = sidecar.querySelector('#case-sidecar-list');
+
   bodyWrap.appendChild(iframe);
   bodyWrap.appendChild(sidecar);
   modal.appendChild(header);
@@ -2314,15 +2325,13 @@ function openCaseModal(sysId, number, cardEl) {
       const ciId = c.cmdb_ci?.value || '';
       const ciName = c.cmdb_ci?.display_value || c.cmdb_ci?.value || '—';
       const num = c.number?.display_value || c.number?.value || number;
-      const ttl = document.getElementById('case-iframe-title');
-      if (ttl) ttl.textContent = num || 'Case';
-      const accLbl = document.getElementById('case-sidecar-account');
+      // Usa referências locais capturadas na criação do modal, não getElementById
+      if (titleEl) titleEl.textContent = num || 'Case';
       if (accLbl) accLbl.textContent = ciName;
-      const listEl = document.getElementById('case-sidecar-list');
       if (listEl) populateAccountProducts(listEl, accId, accName, ciId, ciName);
     })
     .catch(()=>{
-      const listEl = document.getElementById('case-sidecar-list');
+      // listEl local garante que o erro vai para o modal correto
       if (listEl) listEl.innerHTML = '<div class="account-product-empty">Não foi possível carregar dados do account.</div>';
     });
 }
@@ -2385,21 +2394,33 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
   };
 
   const fetchCredentials = async () => {
-    const fields = 'sys_id,u_user,u_username,user_name,u_password,password,u_password_clear,u_type,u_description,sys_updated_on';
-    const queries = ['u_ci='+ciId,'cmdb_ci='+ciId,'u_configuration_item='+ciId];
-    const seen=new Set(), all=[];
-    for(const q of queries){
-      for (const tbl of ['u_ci_credentials']) {
-        try{
-          const rows=await fetchTable(tbl,q,fields,200);
-          rows.forEach(r=>{
-            const id=r.sys_id?.value||JSON.stringify(r);
-            if(!seen.has(id)){ seen.add(id); all.push(r); }
-          });
-        } catch(e){ if(e?.status===400||e?.status===404) continue; throw e; }
-      }
+    // Lógica correta:
+    // 1. Busca filhos do CI via cmdb_rel_ci (parent=ciId)
+    // 2. Coleta os sys_ids dos filhos (deduplicados)
+    // 3. Busca direto na tabela u_ci_credentials com sys_idIN<ids>
+    //    — isso garante que só retorna credenciais reais do CI,
+    //      sem depender de campos de filtro que o Snow pode ignorar.
+    try {
+      const relRes = await fetch(
+        _BASE+'/api/now/table/cmdb_rel_ci?sysparm_query='+encodeURIComponent('parent='+ciId)+'&sysparm_display_value=all&sysparm_limit=100',
+        {headers:h}
+      ).then(r=>r.json());
+
+      const childIds = [...new Set(
+        (relRes.result || []).map(r => r.child?.value).filter(Boolean)
+      )];
+
+      if (!childIds.length) return [];
+
+      const credRes = await fetch(
+        _BASE+'/api/now/table/u_ci_credentials?sysparm_query='+encodeURIComponent('sys_idIN'+childIds.join(','))+'&sysparm_display_value=all&sysparm_limit=100',
+        {headers:h}
+      ).then(r=>r.json());
+
+      return credRes.result || [];
+    } catch(e) {
+      return [];
     }
-    return all;
   };
 
   const getVal = (obj, ...keys) => {
@@ -2433,10 +2454,10 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
       '</div>';
 
     const credRows = creds.map((r,idx) => {
-      const user = getVal(r,'u_user','u_username','user_name');
-      const pass = getVal(r,'u_password_clear','u_password','password');
+      const user = getVal(r,'u_user','u_username','name','u_portal_display_name');
+      const pass = getVal(r,'u_password','u_password_clear','password');
       const type = getVal(r,'u_type');
-      const desc = getVal(r,'u_description');
+      const desc = getVal(r,'u_description','short_description','comments');
       const rowId = 'ci-cred-pass-'+idx+'-'+Math.random().toString(36).slice(2,8);
       return '<tr>'+
         '<td>'+esc(user)+'</td>'+
@@ -2703,7 +2724,8 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   // ── Delta Polling (Real-time updates) ──────────────────────────────────
   (function() {
-    if (window.__deltaPollingActive) return;
+    // Clear any previous interval (survives document.write re-renders)
+    if (window.__deltaPollingTimerId) { clearInterval(window.__deltaPollingTimerId); window.__deltaPollingTimerId = null; }
     window.__deltaPollingActive = true;
     console.log('[DeltaPolling] Inicializando...');
 
@@ -2987,7 +3009,13 @@ document.addEventListener('DOMContentLoaded',()=>{
       reapplyAnalystFilters();
     }
 
-    setInterval(fetchDeltas, POLLING_INTERVAL);
+    window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
+
+    // Expose restart hook so startPolling() can revive delta polling after tab re-focus
+    window.__restartDeltaPolling = function() {
+      if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
+      window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
+    };
   })();
 	</script>
 <!-- Case Modal -->
