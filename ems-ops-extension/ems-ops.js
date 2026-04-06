@@ -569,7 +569,7 @@ a{text-decoration:none;}
 .acc-badge{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:10px;border:1px solid var(--border);}
 .acc-arrow{font-size:12px;color:var(--muted);transition:transform .2s;margin-left:4px;}
 .accordion-body{padding:10px 16px 12px;border-top:1px solid var(--border);background:var(--bg);}
-.acc-grid{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;}
+.acc-grid{display:flex;gap:8px;align-items:flex-start;justify-content:flex-start;}
 .acc-report-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;flex-shrink:0;}
 /* Analyst table */
 .acc-report-card.acc-analyst{width:250px;overflow:hidden;}
@@ -1507,10 +1507,13 @@ function switchFila(key){
 function updateReportsByFila(){
   const key=currentFila||'all';
   const showAll=key==='all';
+  const accGrid=document.querySelector('.acc-grid');
+  if(accGrid) accGrid.style.justifyContent=showAll?'space-between':'flex-start';
   const analystWrap=document.querySelector('.acc-analyst-wrap');
   if(analystWrap) analystWrap.style.display=showAll?'none':'flex';
   const kpiCol=document.querySelector('.acc-kpis-col');
   if(kpiCol){
+    kpiCol.style.flex=showAll?'':'1';
     kpiCol.style.width=showAll?'100%':'';
     kpiCol.style.maxWidth=showAll?'100%':'';
   }
@@ -1612,14 +1615,6 @@ function changeMes(m){
 }
 
 function toggleAcc(key){
-  if(key==='analyst'){
-    const bodyKeep=document.getElementById('acc-body-'+key);
-    if(bodyKeep) bodyKeep.style.display='block';
-    const arrowKeep=document.getElementById('acc-arrow-'+key);
-    if(arrowKeep) arrowKeep.style.transform='rotate(180deg)';
-    fetchAccordionScores();
-    return;
-  }
   const body=document.getElementById('acc-body-'+key);
   const arrow=document.getElementById('acc-arrow-'+key);
   if(!body)return;
