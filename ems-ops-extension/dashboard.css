@@ -119,6 +119,19 @@ a{text-decoration:none;}
 .board-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:10px;}
 .board-toolbar label{font-size:12px;font-weight:500;color:var(--text2);}
 .toolbar-sep{width:1px;height:20px;background:var(--border);margin:0 4px;}
+.chip-filters{display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0;overflow:hidden;}
+.chip-filter-block{display:flex;flex-direction:column;gap:4px;min-width:0;}
+.chip-filter-label{font-size:10px;text-transform:uppercase;letter-spacing:.45px;color:var(--muted);font-weight:700;}
+.filter-chip-group{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;max-width:100%;}
+.filter-chip-group::-webkit-scrollbar{height:4px;}
+.filter-chip-group::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.filter-chip{border:1px solid var(--border);background:var(--surface);color:var(--text2);padding:3px 9px;border-radius:999px;font-size:12px;white-space:nowrap;cursor:pointer;display:inline-flex;align-items:center;gap:4px;}
+.filter-chip:hover{background:var(--bg);border-color:var(--border2);}
+.filter-chip.active{background:#0969DA;color:#fff;border-color:#0969DA;font-weight:600;}
+.filter-chip-count{font-family:var(--mono);font-size:11px;opacity:.9;}
+.chip-clear-btn{border:1px solid var(--border);background:var(--surface);color:var(--muted);padding:6px 10px;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;margin-left:auto;}
+.chip-clear-btn:hover{border-color:#0969DA;color:#0969DA;background:#EFF6FF;}
+.filter-select-hidden{display:none!important;}
 .refresh-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:14px;cursor:pointer;color:var(--text2);transition:all .2s;line-height:1;}
 .refresh-btn:hover{background:var(--bg);color:#0969DA;border-color:#0969DA;transform:rotate(90deg);}
 .board-toolbar select{font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;font-family:var(--sans);}

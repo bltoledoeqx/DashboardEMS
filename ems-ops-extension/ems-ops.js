@@ -636,6 +636,19 @@ a{text-decoration:none;}
 .board-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:10px;}
 .board-toolbar label{font-size:12px;font-weight:500;color:var(--text2);}
 .toolbar-sep{width:1px;height:20px;background:var(--border);margin:0 4px;}
+.chip-filters{display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0;overflow:hidden;}
+.chip-filter-block{display:flex;flex-direction:column;gap:4px;min-width:0;}
+.chip-filter-label{font-size:10px;text-transform:uppercase;letter-spacing:.45px;color:var(--muted);font-weight:700;}
+.filter-chip-group{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;max-width:100%;}
+.filter-chip-group::-webkit-scrollbar{height:4px;}
+.filter-chip-group::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.filter-chip{border:1px solid var(--border);background:var(--surface);color:var(--text2);padding:3px 9px;border-radius:999px;font-size:12px;white-space:nowrap;cursor:pointer;display:inline-flex;align-items:center;gap:4px;}
+.filter-chip:hover{background:var(--bg);border-color:var(--border2);}
+.filter-chip.active{background:#0969DA;color:#fff;border-color:#0969DA;font-weight:600;}
+.filter-chip-count{font-family:var(--mono);font-size:11px;opacity:.9;}
+.chip-clear-btn{border:1px solid var(--border);background:var(--surface);color:var(--muted);padding:6px 10px;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;margin-left:auto;}
+.chip-clear-btn:hover{border-color:#0969DA;color:#0969DA;background:#EFF6FF;}
+.filter-select-hidden{display:none!important;}
 .refresh-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:14px;cursor:pointer;color:var(--text2);transition:all .2s;line-height:1;}
 .refresh-btn:hover{background:var(--bg);color:#0969DA;border-color:#0969DA;transform:rotate(90deg);}
 .board-toolbar select{font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;font-family:var(--sans);}
@@ -946,21 +959,31 @@ tr:hover td{background:#F6F8FA;}
 
 <!-- Reports Accordion -->
   <div class="board-toolbar">
-    <label for="fila-sel">📌 Fila:</label>
-    <select id="fila-sel" onchange="switchFila(this.value)">
+    <div class="chip-filters">
+      <div class="chip-filter-block">
+        <span class="chip-filter-label">📌 Fila</span>
+        <div id="fila-chip-group" class="filter-chip-group"></div>
+      </div>
+      <div class="chip-filter-block">
+        <span class="chip-filter-label">👔 Manager</span>
+        <div id="manager-chip-group" class="filter-chip-group"></div>
+      </div>
+      <div class="chip-filter-block">
+        <span class="chip-filter-label">👤 Analista</span>
+        <div id="analyst-chip-group" class="filter-chip-group"></div>
+      </div>
+      <button class="chip-clear-btn" onclick="clearToolbarFilters()">Limpar filtros</button>
+    </div>
+    <select id="fila-sel" class="filter-select-hidden" onchange="switchFila(this.value)">
       <option value="all">Todos</option>
       <option value="l1">L1</option>
       <option value="l2">L2</option>
       <option value="event">Event</option>
     </select>
-    <div class="toolbar-sep"></div>
-    <label for="manager-sel">👔 Manager:</label>
-    <select id="manager-sel" onchange="switchManager(this.value)">
+    <select id="manager-sel" class="filter-select-hidden" onchange="switchManager(this.value)">
       <option value="">— Todos —</option>
     </select>
-    <div class="toolbar-sep"></div>
-    <label for="analyst-sel">👤 Analista:</label>
-    <select id="analyst-sel" onchange="switchAnalyst(this.value)">
+    <select id="analyst-sel" class="filter-select-hidden" onchange="switchAnalyst(this.value)">
       <option value="">— Todos —</option>
       ${(GROUP_MEMBERS['1c7c9057db6771d0832ead8ed396197a']||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
     </select>
@@ -1344,6 +1367,64 @@ function populateAnalystDropdown(selectId,key,managerId,placeholder){
   if(prev&&Array.from(sel.options).some(o=>o.value===prev)) sel.value=prev;
 }
 
+function renderFilterChips(){
+  const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const filaSel=document.getElementById('fila-sel');
+  const managerSel=document.getElementById('manager-sel');
+  const analystSel=document.getElementById('analyst-sel');
+  const filaGroup=document.getElementById('fila-chip-group');
+  const managerGroup=document.getElementById('manager-chip-group');
+  const analystGroup=document.getElementById('analyst-chip-group');
+  if(!filaSel||!managerSel||!analystSel||!filaGroup||!managerGroup||!analystGroup) return;
+
+  const queueCounts=window._queueCaseCounts||{};
+  const currentBoardCount=document.querySelectorAll('#board-wrap .card').length;
+  filaGroup.innerHTML=Array.from(filaSel.options).map(o=>{
+    const count=(queueCounts[o.value]??(o.value===filaSel.value?currentBoardCount:0));
+    const active=o.value===filaSel.value?' active':'';
+    return '<button class="filter-chip'+active+'" onclick="switchFila(\''+esc(o.value)+'\')" type="button">'+
+      '<span>'+esc(o.textContent)+'</span><span class="filter-chip-count">'+count+'</span></button>';
+  }).join('');
+
+  const gid=window._GID_MAP?.[currentFila]||'';
+  const managerCardsCount={};
+  const analystCardsCount={};
+  const managerList=(window._MANAGER_CACHE?.[gid]?.managers)||[];
+  const managerMemberMap={};
+  managerList.forEach(m=>{
+    managerMemberMap[m.id]=new Set(getMembersByManager(gid,m.id).map(x=>x.id));
+    managerCardsCount[m.id]=0;
+  });
+  const allCards=Array.from(document.querySelectorAll('#board-wrap .card'));
+  allCards.forEach(c=>{
+    const aid=c.dataset.assignedid||'';
+    if(aid) analystCardsCount[aid]=(analystCardsCount[aid]||0)+1;
+    Object.entries(managerMemberMap).forEach(([mid,set])=>{if(set.has(aid)) managerCardsCount[mid]=(managerCardsCount[mid]||0)+1;});
+  });
+
+  managerGroup.innerHTML=Array.from(managerSel.options).map(o=>{
+    const active=o.value===managerSel.value?' active':'';
+    const count=o.value?(managerCardsCount[o.value]||0):allCards.length;
+    return '<button class="filter-chip'+active+'" onclick="switchManager(\''+esc(o.value)+'\')" type="button">'+
+      '<span>'+esc(o.textContent.replace(/^—\s*|\s*—$/g,''))+'</span><span class="filter-chip-count">'+count+'</span></button>';
+  }).join('');
+
+  analystGroup.innerHTML=Array.from(analystSel.options).map(o=>{
+    const active=o.value===analystSel.value?' active':'';
+    const count=o.value?(analystCardsCount[o.value]||0):allCards.length;
+    return '<button class="filter-chip'+active+'" onclick="switchAnalyst(\''+esc(o.value)+'\')" type="button">'+
+      '<span>'+esc(o.textContent.replace(/^—\s*|\s*—$/g,''))+'</span><span class="filter-chip-count">'+count+'</span></button>';
+  }).join('');
+}
+
+function clearToolbarFilters(){
+  const managerSel=document.getElementById('manager-sel');
+  const analystSel=document.getElementById('analyst-sel');
+  if(managerSel) managerSel.value='';
+  if(analystSel) analystSel.value='';
+  switchManager('');
+}
+
 function getReportAssigneeFilter(gid){
   const analystId=document.getElementById('analyst-sel')?.value||'';
   const managerId=document.getElementById('manager-sel')?.value||'';
@@ -1499,6 +1580,11 @@ function switchFila(key){
   if(filaSelBacklog && filaSelBacklog.value!==safeKey) filaSelBacklog.value=safeKey;
   const ativosBoards={'all':${JSON.stringify(renderBoard('all',ativosMap))},'l1':${JSON.stringify(renderBoard('l1',ativosMap))},'l2':${JSON.stringify(renderBoard('l2',ativosMap))},'event':${JSON.stringify(renderBoard('event',ativosMap))}};
   const backlogBoards={'all':${JSON.stringify(renderBoard('all',backlogMap,false))},'l1':${JSON.stringify(renderBoard('l1',backlogMap,false))},'l2':${JSON.stringify(renderBoard('l2',backlogMap,false))},'event':${JSON.stringify(renderBoard('event',backlogMap,false))}};
+  window._queueCaseCounts=Object.fromEntries(Object.entries(ativosBoards).map(([k,html])=>{
+    const c=(html||'').match(/data-count="(\d+)"/g)||[];
+    const total=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,''),10),0);
+    return [k,total];
+  }));
   const bAtivos=document.getElementById('board-wrap');
   const bBacklog=document.getElementById('board-wrap-backlog-tab');
   if(bAtivos)bAtivos.innerHTML=ativosBoards[safeKey]||'';
@@ -1516,6 +1602,7 @@ function switchFila(key){
     syncBacklogAnalystDropdown();
     switchAnalyst(document.getElementById('analyst-sel')?.value||'');
     applyAnalystTableFilter();
+    renderFilterChips();
   });
   document.getElementById('analyst-board-content').innerHTML='';
   ['resolved-month-score-l1','resolved-month-score-l2','resolved-month-score-event'].forEach(id=>{
@@ -1524,6 +1611,7 @@ function switchFila(key){
   });
   ['sem-type-score','last-interacted-score','support-attention-score','customer-satisfaction-score'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
   fetchAccordionScores();
+  renderFilterChips();
 }
 
 function updateReportsByFila(){
@@ -1554,6 +1642,7 @@ function switchManager(managerId){
   syncBacklogAnalystDropdown();
   const analystId=document.getElementById('analyst-sel')?.value||'';
   switchAnalyst(analystId);
+  renderFilterChips();
 }
 
 function syncBacklogAnalystDropdown(){
@@ -2143,6 +2232,7 @@ function switchAnalyst(userId){
 
   applyAnalystTableFilter();
   fetchAccordionScores();
+  renderFilterChips();
 
   if(!userId){return;}
   const name=(window._GMEMBERS[gid]||[]).find(m=>m.id===userId)?.name||'Analista';
@@ -2721,6 +2811,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
     populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
     syncBacklogAnalystDropdown();
+    renderFilterChips();
   });
   document.querySelectorAll('th[data-col]').forEach(th=>{th.addEventListener('click',e=>{e.stopPropagation();openFil(th,parseInt(th.getAttribute('data-col')));});});
   pgInit();
@@ -2737,6 +2828,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     else setTimeout(tryInitAccordion,500);
   }
   updateReportsByFila();
+  renderFilterChips();
   // Start layered polling
 	  startPolling();
     initCardDragAndDrop();
@@ -2745,6 +2837,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   Object.assign(window,{
     showPage,changeMes,boardSearch,refreshKanban,refreshBacklog,refreshPostmortem,
     switchFila,switchFilaBacklog,switchManager,switchAnalyst,switchAnalystBacklogFromToolbar,switchResolvedTodayQueue,
+    clearToolbarFilters,
     toggleSection,openCaseModal,openCaseModalBtn,
     openImpactUrgencyBtn,openReassignBtn,closeImpactUrgencyEditor,
     closeCaseModal,modalReassign,
