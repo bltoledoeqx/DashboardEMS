@@ -636,7 +636,7 @@ a{text-decoration:none;}
 .board-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:10px;}
 .board-toolbar label{font-size:12px;font-weight:500;color:var(--text2);}
 .toolbar-sep{width:1px;height:20px;background:var(--border);margin:0 4px;}
-.chip-filters{display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0;overflow:hidden;}
+.chip-filters{display:flex;align-items:flex-start;gap:10px;min-width:170px;max-width:280px;}
 .chip-filter-block{display:flex;flex-direction:column;gap:4px;min-width:0;}
 .chip-filter-label{font-size:10px;text-transform:uppercase;letter-spacing:.45px;color:var(--muted);font-weight:700;}
 .filter-chip-group{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;max-width:100%;}
@@ -964,15 +964,6 @@ tr:hover td{background:#F6F8FA;}
         <span class="chip-filter-label">📌 Fila</span>
         <div id="fila-chip-group" class="filter-chip-group"></div>
       </div>
-      <div class="chip-filter-block">
-        <span class="chip-filter-label">👔 Manager</span>
-        <div id="manager-chip-group" class="filter-chip-group"></div>
-      </div>
-      <div class="chip-filter-block">
-        <span class="chip-filter-label">👤 Analista</span>
-        <div id="analyst-chip-group" class="filter-chip-group"></div>
-      </div>
-      <button class="chip-clear-btn" onclick="clearToolbarFilters()">Limpar filtros</button>
     </div>
     <select id="fila-sel" class="filter-select-hidden" onchange="switchFila(this.value)">
       <option value="all">Todos</option>
@@ -987,6 +978,8 @@ tr:hover td{background:#F6F8FA;}
       <option value="">— Todos —</option>
       ${(GROUP_MEMBERS['1c7c9057db6771d0832ead8ed396197a']||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
     </select>
+    <div class="toolbar-sep"></div>
+    <button class="chip-clear-btn" onclick="clearToolbarFilters()">Limpar filtros</button>
     <div class="toolbar-sep"></div>
     <div class="toolbar-search-wrap">
       <input id="board-search" type="text" placeholder="🔍 Buscar CS... ou Account..." oninput="boardSearch(this.value)" style="font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;width:220px;font-family:var(--sans);color:var(--text);">
@@ -1370,12 +1363,8 @@ function populateAnalystDropdown(selectId,key,managerId,placeholder){
 function renderFilterChips(){
   const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const filaSel=document.getElementById('fila-sel');
-  const managerSel=document.getElementById('manager-sel');
-  const analystSel=document.getElementById('analyst-sel');
   const filaGroup=document.getElementById('fila-chip-group');
-  const managerGroup=document.getElementById('manager-chip-group');
-  const analystGroup=document.getElementById('analyst-chip-group');
-  if(!filaSel||!managerSel||!analystSel||!filaGroup||!managerGroup||!analystGroup) return;
+  if(!filaSel||!filaGroup) return;
 
   const queueCounts=window._queueCaseCounts||{};
   const currentBoardCount=document.querySelectorAll('#board-wrap .card').length;
@@ -1386,36 +1375,6 @@ function renderFilterChips(){
       '<span>'+esc(o.textContent)+'</span><span class="filter-chip-count">'+count+'</span></button>';
   }).join('');
 
-  const gid=window._GID_MAP?.[currentFila]||'';
-  const managerCardsCount={};
-  const analystCardsCount={};
-  const managerList=(window._MANAGER_CACHE?.[gid]?.managers)||[];
-  const managerMemberMap={};
-  managerList.forEach(m=>{
-    managerMemberMap[m.id]=new Set(getMembersByManager(gid,m.id).map(x=>x.id));
-    managerCardsCount[m.id]=0;
-  });
-  const allCards=Array.from(document.querySelectorAll('#board-wrap .card'));
-  allCards.forEach(c=>{
-    const aid=c.dataset.assignedid||'';
-    if(aid) analystCardsCount[aid]=(analystCardsCount[aid]||0)+1;
-    Object.entries(managerMemberMap).forEach(([mid,set])=>{if(set.has(aid)) managerCardsCount[mid]=(managerCardsCount[mid]||0)+1;});
-  });
-
-  managerGroup.innerHTML=Array.from(managerSel.options).map(o=>{
-    const active=o.value===managerSel.value?' active':'';
-    const count=o.value?(managerCardsCount[o.value]||0):allCards.length;
-    return '<button class="filter-chip'+active+'" data-chip-type="manager" data-chip-value="'+esc(o.value)+'" type="button">'+
-      '<span>'+esc(o.textContent.replace(/^—\s*|\s*—$/g,''))+'</span><span class="filter-chip-count">'+count+'</span></button>';
-  }).join('');
-
-  analystGroup.innerHTML=Array.from(analystSel.options).map(o=>{
-    const active=o.value===analystSel.value?' active':'';
-    const count=o.value?(analystCardsCount[o.value]||0):allCards.length;
-    return '<button class="filter-chip'+active+'" data-chip-type="analyst" data-chip-value="'+esc(o.value)+'" type="button">'+
-      '<span>'+esc(o.textContent.replace(/^—\s*|\s*—$/g,''))+'</span><span class="filter-chip-count">'+count+'</span></button>';
-  }).join('');
-
   document.querySelectorAll('.filter-chip[data-chip-type]').forEach(btn=>{
     if(btn.dataset.bound==='1') return;
     btn.dataset.bound='1';
@@ -1423,8 +1382,6 @@ function renderFilterChips(){
       const type=btn.dataset.chipType||'';
       const value=btn.dataset.chipValue||'';
       if(type==='fila') switchFila(value);
-      else if(type==='manager') switchManager(value);
-      else if(type==='analyst') switchAnalyst(value);
     });
   });
 }
