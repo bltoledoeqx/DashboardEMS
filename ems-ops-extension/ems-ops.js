@@ -936,11 +936,11 @@ tr:hover td{background:#F6F8FA;}
     <span class="h-ts">${ts}</span>
     <span class="h-count">${mesNome} ${YEAR} · Ativos: ${classified.length} (${ativosCount} ativos / ${backlogCount} backlog) · Post-mortem: ${postList.length}</span>
     <div class="header-icons">
-      <button class="top-icon-btn" title="Buscar">🔍</button>
-      <button class="top-icon-btn" title="Favoritos">✦</button>
-      <button class="top-icon-btn" title="Histórico">↻</button>
-      <button class="top-icon-btn" title="Notificações">🔔</button>
-      <button class="top-icon-btn" title="Configurações">⚙️</button>
+      <button class="top-icon-btn" title="Buscar" onclick="topAction('search')">🔍</button>
+      <button class="top-icon-btn" title="Favoritos" onclick="topAction('fav')">✦</button>
+      <button class="top-icon-btn" title="Histórico" onclick="topAction('refresh')">↻</button>
+      <button class="top-icon-btn" title="Notificações" onclick="topAction('alerts')">🔔</button>
+      <button class="top-icon-btn" title="Configurações" onclick="topAction('settings')">⚙️</button>
     </div>
   </div>
 </div>
@@ -1500,6 +1500,30 @@ function updateRequestsLabel(){
   const labels={all:'Todos os casos',l1:'L1',l2:'L2',event:'Event'};
   const btn=document.getElementById('req-all-btn');
   if(btn) btn.textContent='🛡️ '+(labels[currentFila]||'Todos os casos')+' ▾';
+}
+
+function topAction(kind){
+  if(kind==='search'){
+    const inp=document.getElementById('board-search');
+    if(inp){inp.focus();inp.select?.();}
+    return;
+  }
+  if(kind==='refresh'){
+    refreshKanban();
+    return;
+  }
+  if(kind==='settings'){
+    const fakeEvent={stopPropagation(){},preventDefault(){}};
+    toggleFilterMenu(fakeEvent);
+    return;
+  }
+  if(kind==='alerts'){
+    showToast('🔔 Sem novas notificações');
+    return;
+  }
+  if(kind==='fav'){
+    showToast('⭐ Favoritos em breve');
+  }
 }
 
 function getReportAssigneeFilter(gid){
@@ -2921,10 +2945,19 @@ document.addEventListener('DOMContentLoaded',()=>{
     else setTimeout(tryInitAccordion,500);
   }
   const reportsWrap=document.getElementById('reports-page-wrap');
+  const reportsPage=document.getElementById('page-reports');
+  const kanbanPage=document.getElementById('page-kanban');
+  if(reportsPage&&kanbanPage&&reportsPage.parentElement===kanbanPage){
+    kanbanPage.insertAdjacentElement('afterend',reportsPage);
+  }
   const accWrap=document.getElementById('accordion-wrap');
   if(reportsWrap&&accWrap){
     accWrap.style.display='block';
     reportsWrap.appendChild(accWrap);
+    const accBody=document.getElementById('acc-body-analyst');
+    const accArrow=document.getElementById('acc-arrow-analyst');
+    if(accBody){accBody.style.display='block';accBody.dataset.open='1';}
+    if(accArrow) accArrow.style.transform='rotate(180deg)';
   }
   updateReportsByFila();
   renderFilterChips();
@@ -2944,7 +2977,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   Object.assign(window,{
     showPage,activateSide,changeMes,boardSearch,refreshKanban,refreshBacklog,refreshPostmortem,
     switchFila,switchFilaBacklog,switchManager,switchAnalyst,switchAnalystBacklogFromToolbar,switchResolvedTodayQueue,
-    clearToolbarFilters,toggleQueueMenu,toggleFilterMenu,closeReqMenus,toggleSlaSort,
+    clearToolbarFilters,toggleQueueMenu,toggleFilterMenu,closeReqMenus,toggleSlaSort,topAction,
     toggleSection,openCaseModal,openCaseModalBtn,
     openImpactUrgencyBtn,openReassignBtn,closeImpactUrgencyEditor,
     closeCaseModal,modalReassign,
