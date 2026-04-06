@@ -998,6 +998,8 @@ tr:hover td{background:#F6F8FA;}
       <button class="req-icon-btn" onclick="toggleSlaSort()" id="sla-sort-btn" title="Ordenar por SLA">⇅ SLA</button>
     </div>
     <div class="toolbar-sep"></div>
+    <button class="chip-clear-btn" onclick="clearToolbarFilters()">Limpar filtros</button>
+    <div class="toolbar-sep"></div>
     <div class="toolbar-search-wrap">
       <input id="board-search" type="text" placeholder="🔍 Buscar CS... ou Account..." oninput="boardSearch(this.value)" style="font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;width:220px;font-family:var(--sans);color:var(--text);">
       <button onclick="boardSearch('');document.getElementById('board-search').value='';" style="font-size:11px;padding:3px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--muted);cursor:pointer;margin-left:3px;">✕</button>
