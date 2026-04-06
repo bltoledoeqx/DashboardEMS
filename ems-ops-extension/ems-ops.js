@@ -78,6 +78,16 @@ function runEMSOps(userToken, userMes) {
     const now       = Date.now();
     const fmtH      = h => h===null ? '—' : `${parseFloat(h).toFixed(1)}h`;
     const hFrom     = d => { const x=new Date(d); return isNaN(x)?null:(now-x)/3600000; };
+    const fmtOpened = d => {
+      const x = new Date(d);
+      if (isNaN(x)) return '—';
+      return x.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', '');
+    };
+    const initials = name => {
+      const txt = (name || '').trim();
+      if (!txt) return 'SR';
+      return txt.split(/\s+/).slice(0,2).map(p=>p.charAt(0).toUpperCase()).join('') || 'SR';
+    };
     const caseUrl   = n => `${BASE}/sn_customerservice_case.do?sysparm_query=number=${n}`;
     const prioColor = p => (['','#CF222E','#BF8700','#0550AE','#1A7F37','#57606A'][p]||'#57606A');
     const mesNome   = MES_NAMES[m-1];
@@ -253,6 +263,7 @@ function runEMSOps(userToken, userMes) {
       <div class="card card-${c.lane}" data-sysid="${c.sysId}" data-assignedid="${c.assignedId||''}" data-assignedname="${c.assigned||''}" data-impact="${c.impactVal||''}" data-urgency="${c.urgencyVal||''}" onclick="openCaseModal('${c.sysId}','${c.number}',this)">
         <div class="card-top">
           <a class="card-num" href="${c.url}" target="_blank">${c.number} ↗</a>
+          <span class="card-prio-badge card-prio-${c.prio}">${c.priority}</span>
           ${c.isAw?`<span class="badge-await">⏳ ${c.state}</span>`:''}
           ${c.isInternal?`<span class="badge-internal">🔒 Internal</span>`:''}
           <button class="card-iu-btn" title="Alterar Impact/Urgency" data-sysid="${c.sysId}" data-impact="${c.impactVal||''}" data-urgency="${c.urgencyVal||''}" onclick="openImpactUrgencyBtn(event,this)">⚡ I/U</button>
@@ -261,14 +272,16 @@ function runEMSOps(userToken, userMes) {
         <p class="card-desc">${c.desc||'—'}</p>
         ${renderSlaBar(c.sl)}
         <div class="card-tags">
-          <span class="tag" style="color:${prioColor(c.prio)};background:${prioColor(c.prio)}15;border-color:${prioColor(c.prio)}40">${c.priority}</span>
           <span class="tag tag-state">${c.state}</span>
           ${c.uType?`<span class="tag tag-type">${c.uType}</span>`:''}
           <span class="tag tag-iu">I:${c.impactVal||'—'} · U:${c.urgencyVal||'—'}</span>
         </div>
         <div class="card-footer">
-          <span class="card-assigned ${c.noAss?'unassigned':''}">${c.noAss?'⚠ Sem responsável':'👤 '+c.assigned}</span>
-          <span class="card-time">⏰ ${c.openH}</span>
+          <span class="card-assigned ${c.noAss?'unassigned':''}">
+            <span class="card-avatar">${c.noAss?'!':initials(c.assigned)}</span>
+            <span>${c.noAss?'Sem responsável':c.assigned}</span>
+          </span>
+          <span class="card-time">📅 ${fmtOpened(c.openedAt)}</span>
         </div>
       </div>`;
 
@@ -569,7 +582,7 @@ a{text-decoration:none;}
 .acc-badge{font-family:var(--mono);font-size:11px;color:var(--muted);background:var(--bg);padding:2px 8px;border-radius:10px;border:1px solid var(--border);}
 .acc-arrow{font-size:12px;color:var(--muted);transition:transform .2s;margin-left:4px;}
 .accordion-body{padding:10px 16px 12px;border-top:1px solid var(--border);background:var(--bg);}
-.acc-grid{display:flex;gap:8px;align-items:flex-start;justify-content:space-between;}
+.acc-grid{display:flex;gap:8px;align-items:flex-start;justify-content:flex-start;}
 .acc-report-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;flex-shrink:0;}
 /* Analyst table */
 .acc-report-card.acc-analyst{width:250px;overflow:hidden;}
@@ -623,6 +636,19 @@ a{text-decoration:none;}
 .board-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:10px;}
 .board-toolbar label{font-size:12px;font-weight:500;color:var(--text2);}
 .toolbar-sep{width:1px;height:20px;background:var(--border);margin:0 4px;}
+.chip-filters{display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0;overflow:hidden;}
+.chip-filter-block{display:flex;flex-direction:column;gap:4px;min-width:0;}
+.chip-filter-label{font-size:10px;text-transform:uppercase;letter-spacing:.45px;color:var(--muted);font-weight:700;}
+.filter-chip-group{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;max-width:100%;}
+.filter-chip-group::-webkit-scrollbar{height:4px;}
+.filter-chip-group::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+.filter-chip{border:1px solid var(--border);background:var(--surface);color:var(--text2);padding:3px 9px;border-radius:999px;font-size:12px;white-space:nowrap;cursor:pointer;display:inline-flex;align-items:center;gap:4px;}
+.filter-chip:hover{background:var(--bg);border-color:var(--border2);}
+.filter-chip.active{background:#0969DA;color:#fff;border-color:#0969DA;font-weight:600;}
+.filter-chip-count{font-family:var(--mono);font-size:11px;opacity:.9;}
+.chip-clear-btn{border:1px solid var(--border);background:var(--surface);color:var(--muted);padding:6px 10px;border-radius:8px;font-size:12px;cursor:pointer;white-space:nowrap;margin-left:auto;}
+.chip-clear-btn:hover{border-color:#0969DA;color:#0969DA;background:#EFF6FF;}
+.filter-select-hidden{display:none!important;}
 .refresh-btn{background:none;border:1px solid var(--border);border-radius:6px;padding:3px 8px;font-size:14px;cursor:pointer;color:var(--text2);transition:all .2s;line-height:1;}
 .refresh-btn:hover{background:var(--bg);color:#0969DA;border-color:#0969DA;transform:rotate(90deg);}
 .board-toolbar select{font-size:13px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);cursor:pointer;font-family:var(--sans);}
@@ -766,9 +792,15 @@ a{text-decoration:none;}
 .card-critical{border-left-color:var(--red)}.card-high{border-left-color:var(--ora)}
 .card-medium{border-left-color:var(--blue)}.card-normal{border-left-color:var(--green)}
 .card-awaiting{border-left-color:var(--await)}.card-orphan{border-left-color:var(--gray)}
-.card-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;gap:6px;}
+.card-top{display:flex;align-items:center;justify-content:flex-start;margin-bottom:4px;gap:6px;flex-wrap:wrap;}
 .card-num{font-family:var(--mono);font-size:11px;font-weight:600;color:#0969DA;}
 .card-num:hover{text-decoration:underline;}
+.card-prio-badge{font-size:10px;font-weight:700;border-radius:999px;padding:2px 8px;color:#fff;line-height:1.3;}
+.card-prio-1{background:#CF222E;}
+.card-prio-2{background:#BF8700;}
+.card-prio-3{background:#0550AE;}
+.card-prio-4{background:#1A7F37;}
+.card-prio-5{background:#6E7781;}
 .badge-await{font-size:10px;background:#DBEAFE;color:#1D4ED8;border:1px solid #BFDBFE;padding:1px 6px;border-radius:4px;}
 .badge-internal{font-size:9px;padding:1px 6px;border-radius:4px;background:#F3E8FF;color:#7C3AED;font-weight:600;border:1px solid #DDD6FE;}
 .card-desc{font-size:12px;line-height:1.45;color:var(--text);margin-bottom:8px;}
@@ -784,9 +816,12 @@ a{text-decoration:none;}
 .tag-state{background:#EFF2F5;color:#0550AE;border-color:#B6C4D1;}
 .tag-type{background:#FFF8C5;color:#7D4E00;border-color:#E3B34160;}
 .card-footer{display:flex;justify-content:space-between;align-items:center;}
-.card-assigned{font-size:10px;color:var(--muted);}
+.card-assigned{font-size:10px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;max-width:70%;}
 .card-assigned.unassigned{color:var(--ora);font-weight:600;}
-.card-time{font-family:var(--mono);font-size:10px;color:var(--muted);}
+.card-avatar{width:20px;height:20px;border-radius:50%;background:#DDF4FF;color:#0550AE;font-size:9px;font-weight:700;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid #BFDBFE;}
+.card-assigned.unassigned .card-avatar{background:#FFF8C5;color:#9A6700;border-color:#E3B341;}
+.card-assigned span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.card-time{font-family:var(--mono);font-size:10px;color:#0550AE;background:#EFF6FF;border:1px solid #BFDBFE;padding:2px 6px;border-radius:999px;}
 
 /* POST-MORTEM */
 .pm-wrap{padding:18px 20px;}
@@ -924,21 +959,31 @@ tr:hover td{background:#F6F8FA;}
 
 <!-- Reports Accordion -->
   <div class="board-toolbar">
-    <label for="fila-sel">📌 Fila:</label>
-    <select id="fila-sel" onchange="switchFila(this.value)">
+    <div class="chip-filters">
+      <div class="chip-filter-block">
+        <span class="chip-filter-label">📌 Fila</span>
+        <div id="fila-chip-group" class="filter-chip-group"></div>
+      </div>
+      <div class="chip-filter-block">
+        <span class="chip-filter-label">👔 Manager</span>
+        <div id="manager-chip-group" class="filter-chip-group"></div>
+      </div>
+      <div class="chip-filter-block">
+        <span class="chip-filter-label">👤 Analista</span>
+        <div id="analyst-chip-group" class="filter-chip-group"></div>
+      </div>
+      <button class="chip-clear-btn" onclick="clearToolbarFilters()">Limpar filtros</button>
+    </div>
+    <select id="fila-sel" class="filter-select-hidden" onchange="switchFila(this.value)">
       <option value="all">Todos</option>
       <option value="l1">L1</option>
       <option value="l2">L2</option>
       <option value="event">Event</option>
     </select>
-    <div class="toolbar-sep"></div>
-    <label for="manager-sel">👔 Manager:</label>
-    <select id="manager-sel" onchange="switchManager(this.value)">
+    <select id="manager-sel" class="filter-select-hidden" onchange="switchManager(this.value)">
       <option value="">— Todos —</option>
     </select>
-    <div class="toolbar-sep"></div>
-    <label for="analyst-sel">👤 Analista:</label>
-    <select id="analyst-sel" onchange="switchAnalyst(this.value)">
+    <select id="analyst-sel" class="filter-select-hidden" onchange="switchAnalyst(this.value)">
       <option value="">— Todos —</option>
       ${(GROUP_MEMBERS['1c7c9057db6771d0832ead8ed396197a']||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
     </select>
@@ -1322,6 +1367,76 @@ function populateAnalystDropdown(selectId,key,managerId,placeholder){
   if(prev&&Array.from(sel.options).some(o=>o.value===prev)) sel.value=prev;
 }
 
+function renderFilterChips(){
+  const esc=s=>String(s??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const filaSel=document.getElementById('fila-sel');
+  const managerSel=document.getElementById('manager-sel');
+  const analystSel=document.getElementById('analyst-sel');
+  const filaGroup=document.getElementById('fila-chip-group');
+  const managerGroup=document.getElementById('manager-chip-group');
+  const analystGroup=document.getElementById('analyst-chip-group');
+  if(!filaSel||!managerSel||!analystSel||!filaGroup||!managerGroup||!analystGroup) return;
+
+  const queueCounts=window._queueCaseCounts||{};
+  const currentBoardCount=document.querySelectorAll('#board-wrap .card').length;
+  filaGroup.innerHTML=Array.from(filaSel.options).map(o=>{
+    const count=(queueCounts[o.value]??(o.value===filaSel.value?currentBoardCount:0));
+    const active=o.value===filaSel.value?' active':'';
+    return '<button class="filter-chip'+active+'" data-chip-type="fila" data-chip-value="'+esc(o.value)+'" type="button">'+
+      '<span>'+esc(o.textContent)+'</span><span class="filter-chip-count">'+count+'</span></button>';
+  }).join('');
+
+  const gid=window._GID_MAP?.[currentFila]||'';
+  const managerCardsCount={};
+  const analystCardsCount={};
+  const managerList=(window._MANAGER_CACHE?.[gid]?.managers)||[];
+  const managerMemberMap={};
+  managerList.forEach(m=>{
+    managerMemberMap[m.id]=new Set(getMembersByManager(gid,m.id).map(x=>x.id));
+    managerCardsCount[m.id]=0;
+  });
+  const allCards=Array.from(document.querySelectorAll('#board-wrap .card'));
+  allCards.forEach(c=>{
+    const aid=c.dataset.assignedid||'';
+    if(aid) analystCardsCount[aid]=(analystCardsCount[aid]||0)+1;
+    Object.entries(managerMemberMap).forEach(([mid,set])=>{if(set.has(aid)) managerCardsCount[mid]=(managerCardsCount[mid]||0)+1;});
+  });
+
+  managerGroup.innerHTML=Array.from(managerSel.options).map(o=>{
+    const active=o.value===managerSel.value?' active':'';
+    const count=o.value?(managerCardsCount[o.value]||0):allCards.length;
+    return '<button class="filter-chip'+active+'" data-chip-type="manager" data-chip-value="'+esc(o.value)+'" type="button">'+
+      '<span>'+esc(o.textContent.replace(/^—\s*|\s*—$/g,''))+'</span><span class="filter-chip-count">'+count+'</span></button>';
+  }).join('');
+
+  analystGroup.innerHTML=Array.from(analystSel.options).map(o=>{
+    const active=o.value===analystSel.value?' active':'';
+    const count=o.value?(analystCardsCount[o.value]||0):allCards.length;
+    return '<button class="filter-chip'+active+'" data-chip-type="analyst" data-chip-value="'+esc(o.value)+'" type="button">'+
+      '<span>'+esc(o.textContent.replace(/^—\s*|\s*—$/g,''))+'</span><span class="filter-chip-count">'+count+'</span></button>';
+  }).join('');
+
+  document.querySelectorAll('.filter-chip[data-chip-type]').forEach(btn=>{
+    if(btn.dataset.bound==='1') return;
+    btn.dataset.bound='1';
+    btn.addEventListener('click',()=>{
+      const type=btn.dataset.chipType||'';
+      const value=btn.dataset.chipValue||'';
+      if(type==='fila') switchFila(value);
+      else if(type==='manager') switchManager(value);
+      else if(type==='analyst') switchAnalyst(value);
+    });
+  });
+}
+
+function clearToolbarFilters(){
+  const managerSel=document.getElementById('manager-sel');
+  const analystSel=document.getElementById('analyst-sel');
+  if(managerSel) managerSel.value='';
+  if(analystSel) analystSel.value='';
+  switchManager('');
+}
+
 function getReportAssigneeFilter(gid){
   const analystId=document.getElementById('analyst-sel')?.value||'';
   const managerId=document.getElementById('manager-sel')?.value||'';
@@ -1477,6 +1592,11 @@ function switchFila(key){
   if(filaSelBacklog && filaSelBacklog.value!==safeKey) filaSelBacklog.value=safeKey;
   const ativosBoards={'all':${JSON.stringify(renderBoard('all',ativosMap))},'l1':${JSON.stringify(renderBoard('l1',ativosMap))},'l2':${JSON.stringify(renderBoard('l2',ativosMap))},'event':${JSON.stringify(renderBoard('event',ativosMap))}};
   const backlogBoards={'all':${JSON.stringify(renderBoard('all',backlogMap,false))},'l1':${JSON.stringify(renderBoard('l1',backlogMap,false))},'l2':${JSON.stringify(renderBoard('l2',backlogMap,false))},'event':${JSON.stringify(renderBoard('event',backlogMap,false))}};
+  window._queueCaseCounts=Object.fromEntries(Object.entries(ativosBoards).map(([k,html])=>{
+    const c=(html||'').match(/data-count="(\d+)"/g)||[];
+    const total=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,''),10),0);
+    return [k,total];
+  }));
   const bAtivos=document.getElementById('board-wrap');
   const bBacklog=document.getElementById('board-wrap-backlog-tab');
   if(bAtivos)bAtivos.innerHTML=ativosBoards[safeKey]||'';
@@ -1494,6 +1614,7 @@ function switchFila(key){
     syncBacklogAnalystDropdown();
     switchAnalyst(document.getElementById('analyst-sel')?.value||'');
     applyAnalystTableFilter();
+    renderFilterChips();
   });
   document.getElementById('analyst-board-content').innerHTML='';
   ['resolved-month-score-l1','resolved-month-score-l2','resolved-month-score-event'].forEach(id=>{
@@ -1502,15 +1623,19 @@ function switchFila(key){
   });
   ['sem-type-score','last-interacted-score','support-attention-score','customer-satisfaction-score'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
   fetchAccordionScores();
+  renderFilterChips();
 }
 
 function updateReportsByFila(){
   const key=currentFila||'all';
   const showAll=key==='all';
+  const accGrid=document.querySelector('.acc-grid');
+  if(accGrid) accGrid.style.justifyContent=showAll?'space-between':'flex-start';
   const analystWrap=document.querySelector('.acc-analyst-wrap');
   if(analystWrap) analystWrap.style.display=showAll?'none':'flex';
   const kpiCol=document.querySelector('.acc-kpis-col');
   if(kpiCol){
+    kpiCol.style.flex=showAll?'':'1';
     kpiCol.style.width=showAll?'100%':'';
     kpiCol.style.maxWidth=showAll?'100%':'';
   }
@@ -1529,6 +1654,7 @@ function switchManager(managerId){
   syncBacklogAnalystDropdown();
   const analystId=document.getElementById('analyst-sel')?.value||'';
   switchAnalyst(analystId);
+  renderFilterChips();
 }
 
 function syncBacklogAnalystDropdown(){
@@ -1612,14 +1738,6 @@ function changeMes(m){
 }
 
 function toggleAcc(key){
-  if(key==='analyst'){
-    const bodyKeep=document.getElementById('acc-body-'+key);
-    if(bodyKeep) bodyKeep.style.display='block';
-    const arrowKeep=document.getElementById('acc-arrow-'+key);
-    if(arrowKeep) arrowKeep.style.transform='rotate(180deg)';
-    fetchAccordionScores();
-    return;
-  }
   const body=document.getElementById('acc-body-'+key);
   const arrow=document.getElementById('acc-arrow-'+key);
   if(!body)return;
@@ -1981,7 +2099,11 @@ function doReassign(sysId,userId,userName,groupId,el){
       const groupName=_ALL_GROUPS.find(g=>g.id===groupId)?.name||'';
       showToast('✅ Reatribuído para '+userName+(groupName?' ('+groupName+')':''));
       document.querySelectorAll('[data-sysid="'+sysId+'"] .card-assigned').forEach(el2=>{
-        el2.textContent='👤 '+userName;el2.classList.remove('unassigned');
+        const avatar=el2.querySelector('.card-avatar');
+        if(avatar) avatar.textContent=(userName||'').split(/\s+/).slice(0,2).map(p=>p.charAt(0).toUpperCase()).join('')||'SR';
+        const label=el2.querySelector('span:last-child');
+        if(label) label.textContent=userName;
+        el2.classList.remove('unassigned');
       });
       // Update reassign btn data
       document.querySelectorAll('[data-sysid="'+sysId+'"] .card-reassign-btn').forEach(b=>{
@@ -2122,6 +2244,7 @@ function switchAnalyst(userId){
 
   applyAnalystTableFilter();
   fetchAccordionScores();
+  renderFilterChips();
 
   if(!userId){return;}
   const name=(window._GMEMBERS[gid]||[]).find(m=>m.id===userId)?.name||'Analista';
@@ -2153,7 +2276,6 @@ function reapplyAnalystFilters(){
 function renderAnalystBoard(cases,analystName,gid,container){
   const now=Date.now();
   const AWAIT_S=new Set(['18','32','5','29','30']);
-  const prioColor=p=>(['','#CF222E','#BF8700','#0550AE','#1A7F37','#57606A'][p]||'#57606A');
   const fmtH=h=>h===null?'—':parseFloat(h).toFixed(1)+'h';
   const hFrom=d=>{const x=new Date(d);return isNaN(x)?null:(now-x)/3600000;};
   const caseUrl=n=>_BASE+'/sn_customerservice_case.do?sysparm_query=number='+n;
@@ -2166,7 +2288,7 @@ function renderAnalystBoard(cases,analystName,gid,container){
       desc:(c.short_description?.display_value||'').substring(0,60),priority:c.priority?.display_value||'N/A',
       prio,state:c.state?.display_value||'N/A',isAw,uType:c.u_type?.display_value||'',
       assigned:c.assigned_to?.display_value||null,gid,
-      openH:fmtH(hFrom(c.opened_at?.value)),sl:{st:'none',mins:null,pct:null,name:'—'},lane};
+      openedAt:c.opened_at?.value||'',openH:fmtH(hFrom(c.opened_at?.value)),sl:{st:'none',mins:null,pct:null,name:'—'},lane};
   };
   const classified=cases.map(classify);
   const lanes={critical:classified.filter(c=>c.lane==='critical'),high:classified.filter(c=>c.lane==='high'),
@@ -2180,18 +2302,28 @@ function renderAnalystBoard(cases,analystName,gid,container){
       :(sl.mins!==null?'<span class="sla-time">'+(sl.mins>=60?(sl.mins/60).toFixed(1)+'h':sl.mins+'min')+' rest.</span>':'');
     return '<div class="sla-bar-wrap"><div class="sla-bar-label"><span class="sla-bar-name">'+(sl.name||'SLA')+'</span><span class="sla-bar-pct" style="color:'+color+'">'+sl.pct+'%</span></div><div class="sla-bar-track"><div class="sla-bar-fill" style="width:'+pct+'%;background:'+color+'"></div></div>'+time+'</div>';
   };
+  const fmtOpenedA=d=>{
+    const x=new Date(d);
+    if(isNaN(x)) return '—';
+    return x.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}).replace(',','');
+  };
+  const initialsA=name=>{
+    const txt=(name||'').trim();
+    if(!txt) return 'SR';
+    return txt.split(/\s+/).slice(0,2).map(p=>p.charAt(0).toUpperCase()).join('')||'SR';
+  };
   const renderC=c=>'<div class="card card-'+c.lane+'" data-sysid="'+c.sysId+'" data-num="'+c.number+'" onclick="openCaseModalBtn(this)">'+
     '<div class="card-top"><a class="card-num" href="'+c.url+'" target="_blank" onclick="event.stopPropagation()">'+c.number+' ↗</a>'+
+    '<span class="card-prio-badge card-prio-'+(c.prio||5)+'">'+(c.priority||'N/A')+'</span>'+
     (c.isAw?'<span class="badge-await">⏳ '+c.state+'</span>':'')+
     '<button class="card-reassign-btn" title="Reatribuir" data-sysid="'+c.sysId+'" data-gid="'+c.gid+'" data-assigned="'+(c.assigned||'')+'" onclick="event.stopPropagation();openReassignBtn(event,this)">👤 ✎</button></div>'+
     '<p class="card-desc">'+c.desc+'</p>'+
     (c.sl?renderSlaA(c.sl):'')+
-    '<div class="card-tags"><span class="tag" style="color:'+prioColor(c.prio)+'">'+c.priority+'</span>'+
-    '<span class="tag tag-state">'+c.state+'</span>'+
+    '<div class="card-tags"><span class="tag tag-state">'+c.state+'</span>'+
     (c.uType?'<span class="tag tag-type">'+c.uType+'</span>':'')+
     '</div><div class="card-footer">'+
-    '<span class="card-assigned">👤 '+analystName+'</span>'+
-    '<span class="card-time">⏰ '+c.openH+'</span></div></div>';
+    '<span class="card-assigned"><span class="card-avatar">'+initialsA(analystName)+'</span><span>'+analystName+'</span></span>'+
+    '<span class="card-time">📅 '+fmtOpenedA(c.openedAt)+'</span></div></div>';
   const renderL=(laneKey,label,color,icon,items)=>'<div class="lane" data-lane="'+laneKey+'">'+
     '<div class="lane-hdr" style="border-top:3px solid '+color+'">'+
     '<div class="lane-title"><span class="lane-dot" style="background:'+color+'"></span>'+icon+' '+label+'</div>'+
@@ -2691,6 +2823,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
     populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
     syncBacklogAnalystDropdown();
+    renderFilterChips();
   });
   document.querySelectorAll('th[data-col]').forEach(th=>{th.addEventListener('click',e=>{e.stopPropagation();openFil(th,parseInt(th.getAttribute('data-col')));});});
   pgInit();
@@ -2707,6 +2840,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     else setTimeout(tryInitAccordion,500);
   }
   updateReportsByFila();
+  renderFilterChips();
   // Start layered polling
 	  startPolling();
     initCardDragAndDrop();
@@ -2715,6 +2849,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   Object.assign(window,{
     showPage,changeMes,boardSearch,refreshKanban,refreshBacklog,refreshPostmortem,
     switchFila,switchFilaBacklog,switchManager,switchAnalyst,switchAnalystBacklogFromToolbar,switchResolvedTodayQueue,
+    clearToolbarFilters,
     toggleSection,openCaseModal,openCaseModalBtn,
     openImpactUrgencyBtn,openReassignBtn,closeImpactUrgencyEditor,
     closeCaseModal,modalReassign,
@@ -2869,6 +3004,16 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
 
     function buildCardElement(data, lane) {
+      const initialsDelta = name => {
+        const txt = (name || '').trim();
+        if (!txt) return 'SR';
+        return txt.split(/\s+/).slice(0,2).map(p => p.charAt(0).toUpperCase()).join('') || 'SR';
+      };
+      const fmtOpenedDelta = d => {
+        const x = new Date(d);
+        if (isNaN(x)) return '—';
+        return x.toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }).replace(',', '');
+      };
       const number = data?.number?.display_value || '';
       const sysId = data?.sys_id?.value || '';
       const assName = data?.assigned_to?.display_value || '';
@@ -2877,12 +3022,11 @@ document.addEventListener('DOMContentLoaded',()=>{
       const isAwaiting = ['18','32','5','29','30'].includes(data?.state?.value || '');
       const priorityLabel = data?.priority?.display_value || 'N/A';
       const prioVal = parseInt(data?.priority?.value || '5', 10);
-      const colors = ['', '#CF222E', '#BF8700', '#0550AE', '#1A7F37', '#57606A'];
-      const prioColor = colors[prioVal] || '#57606A';
       const impactVal = data?.impact?.value || '—';
       const urgencyVal = data?.urgency?.value || '—';
       const gid = data?.assignment_group?.value || '';
       const desc = (data?.short_description?.display_value || '').substring(0, 60);
+      const openedAt = data?.opened_at?.value || '';
       const caseUrl = _BASE + '/sn_customerservice_case.do?sysparm_query=number=' + encodeURIComponent(number);
 
       const card = document.createElement('div');
@@ -2897,6 +3041,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       card.innerHTML =
         '<div class="card-top">' +
           '<a class="card-num" href="' + caseUrl + '" target="_blank">' + escapeHtml(number) + ' ↗</a>' +
+          '<span class="card-prio-badge card-prio-' + prioVal + '">' + escapeHtml(priorityLabel) + '</span>' +
           (isAwaiting ? '<span class="badge-await">⏳ ' + escapeHtml(stateLabel) + '</span>' : '') +
           '<button class="card-iu-btn" title="Alterar Impact/Urgency" data-sysid="' + escapeHtml(sysId) + '" data-impact="' + escapeHtml(impactVal) + '" data-urgency="' + escapeHtml(urgencyVal) + '" onclick="openImpactUrgencyBtn(event,this)">⚡ I/U</button>' +
           '<button class="card-reassign-btn" title="Reatribuir" data-sysid="' + escapeHtml(sysId) + '" data-gid="' + escapeHtml(gid) + '" data-assigned="' + escapeHtml(assName) + '" onclick="openReassignBtn(event,this)">👤 ✎</button>' +
@@ -2904,13 +3049,15 @@ document.addEventListener('DOMContentLoaded',()=>{
         '<p class="card-desc">' + escapeHtml(desc || '—') + '</p>' +
         '<div class="sla-bar-wrap"><span class="sla-bar-name" style="color:#0969DA">Atualizado agora</span></div>' +
         '<div class="card-tags">' +
-          '<span class="tag" style="color:' + prioColor + ';background:' + prioColor + '15;border-color:' + prioColor + '40">' + escapeHtml(priorityLabel) + '</span>' +
           '<span class="tag tag-state">' + escapeHtml(stateLabel) + '</span>' +
           '<span class="tag tag-iu">I:' + escapeHtml(impactVal) + ' · U:' + escapeHtml(urgencyVal) + '</span>' +
         '</div>' +
         '<div class="card-footer">' +
-          '<span class="card-assigned' + (assName ? '' : ' unassigned') + '">' + (assName ? ('👤 ' + escapeHtml(assName)) : '⚠ Sem responsável') + '</span>' +
-          '<span class="card-time">🔄 agora</span>' +
+          '<span class="card-assigned' + (assName ? '' : ' unassigned') + '">' +
+            '<span class="card-avatar">' + (assName ? initialsDelta(assName) : '!') + '</span>' +
+            '<span>' + (assName ? escapeHtml(assName) : 'Sem responsável') + '</span>' +
+          '</span>' +
+          '<span class="card-time">📅 ' + escapeHtml(fmtOpenedDelta(openedAt)) + '</span>' +
         '</div>';
 
       setTimeout(() => card.classList.remove('card-new'), 900);
@@ -2967,17 +3114,16 @@ document.addEventListener('DOMContentLoaded',()=>{
 
       const tags = card.querySelector('.card-tags');
       if (tags) {
-        const pTag = tags.querySelector('.tag:first-child');
-        if (pTag) {
-          pTag.textContent = data.priority.display_value;
-          const colors = ['', '#CF222E', '#BF8700', '#0550AE', '#1A7F37', '#57606A'];
-          const c = colors[parseInt(data.priority.value)] || '#57606A';
-          pTag.style.color = c; pTag.style.background = c + '15'; pTag.style.borderColor = c + '40';
-        }
         const sTag = tags.querySelector('.tag-state');
         if (sTag) sTag.textContent = data.state.display_value;
         const iuTag = tags.querySelector('.tag-iu');
         if (iuTag) iuTag.textContent = 'I:' + (data.impact?.value||'—') + ' · U:' + (data.urgency?.value||'—');
+      }
+      const prioBadge = card.querySelector('.card-prio-badge');
+      if (prioBadge) {
+        const pv = parseInt(data.priority?.value || '5', 10);
+        prioBadge.textContent = data.priority?.display_value || 'N/A';
+        prioBadge.className = 'card-prio-badge card-prio-' + pv;
       }
       
       const iuBtn = card.querySelector('.card-iu-btn');
@@ -2992,7 +3138,10 @@ document.addEventListener('DOMContentLoaded',()=>{
           const name = data.assigned_to?.display_value || '';
           card.dataset.assignedid = data.assigned_to?.value || '';
           card.dataset.assignedname = name;
-          ass.textContent = name ? '👤 ' + name : '⚠ Sem responsável';
+          const avatar = ass.querySelector('.card-avatar');
+          if (avatar) avatar.textContent = name ? name.split(/\s+/).slice(0,2).map(p=>p.charAt(0).toUpperCase()).join('') : '!';
+          const lbl = ass.querySelector('span:last-child');
+          if (lbl) lbl.textContent = name || 'Sem responsável';
           ass.className = 'card-assigned' + (name ? '' : ' unassigned');
         }
       }
