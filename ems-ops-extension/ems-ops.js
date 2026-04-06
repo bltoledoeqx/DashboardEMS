@@ -636,6 +636,19 @@ a{text-decoration:none;}
 .board-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:10px;}
 .board-toolbar label{font-size:12px;font-weight:500;color:var(--text2);}
 .toolbar-sep{width:1px;height:20px;background:var(--border);margin:0 4px;}
+.requests-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:8px 20px;display:flex;align-items:center;gap:10px;position:relative;}
+.requests-left{position:relative;display:flex;align-items:center;}
+.req-all-btn{border:none;background:transparent;color:var(--text);font-size:14px;cursor:pointer;font-weight:600;display:flex;align-items:center;gap:6px;padding:2px 0;}
+.requests-actions{display:flex;align-items:center;gap:8px;position:relative;}
+.req-icon-btn{border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;}
+.req-icon-btn.active{background:#EFF6FF;color:#0969DA;border-color:#0969DA;}
+.req-menu{position:absolute;top:34px;left:0;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(27,31,36,.12);padding:8px;z-index:400;display:flex;flex-direction:column;gap:6px;min-width:200px;}
+.req-menu button{background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px;text-align:left;font-size:12px;cursor:pointer;color:var(--text);}
+.req-menu button:hover{background:var(--bg);}
+.req-filter-menu{left:auto;right:0;min-width:260px;}
+.req-filter-menu label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.45px;font-weight:700;}
+.req-filter-menu select{font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
+.req-clear-btn{text-align:center!important;font-weight:600;}
 .chip-filters{display:flex;align-items:flex-start;gap:10px;min-width:170px;max-width:280px;}
 .chip-filter-block{display:flex;flex-direction:column;gap:4px;min-width:0;}
 .chip-filter-label{font-size:10px;text-transform:uppercase;letter-spacing:.45px;color:var(--muted);font-weight:700;}
@@ -958,26 +971,32 @@ tr:hover td{background:#F6F8FA;}
 </div>
 
 <!-- Reports Accordion -->
-  <div class="board-toolbar">
-    <div class="chip-filters">
-      <div class="chip-filter-block">
-        <span class="chip-filter-label">📌 Fila</span>
-        <div id="fila-chip-group" class="filter-chip-group"></div>
+  <div class="requests-toolbar">
+    <div class="requests-left">
+      <button class="req-all-btn" onclick="toggleQueueMenu(event)" id="req-all-btn">🛡️ Todos os casos ▾</button>
+      <div class="req-menu" id="req-queue-menu" style="display:none;">
+        <button type="button" onclick="switchFila('all');closeReqMenus();">Todos os casos</button>
+        <button type="button" onclick="switchFila('l1');closeReqMenus();">L1</button>
+        <button type="button" onclick="switchFila('l2');closeReqMenus();">L2</button>
+        <button type="button" onclick="switchFila('event');closeReqMenus();">Event</button>
       </div>
     </div>
-    <select id="fila-sel" class="filter-select-hidden" onchange="switchFila(this.value)">
-      <option value="all">Todos</option>
-      <option value="l1">L1</option>
-      <option value="l2">L2</option>
-      <option value="event">Event</option>
-    </select>
-    <select id="manager-sel" class="filter-select-hidden" onchange="switchManager(this.value)">
-      <option value="">— Todos —</option>
-    </select>
-    <select id="analyst-sel" class="filter-select-hidden" onchange="switchAnalyst(this.value)">
-      <option value="">— Todos —</option>
-      ${(GROUP_MEMBERS['1c7c9057db6771d0832ead8ed396197a']||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
-    </select>
+    <div class="requests-actions">
+      <button class="req-icon-btn" onclick="toggleFilterMenu(event)" title="Filtrar Manager e Analista">⚙️</button>
+      <div class="req-menu req-filter-menu" id="req-filter-menu" style="display:none;">
+        <label for="manager-sel">Manager</label>
+        <select id="manager-sel" onchange="switchManager(this.value)">
+          <option value="">— Todos —</option>
+        </select>
+        <label for="analyst-sel">Analista</label>
+        <select id="analyst-sel" onchange="switchAnalyst(this.value)">
+          <option value="">— Todos —</option>
+          ${(GROUP_MEMBERS['1c7c9057db6771d0832ead8ed396197a']||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
+        </select>
+        <button type="button" class="req-clear-btn" onclick="clearToolbarFilters();closeReqMenus();">Limpar filtros</button>
+      </div>
+      <button class="req-icon-btn" onclick="toggleSlaSort()" id="sla-sort-btn" title="Ordenar por SLA">⇅ SLA</button>
+    </div>
     <div class="toolbar-sep"></div>
     <button class="chip-clear-btn" onclick="clearToolbarFilters()">Limpar filtros</button>
     <div class="toolbar-sep"></div>
@@ -987,9 +1006,15 @@ tr:hover td{background:#F6F8FA;}
     </div>
     <div class="toolbar-sep"></div>
     <button onclick="refreshKanban()" class="refresh-btn" title="Atualizar Cases Ativos">↻</button>
+    <select id="fila-sel" class="filter-select-hidden" onchange="switchFila(this.value)">
+      <option value="all">Todos</option>
+      <option value="l1">L1</option>
+      <option value="l2">L2</option>
+      <option value="event">Event</option>
+    </select>
   </div>
   <!-- Reports accordion (only in Cases Ativos) -->
-  <div class="accordion-wrap" id="accordion-wrap">
+  <div class="accordion-wrap" id="accordion-wrap" style="display:none;">
   <div class="accordion-item" id="acc-analyst">
     <div class="accordion-hdr" id="acc-hdr-analyst">
       <span class="acc-icon">📊</span>
@@ -1098,7 +1123,7 @@ tr:hover td{background:#F6F8FA;}
   <div id="_at_event" style="display:none">${analyticsEvent}</div>
   <!-- Section 1: Ativos -->
   <div class="board-section" id="section-ativos">
-    <div class="section-hdr" onclick="toggleSection('ativos')">
+    <div class="section-hdr" onclick="toggleSection('ativos')" style="display:none;">
       <span class="section-icon" id="section-icon-ativos">▾</span>
       <span class="section-title">📋 Cases Ativos</span>
       <span class="section-badge" id="section-badge-ativos">${ativosCount} cases · <20 dias</span>
@@ -1394,6 +1419,63 @@ function clearToolbarFilters(){
   switchManager('');
 }
 
+function closeReqMenus(){
+  const qm=document.getElementById('req-queue-menu');
+  const fm=document.getElementById('req-filter-menu');
+  if(qm) qm.style.display='none';
+  if(fm) fm.style.display='none';
+}
+
+function toggleQueueMenu(e){
+  e?.stopPropagation?.();
+  const qm=document.getElementById('req-queue-menu');
+  const fm=document.getElementById('req-filter-menu');
+  if(!qm) return;
+  if(fm) fm.style.display='none';
+  qm.style.display=(qm.style.display==='none'||!qm.style.display)?'flex':'none';
+}
+
+function toggleFilterMenu(e){
+  e?.stopPropagation?.();
+  const qm=document.getElementById('req-queue-menu');
+  const fm=document.getElementById('req-filter-menu');
+  if(!fm) return;
+  if(qm) qm.style.display='none';
+  fm.style.display=(fm.style.display==='none'||!fm.style.display)?'flex':'none';
+}
+
+let _slaSortOn=false;
+function getCardSlaScore(card){
+  if(!card) return 0;
+  const pct=parseInt((card.querySelector('.sla-bar-pct')?.textContent||'0').replace(/\D/g,''),10)||0;
+  const timeTxt=(card.querySelector('.sla-time')?.textContent||'').toUpperCase();
+  if(timeTxt.includes('BREACH')) return 1000+pct;
+  return pct;
+}
+function applySlaSort(){
+  document.querySelectorAll('#board-wrap .lane .lane-body').forEach(body=>{
+    const cards=Array.from(body.querySelectorAll('.card'));
+    cards.sort((a,b)=>getCardSlaScore(b)-getCardSlaScore(a));
+    cards.forEach(c=>body.appendChild(c));
+  });
+}
+function toggleSlaSort(){
+  _slaSortOn=!_slaSortOn;
+  const btn=document.getElementById('sla-sort-btn');
+  if(btn) btn.classList.toggle('active',_slaSortOn);
+  if(_slaSortOn){
+    applySlaSort();
+  }else{
+    switchFila(currentFila);
+  }
+}
+
+function updateRequestsLabel(){
+  const labels={all:'Todos os casos',l1:'L1',l2:'L2',event:'Event'};
+  const btn=document.getElementById('req-all-btn');
+  if(btn) btn.textContent='🛡️ '+(labels[currentFila]||'Todos os casos')+' ▾';
+}
+
 function getReportAssigneeFilter(gid){
   const analystId=document.getElementById('analyst-sel')?.value||'';
   const managerId=document.getElementById('manager-sel')?.value||'';
@@ -1543,6 +1625,8 @@ function initCardDragAndDrop(){
 function switchFila(key){
   const safeKey=['all','l1','l2','event'].includes(key)?key:'all';
   currentFila=safeKey;
+  updateRequestsLabel();
+  closeReqMenus();
   const filaSel=document.getElementById('fila-sel');
   if(filaSel && filaSel.value!==safeKey) filaSel.value=safeKey;
   const filaSelBacklog=document.getElementById('backlog-fila-sel');
@@ -1581,6 +1665,7 @@ function switchFila(key){
   ['sem-type-score','last-interacted-score','support-attention-score','customer-satisfaction-score'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
   fetchAccordionScores();
   renderFilterChips();
+  if(_slaSortOn) applySlaSort();
 }
 
 function updateReportsByFila(){
@@ -2202,6 +2287,7 @@ function switchAnalyst(userId){
   applyAnalystTableFilter();
   fetchAccordionScores();
   renderFilterChips();
+  if(_slaSortOn) applySlaSort();
 
   if(!userId){return;}
   const name=(window._GMEMBERS[gid]||[]).find(m=>m.id===userId)?.name||'Analista';
@@ -2776,6 +2862,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     });
   }
   dedupeManagerToolbar();
+  updateRequestsLabel();
   populateManagerDropdown('manager-sel', currentFila).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
     populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
@@ -2798,6 +2885,14 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   updateReportsByFila();
   renderFilterChips();
+  document.addEventListener('click',e=>{
+    const queueWrap=document.getElementById('req-queue-menu');
+    const filterWrap=document.getElementById('req-filter-menu');
+    const actions=e.target?.closest?.('.requests-toolbar');
+    if(actions) return;
+    if(queueWrap) queueWrap.style.display='none';
+    if(filterWrap) filterWrap.style.display='none';
+  });
   // Start layered polling
 	  startPolling();
     initCardDragAndDrop();
@@ -2806,7 +2901,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   Object.assign(window,{
     showPage,changeMes,boardSearch,refreshKanban,refreshBacklog,refreshPostmortem,
     switchFila,switchFilaBacklog,switchManager,switchAnalyst,switchAnalystBacklogFromToolbar,switchResolvedTodayQueue,
-    clearToolbarFilters,
+    clearToolbarFilters,toggleQueueMenu,toggleFilterMenu,closeReqMenus,toggleSlaSort,
     toggleSection,openCaseModal,openCaseModalBtn,
     openImpactUrgencyBtn,openReassignBtn,closeImpactUrgencyEditor,
     closeCaseModal,modalReassign,
