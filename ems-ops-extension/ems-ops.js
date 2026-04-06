@@ -524,8 +524,16 @@ function runEMSOps(userToken, userMes) {
   --sans:'Inter',system-ui,sans-serif;--mono:'IBM Plex Mono',monospace;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;padding-left:56px;}
 a{text-decoration:none;}
+.side-nav{position:fixed;left:0;top:0;bottom:0;width:56px;background:#1f2937;border-right:1px solid #111827;z-index:300;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;}
+.side-btn{width:42px;height:42px;border:none;border-radius:8px;background:transparent;color:#D1D5DB;cursor:pointer;font-size:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
+.side-btn:hover{background:#374151;color:#fff;}
+.side-btn.active{background:#2563EB;color:#fff;}
+.side-ico{font-size:14px;line-height:1;}
+.header-icons{display:flex;align-items:center;gap:6px;margin-left:8px;}
+.top-icon-btn{width:28px;height:28px;border:1px solid var(--border);border-radius:50%;background:var(--surface);color:var(--muted);cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;}
+.top-icon-btn:hover{border-color:#0969DA;color:#0969DA;background:#EFF6FF;}
 
 /* HEADER */
 .header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:0 1px 3px rgba(27,31,36,.04);}
@@ -927,13 +935,29 @@ tr:hover td{background:#F6F8FA;}
   <div class="header-right">
     <span class="h-ts">${ts}</span>
     <span class="h-count">${mesNome} ${YEAR} · Ativos: ${classified.length} (${ativosCount} ativos / ${backlogCount} backlog) · Post-mortem: ${postList.length}</span>
+    <div class="header-icons">
+      <button class="top-icon-btn" title="Buscar">🔍</button>
+      <button class="top-icon-btn" title="Favoritos">✦</button>
+      <button class="top-icon-btn" title="Histórico">↻</button>
+      <button class="top-icon-btn" title="Notificações">🔔</button>
+      <button class="top-icon-btn" title="Configurações">⚙️</button>
+    </div>
   </div>
+</div>
+
+<div class="side-nav">
+  <button class="side-btn active" onclick="activateSide(this);showPage('kanban')"><span class="side-ico">🏠</span><span>Home</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('kanban')"><span class="side-ico">📋</span><span>Requests</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('backlog')"><span class="side-ico">📦</span><span>Backlog</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('postmortem')"><span class="side-ico">🔎</span><span>Post</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('reports')"><span class="side-ico">📊</span><span>Reports</span></button>
 </div>
 
 <div class="tabs">
   <div class="tab active" onclick="showPage('kanban',this)">📋 Cases Ativos</div>
   <div class="tab" onclick="showPage('backlog',this)">📦 Backlog</div>
   <div class="tab" onclick="showPage('postmortem',this)">🔍 Post-mortem</div>
+  <div class="tab" style="display:none" onclick="showPage('reports',this)">📊 Reports</div>
   <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
     <span id="refresh-status" style="font-size:11px;color:var(--muted);"></span>
   </div>
@@ -945,6 +969,10 @@ tr:hover td{background:#F6F8FA;}
   <div class="month-btns" id="mbtns">
     <button class="mbtn active" onclick="changeMes(${mes})">${MES_NAMES[mes-1].substring(0,3)}</button>
   </div>
+</div>
+
+<div class="page" id="page-reports">
+  <div id="reports-page-wrap"></div>
 </div>
 
 <div class="kpi-bar">
@@ -997,8 +1025,6 @@ tr:hover td{background:#F6F8FA;}
       </div>
       <button class="req-icon-btn" onclick="toggleSlaSort()" id="sla-sort-btn" title="Ordenar por SLA">⇅ SLA</button>
     </div>
-    <div class="toolbar-sep"></div>
-    <button class="chip-clear-btn" onclick="clearToolbarFilters()">Limpar filtros</button>
     <div class="toolbar-sep"></div>
     <div class="toolbar-search-wrap">
       <input id="board-search" type="text" placeholder="🔍 Buscar CS... ou Account..." oninput="boardSearch(this.value)" style="font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;width:220px;font-family:var(--sans);color:var(--text);">
@@ -1533,8 +1559,15 @@ function applyAnalystTableFilter(){
 function showPage(id,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.getElementById('page-'+id).classList.add('active');
-  el.classList.add('active');
+  const page=document.getElementById('page-'+id);
+  if(page) page.classList.add('active');
+  if(el) el.classList.add('active');
+  else {
+    const tabMap={kanban:0,backlog:1,postmortem:2,reports:3};
+    const idx=tabMap[id];
+    const tab=document.querySelectorAll('.tab')[idx];
+    if(tab) tab.classList.add('active');
+  }
   if(id==='postmortem') pgInit();
   if(id==='backlog'){
     switchAnalystBacklog(document.getElementById('analyst-sel')?.value||'');
@@ -1546,6 +1579,10 @@ function showPage(id,el){
       initAccordion();
     }
   }
+}
+function activateSide(btn){
+  document.querySelectorAll('.side-btn').forEach(b=>b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
 }
 
 
@@ -2883,6 +2920,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(target)obs.observe(target,{childList:true,subtree:true,characterData:true});
     else setTimeout(tryInitAccordion,500);
   }
+  const reportsWrap=document.getElementById('reports-page-wrap');
+  const accWrap=document.getElementById('accordion-wrap');
+  if(reportsWrap&&accWrap){
+    accWrap.style.display='block';
+    reportsWrap.appendChild(accWrap);
+  }
   updateReportsByFila();
   renderFilterChips();
   document.addEventListener('click',e=>{
@@ -2899,7 +2942,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 	});
 
   Object.assign(window,{
-    showPage,changeMes,boardSearch,refreshKanban,refreshBacklog,refreshPostmortem,
+    showPage,activateSide,changeMes,boardSearch,refreshKanban,refreshBacklog,refreshPostmortem,
     switchFila,switchFilaBacklog,switchManager,switchAnalyst,switchAnalystBacklogFromToolbar,switchResolvedTodayQueue,
     clearToolbarFilters,toggleQueueMenu,toggleFilterMenu,closeReqMenus,toggleSlaSort,
     toggleSection,openCaseModal,openCaseModalBtn,
