@@ -1382,7 +1382,7 @@ function renderFilterChips(){
   filaGroup.innerHTML=Array.from(filaSel.options).map(o=>{
     const count=(queueCounts[o.value]??(o.value===filaSel.value?currentBoardCount:0));
     const active=o.value===filaSel.value?' active':'';
-    return '<button class="filter-chip'+active+'" onclick="switchFila(\''+esc(o.value)+'\')" type="button">'+
+    return '<button class="filter-chip'+active+'" data-chip-type="fila" data-chip-value="'+esc(o.value)+'" type="button">'+
       '<span>'+esc(o.textContent)+'</span><span class="filter-chip-count">'+count+'</span></button>';
   }).join('');
 
@@ -1405,16 +1405,28 @@ function renderFilterChips(){
   managerGroup.innerHTML=Array.from(managerSel.options).map(o=>{
     const active=o.value===managerSel.value?' active':'';
     const count=o.value?(managerCardsCount[o.value]||0):allCards.length;
-    return '<button class="filter-chip'+active+'" onclick="switchManager(\''+esc(o.value)+'\')" type="button">'+
+    return '<button class="filter-chip'+active+'" data-chip-type="manager" data-chip-value="'+esc(o.value)+'" type="button">'+
       '<span>'+esc(o.textContent.replace(/^—\s*|\s*—$/g,''))+'</span><span class="filter-chip-count">'+count+'</span></button>';
   }).join('');
 
   analystGroup.innerHTML=Array.from(analystSel.options).map(o=>{
     const active=o.value===analystSel.value?' active':'';
     const count=o.value?(analystCardsCount[o.value]||0):allCards.length;
-    return '<button class="filter-chip'+active+'" onclick="switchAnalyst(\''+esc(o.value)+'\')" type="button">'+
+    return '<button class="filter-chip'+active+'" data-chip-type="analyst" data-chip-value="'+esc(o.value)+'" type="button">'+
       '<span>'+esc(o.textContent.replace(/^—\s*|\s*—$/g,''))+'</span><span class="filter-chip-count">'+count+'</span></button>';
   }).join('');
+
+  document.querySelectorAll('.filter-chip[data-chip-type]').forEach(btn=>{
+    if(btn.dataset.bound==='1') return;
+    btn.dataset.bound='1';
+    btn.addEventListener('click',()=>{
+      const type=btn.dataset.chipType||'';
+      const value=btn.dataset.chipValue||'';
+      if(type==='fila') switchFila(value);
+      else if(type==='manager') switchManager(value);
+      else if(type==='analyst') switchAnalyst(value);
+    });
+  });
 }
 
 function clearToolbarFilters(){
