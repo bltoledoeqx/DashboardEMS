@@ -971,14 +971,10 @@ tr:hover td{background:#F6F8FA;}
       <option value="l2">L2</option>
       <option value="event">Event</option>
     </select>
-    <div class="toolbar-sep"></div>
-    <label for="manager-sel">👔 Manager:</label>
-    <select id="manager-sel" onchange="switchManager(this.value)">
+    <select id="manager-sel" class="filter-select-hidden" onchange="switchManager(this.value)">
       <option value="">— Todos —</option>
     </select>
-    <div class="toolbar-sep"></div>
-    <label for="analyst-sel">👤 Analista:</label>
-    <select id="analyst-sel" onchange="switchAnalyst(this.value)">
+    <select id="analyst-sel" class="filter-select-hidden" onchange="switchAnalyst(this.value)">
       <option value="">— Todos —</option>
       ${(GROUP_MEMBERS['1c7c9057db6771d0832ead8ed396197a']||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
     </select>
