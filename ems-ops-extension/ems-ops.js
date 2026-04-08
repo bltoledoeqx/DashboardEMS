@@ -657,6 +657,9 @@ a{text-decoration:none;}
 .req-filter-menu label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.45px;font-weight:700;}
 .req-filter-menu select{font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
 .req-clear-btn{text-align:center!important;font-weight:600;}
+.reports-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.reports-toolbar label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.35px;}
+.reports-toolbar select{font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
 .chip-filters{display:flex;align-items:flex-start;gap:10px;min-width:170px;max-width:280px;}
 .chip-filter-block{display:flex;flex-direction:column;gap:4px;min-width:0;}
 .chip-filter-label{font-size:10px;text-transform:uppercase;letter-spacing:.45px;color:var(--muted);font-weight:700;}
@@ -953,7 +956,7 @@ tr:hover td{background:#F6F8FA;}
   <button class="side-btn" onclick="activateSide(this);showPage('reports')"><span class="side-ico">📊</span><span>Reports</span></button>
 </div>
 
-<div class="tabs">
+<div class="tabs" style="display:none">
   <div class="tab active" onclick="showPage('kanban',this)">📋 Cases Ativos</div>
   <div class="tab" onclick="showPage('backlog',this)">📦 Backlog</div>
   <div class="tab" onclick="showPage('postmortem',this)">🔍 Post-mortem</div>
@@ -972,6 +975,23 @@ tr:hover td{background:#F6F8FA;}
 </div>
 
 <div class="page" id="page-reports">
+  <div class="reports-toolbar">
+    <label for="rpt-fila-sel">📌 Fila</label>
+    <select id="rpt-fila-sel" onchange="switchReportsFila(this.value)">
+      <option value="all">Todos</option>
+      <option value="l1">L1</option>
+      <option value="l2">L2</option>
+      <option value="event">Event</option>
+    </select>
+    <label for="rpt-manager-sel">👔 Manager</label>
+    <select id="rpt-manager-sel" onchange="switchReportsManager(this.value)">
+      <option value="">— Todos —</option>
+    </select>
+    <label for="rpt-analyst-sel">👤 Analista</label>
+    <select id="rpt-analyst-sel" onchange="switchReportsAnalyst(this.value)">
+      <option value="">— Todos —</option>
+    </select>
+  </div>
   <div id="reports-page-wrap"></div>
 </div>
 
@@ -1526,6 +1546,21 @@ function topAction(kind){
   }
 }
 
+function syncReportsFilters(){
+  const mainFila=document.getElementById('fila-sel');
+  const mainManager=document.getElementById('manager-sel');
+  const mainAnalyst=document.getElementById('analyst-sel');
+  const rptFila=document.getElementById('rpt-fila-sel');
+  const rptManager=document.getElementById('rpt-manager-sel');
+  const rptAnalyst=document.getElementById('rpt-analyst-sel');
+  if(rptFila) rptFila.value=mainFila?.value||currentFila||'all';
+  if(rptManager&&mainManager){rptManager.innerHTML=mainManager.innerHTML;rptManager.value=mainManager.value||'';}
+  if(rptAnalyst&&mainAnalyst){rptAnalyst.innerHTML=mainAnalyst.innerHTML;rptAnalyst.value=mainAnalyst.value||'';}
+}
+function switchReportsFila(value){switchFila(value);}
+function switchReportsManager(value){switchManager(value);}
+function switchReportsAnalyst(value){switchAnalyst(value);}
+
 function getReportAssigneeFilter(gid){
   const analystId=document.getElementById('analyst-sel')?.value||'';
   const managerId=document.getElementById('manager-sel')?.value||'';
@@ -1717,6 +1752,7 @@ function switchFila(key){
     switchAnalyst(document.getElementById('analyst-sel')?.value||'');
     applyAnalystTableFilter();
     renderFilterChips();
+    syncReportsFilters();
   });
   document.getElementById('analyst-board-content').innerHTML='';
   ['resolved-month-score-l1','resolved-month-score-l2','resolved-month-score-event'].forEach(id=>{
@@ -1726,6 +1762,7 @@ function switchFila(key){
   ['sem-type-score','last-interacted-score','support-attention-score','customer-satisfaction-score'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
   fetchAccordionScores();
   renderFilterChips();
+  syncReportsFilters();
   if(_slaSortOn) applySlaSort();
 }
 
@@ -1758,6 +1795,7 @@ function switchManager(managerId){
   const analystId=document.getElementById('analyst-sel')?.value||'';
   switchAnalyst(analystId);
   renderFilterChips();
+  syncReportsFilters();
 }
 
 function syncBacklogAnalystDropdown(){
@@ -2348,6 +2386,7 @@ function switchAnalyst(userId){
   applyAnalystTableFilter();
   fetchAccordionScores();
   renderFilterChips();
+  syncReportsFilters();
   if(_slaSortOn) applySlaSort();
 
   if(!userId){return;}
@@ -2929,6 +2968,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
     syncBacklogAnalystDropdown();
     renderFilterChips();
+    syncReportsFilters();
   });
   document.querySelectorAll('th[data-col]').forEach(th=>{th.addEventListener('click',e=>{e.stopPropagation();openFil(th,parseInt(th.getAttribute('data-col')));});});
   pgInit();
@@ -2959,6 +2999,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(accBody){accBody.style.display='block';accBody.dataset.open='1';}
     if(accArrow) accArrow.style.transform='rotate(180deg)';
   }
+  syncReportsFilters();
   updateReportsByFila();
   renderFilterChips();
   document.addEventListener('click',e=>{
@@ -2978,6 +3019,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     showPage,activateSide,changeMes,boardSearch,refreshKanban,refreshBacklog,refreshPostmortem,
     switchFila,switchFilaBacklog,switchManager,switchAnalyst,switchAnalystBacklogFromToolbar,switchResolvedTodayQueue,
     clearToolbarFilters,toggleQueueMenu,toggleFilterMenu,closeReqMenus,toggleSlaSort,topAction,
+    switchReportsFila,switchReportsManager,switchReportsAnalyst,
     toggleSection,openCaseModal,openCaseModalBtn,
     openImpactUrgencyBtn,openReassignBtn,closeImpactUrgencyEditor,
     closeCaseModal,modalReassign,

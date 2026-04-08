@@ -140,6 +140,9 @@ a{text-decoration:none;}
 .req-filter-menu label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.45px;font-weight:700;}
 .req-filter-menu select{font-size:12px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
 .req-clear-btn{text-align:center!important;font-weight:600;}
+.reports-toolbar{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.reports-toolbar label{font-size:11px;font-weight:600;color:var(--text2);text-transform:uppercase;letter-spacing:.35px;}
+.reports-toolbar select{font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--text);}
 .chip-filters{display:flex;align-items:flex-start;gap:10px;min-width:170px;max-width:280px;}
 .chip-filter-block{display:flex;flex-direction:column;gap:4px;min-width:0;}
 .chip-filter-label{font-size:10px;text-transform:uppercase;letter-spacing:.45px;color:var(--muted);font-weight:700;}
