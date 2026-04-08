@@ -846,6 +846,9 @@ a{text-decoration:none;}
 .card-assigned.unassigned .card-avatar{background:#FFF8C5;color:#9A6700;border-color:#E3B341;}
 .card-assigned span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .card-time{font-family:var(--mono);font-size:10px;color:#0550AE;background:#EFF6FF;border:1px solid #BFDBFE;padding:2px 6px;border-radius:999px;}
+body.compact-ui .lane-body{gap:6px;padding:6px;}
+body.compact-ui .card{padding:8px 8px 6px;}
+body.compact-ui .card-desc{margin-bottom:5px;font-size:11px;}
 
 /* POST-MORTEM */
 .pm-wrap{padding:18px 20px;}
@@ -919,6 +922,14 @@ tr:hover td{background:#F6F8FA;}
 /* TOKEN ERROR */
 #tok-err{position:fixed;inset:0;background:rgba(27,31,36,.5);z-index:9999;display:none;align-items:center;justify-content:center;}
 .tok-modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 36px;text-align:center;max-width:360px;box-shadow:0 8px 24px rgba(27,31,36,.12);}
+.settings-ov{position:fixed;inset:0;background:rgba(27,31,36,.45);z-index:5000;display:flex;align-items:center;justify-content:center;}
+.settings-md{width:min(520px,92vw);background:var(--surface);border:1px solid var(--border2);border-radius:12px;box-shadow:0 12px 36px rgba(27,31,36,.24);padding:16px;}
+.settings-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.settings-ttl{font-size:14px;font-weight:700;color:var(--text);}
+.settings-grid{display:grid;grid-template-columns:1fr auto;gap:10px 14px;align-items:center;}
+.settings-grid label{font-size:12px;color:var(--text2);}
+.settings-grid select,.settings-grid input[type="checkbox"]{font-size:12px;}
+.settings-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
 </style></head><body>
 
 <div id="tok-err" style="display:none">
@@ -1319,6 +1330,53 @@ window._MANAGER_CACHE={};
 window._MSH_NOC_GID=undefined;
 window._REPORTS_FETCH_CACHE={ttlMs:30000,entries:{},inflight:{}};
 window._ACCOUNT_PRODUCTS_CACHE={ttlMs:120000,entries:{}};
+window._UI_SETTINGS={pollingMs:30000,compact:false,defaultSort:'none'};
+try{
+  const saved=JSON.parse(localStorage.getItem('ems_ops_ui_settings')||'{}');
+  window._UI_SETTINGS={...window._UI_SETTINGS,...saved};
+}catch(e){}
+
+function applyUiSettings(){
+  document.body.classList.toggle('compact-ui', !!window._UI_SETTINGS.compact);
+  if(window._UI_SETTINGS.defaultSort==='sla'&&!window._slaSortOn){
+    setTimeout(()=>toggleSlaSort(),0);
+  }
+}
+
+function closeSettingsModal(){
+  document.getElementById('settings-overlay')?.remove();
+}
+function openSettingsModal(){
+  closeSettingsModal();
+  const s=window._UI_SETTINGS||{};
+  const ov=document.createElement('div');
+  ov.id='settings-overlay';
+  ov.className='settings-ov';
+  ov.innerHTML='<div class="settings-md">'+
+    '<div class="settings-h"><div class="settings-ttl">⚙️ Configurações do Painel</div><button type="button" onclick="closeSettingsModal()" class="refresh-btn">✕</button></div>'+
+    '<div class="settings-grid">'+
+      '<label for="set-polling">Intervalo do polling em tempo real</label>'+
+      '<select id="set-polling"><option value="15000">15s</option><option value="30000">30s</option><option value="60000">60s</option><option value="120000">120s</option></select>'+
+      '<label for="set-compact">Modo compacto (menos espaçamento)</label><input id="set-compact" type="checkbox">'+
+      '<label for="set-sort">Ordenação padrão</label><select id="set-sort"><option value="none">Padrão</option><option value="sla">SLA</option></select>'+
+    '</div>'+
+    '<div class="settings-actions"><button type="button" class="refresh-btn" onclick="closeSettingsModal()">Cancelar</button><button type="button" class="refresh-btn" id="set-save-btn">Salvar</button></div>'+
+  '</div>';
+  document.body.appendChild(ov);
+  ov.querySelector('#set-polling').value=String(s.pollingMs||30000);
+  ov.querySelector('#set-compact').checked=!!s.compact;
+  ov.querySelector('#set-sort').value=s.defaultSort||'none';
+  ov.querySelector('#set-save-btn').onclick=()=>{
+    window._UI_SETTINGS.pollingMs=parseInt(ov.querySelector('#set-polling').value,10)||30000;
+    window._UI_SETTINGS.compact=!!ov.querySelector('#set-compact').checked;
+    window._UI_SETTINGS.defaultSort=ov.querySelector('#set-sort').value||'none';
+    localStorage.setItem('ems_ops_ui_settings',JSON.stringify(window._UI_SETTINGS));
+    applyUiSettings();
+    if(typeof window.__setDeltaPollingInterval==='function') window.__setDeltaPollingInterval(window._UI_SETTINGS.pollingMs);
+    closeSettingsModal();
+    showToast('✅ Configurações aplicadas');
+  };
+}
 
 function fetchJsonCached(url, options){
   const now=Date.now();
@@ -1418,7 +1476,11 @@ async function populateManagerDropdown(selectId,key){
   const gid=window._GID_MAP?.[key]||'';
   const prev=sel.value||'';
   const data=await ensureManagerData(gid);
-  sel.innerHTML='<option value="">— Todos —</option>'+data.managers.map(m=>'<option value="'+m.id+'">'+m.name+'</option>').join('');
+  const sig=gid+'|'+data.managers.length;
+  if(sel.dataset.sig!==sig){
+    sel.innerHTML='<option value="">— Todos —</option>'+data.managers.map(m=>'<option value="'+m.id+'">'+m.name+'</option>').join('');
+    sel.dataset.sig=sig;
+  }
   if(prev&&Array.from(sel.options).some(o=>o.value===prev)) sel.value=prev;
 }
 
@@ -1427,7 +1489,11 @@ function populateAnalystDropdown(selectId,key,managerId,placeholder){
   const gid=window._GID_MAP?.[key]||'';
   const prev=sel.value||'';
   const members=getMembersByManager(gid,managerId).slice().sort((a,b)=>a.name.localeCompare(b.name,'pt'));
-  sel.innerHTML='<option value="">'+(placeholder||'— Todos —')+'</option>'+members.map(a=>'<option value="'+a.id+'">'+a.name+'</option>').join('');
+  const sig=gid+'|'+(managerId||'all')+'|'+members.length;
+  if(sel.dataset.sig!==sig){
+    sel.innerHTML='<option value="">'+(placeholder||'— Todos —')+'</option>'+members.map(a=>'<option value="'+a.id+'">'+a.name+'</option>').join('');
+    sel.dataset.sig=sig;
+  }
   if(prev&&Array.from(sel.options).some(o=>o.value===prev)) sel.value=prev;
 }
 
@@ -1533,8 +1599,7 @@ function topAction(kind){
     return;
   }
   if(kind==='settings'){
-    const fakeEvent={stopPropagation(){},preventDefault(){}};
-    toggleFilterMenu(fakeEvent);
+    openSettingsModal();
     return;
   }
   if(kind==='alerts'){
@@ -1554,8 +1619,16 @@ function syncReportsFilters(){
   const rptManager=document.getElementById('rpt-manager-sel');
   const rptAnalyst=document.getElementById('rpt-analyst-sel');
   if(rptFila) rptFila.value=mainFila?.value||currentFila||'all';
-  if(rptManager&&mainManager){rptManager.innerHTML=mainManager.innerHTML;rptManager.value=mainManager.value||'';}
-  if(rptAnalyst&&mainAnalyst){rptAnalyst.innerHTML=mainAnalyst.innerHTML;rptAnalyst.value=mainAnalyst.value||'';}
+  if(rptManager&&mainManager){
+    const sig='m|'+mainManager.options.length+'|'+(mainManager.value||'');
+    if(rptManager.dataset.sig!==sig){rptManager.innerHTML=mainManager.innerHTML;rptManager.dataset.sig=sig;}
+    rptManager.value=mainManager.value||'';
+  }
+  if(rptAnalyst&&mainAnalyst){
+    const sig='a|'+mainAnalyst.options.length+'|'+(mainAnalyst.value||'');
+    if(rptAnalyst.dataset.sig!==sig){rptAnalyst.innerHTML=mainAnalyst.innerHTML;rptAnalyst.dataset.sig=sig;}
+    rptAnalyst.value=mainAnalyst.value||'';
+  }
 }
 function switchReportsFila(value){switchFila(value);}
 function switchReportsManager(value){switchManager(value);}
@@ -2935,8 +3008,11 @@ function openFil(th,ci){
   _FILTER_VALUES_CACHE[ci]=vals;
   const cur=_fil[ci]||new Set();
   const dd=document.createElement('div');dd.className='fdd';
-  dd.innerHTML='<input class="fdd-search" placeholder="Buscar..." oninput="filtOpts(this)"><div class="fdd-opts" id="ddopts">'+
-    vals.map(v=>'<label class="fdd-opt"><input type="checkbox" value="'+v.replace(/"/g,'&quot;')+'"'+(cur.has(v)?' checked':'')+' ><span>'+v+'</span></label>').join('')+
+  const renderOpts=list=>list.map(v=>'<label class="fdd-opt"><input type="checkbox" value="'+v.replace(/"/g,'&quot;')+'"'+(cur.has(v)?' checked':'')+' ><span>'+v+'</span></label>').join('');
+  const firstBatch=vals.slice(0,250);
+  dd.innerHTML='<input class="fdd-search" placeholder="Buscar..." oninput="filtOpts(this)" data-ci="'+ci+'"><div class="fdd-opts" id="ddopts" data-ci="'+ci+'">'+
+    renderOpts(firstBatch)+
+    (vals.length>250?'<div class="fdd-opt" style="color:var(--muted)">Mostrando 250/'+vals.length+' · digite para filtrar</div>':'')+
     '</div><div class="fdd-foot"><button class="fdd-clear" onclick="clrCol('+ci+')">Limpar</button><button class="fdd-apply" onclick="applyCol('+ci+')">Aplicar</button></div>';
   document.body.appendChild(dd);_dd=dd;
   const rect=th.getBoundingClientRect(),dw=240;
@@ -2945,7 +3021,17 @@ function openFil(th,ci){
   setTimeout(()=>document.addEventListener('click',oc),0);
 }
 function oc(e){if(_dd&&!_dd.contains(e.target)){closeDd();document.removeEventListener('click',oc);}}
-function filtOpts(i){const q=i.value.toLowerCase();document.querySelectorAll('#ddopts .fdd-opt').forEach(o=>{o.style.display=o.querySelector('span').textContent.toLowerCase().includes(q)?'':'none';});}
+function filtOpts(i){
+  const q=i.value.toLowerCase();
+  const ci=parseInt(i.dataset.ci||'-1',10);
+  const wrap=document.getElementById('ddopts');
+  if(ci<0||!wrap) return;
+  const vals=_FILTER_VALUES_CACHE[ci]||[];
+  const filtered=(q?vals.filter(v=>v.toLowerCase().includes(q)):vals).slice(0,250);
+  const cur=_fil[ci]||new Set();
+  wrap.innerHTML=filtered.map(v=>'<label class="fdd-opt"><input type="checkbox" value="'+v.replace(/"/g,'&quot;')+'"'+(cur.has(v)?' checked':'')+' ><span>'+v+'</span></label>').join('')+
+    ((q?vals.filter(v=>v.toLowerCase().includes(q)).length:vals.length)>250?'<div class="fdd-opt" style="color:var(--muted)">Refine para ver mais...</div>':'');
+}
 function applyCol(ci){const ch=Array.from(document.querySelectorAll('#ddopts input:checked')).map(i=>i.value);_fil[ci]=ch.length?new Set(ch):new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 function clrCol(ci){_fil[ci]=new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 document.addEventListener('visibilitychange',()=>{
@@ -2963,6 +3049,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
   dedupeManagerToolbar();
   updateRequestsLabel();
+  applyUiSettings();
   populateManagerDropdown('manager-sel', currentFila).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
     populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
@@ -3034,7 +3121,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     window.__deltaPollingActive = true;
     console.log('[DeltaPolling] Inicializando...');
 
-    const POLLING_INTERVAL = 30000; // 30 segundos
+    let POLLING_INTERVAL = window._UI_SETTINGS?.pollingMs || 30000;
     let lastSyncTime = new Date().toISOString().split('.')[0].replace('T', ' ');
     
     const _HEADERS = { 'Accept': 'application/json', 'X-UserToken': _TOK };
@@ -3332,6 +3419,11 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     // Expose restart hook so startPolling() can revive delta polling after tab re-focus
     window.__restartDeltaPolling = function() {
+      if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
+      window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
+    };
+    window.__setDeltaPollingInterval = function(ms){
+      POLLING_INTERVAL = Math.max(15000, parseInt(ms,10)||30000);
       if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
       window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
     };
