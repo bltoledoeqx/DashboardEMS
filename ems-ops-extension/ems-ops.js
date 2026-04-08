@@ -266,7 +266,6 @@ function runEMSOps(userToken, userMes) {
           <span class="card-prio-badge card-prio-${c.prio}">${c.priority}</span>
           ${c.isAw?`<span class="badge-await">⏳ ${c.state}</span>`:''}
           ${c.isInternal?`<span class="badge-internal">🔒 Internal</span>`:''}
-          <button class="card-iu-btn" title="Alterar Impact/Urgency" data-sysid="${c.sysId}" data-impact="${c.impactVal||''}" data-urgency="${c.urgencyVal||''}" onclick="openImpactUrgencyBtn(event,this)">⚡ I/U</button>
           <button class="card-reassign-btn" title="Reatribuir" data-sysid="${c.sysId}" data-gid="${c.gid}" data-assigned="${c.assigned||''}" onclick="openReassignBtn(event,this)">👤 ✎</button>
         </div>
         <p class="card-desc">${c.desc||'—'}</p>
@@ -716,10 +715,8 @@ a{text-decoration:none;}
 .mbtn-backlog.active{background:#6E40C9;color:#fff;border-color:#6E40C9;}
 
 /* REASSIGN BUTTON */
-.card-reassign-btn,.card-iu-btn{display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:10px;cursor:pointer;color:var(--muted);transition:all .15s;}
-.card-iu-btn{margin-left:auto;}
-.card:hover .card-reassign-btn,.card:hover .card-iu-btn{display:inline-flex;align-items:center;}
-.card-reassign-btn:hover,.card-iu-btn:hover{background:#EFF6FF;color:#0969DA;border-color:#0969DA;}
+.card-reassign-btn{display:inline-flex;align-items:center;background:none;border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:10px;cursor:pointer;color:var(--muted);transition:all .15s;margin-left:auto;}
+.card-reassign-btn:hover{background:#EFF6FF;color:#0969DA;border-color:#0969DA;}
 .tag-iu{font-variant-numeric:tabular-nums;}
 .card.dragging{opacity:.55;transform:scale(.99);}
 .lane-body.drop-target{outline:2px dashed #0969DA;outline-offset:-4px;border-radius:8px;}
@@ -961,7 +958,6 @@ tr:hover td{background:#F6F8FA;}
 
 <div class="side-nav">
   <button class="side-btn active" onclick="activateSide(this);showPage('kanban')"><span class="side-ico">🏠</span><span>Home</span></button>
-  <button class="side-btn" onclick="activateSide(this);showPage('kanban')"><span class="side-ico">📋</span><span>Requests</span></button>
   <button class="side-btn" onclick="activateSide(this);showPage('backlog')"><span class="side-ico">📦</span><span>Backlog</span></button>
   <button class="side-btn" onclick="activateSide(this);showPage('postmortem')"><span class="side-ico">🔎</span><span>Post</span></button>
   <button class="side-btn" onclick="activateSide(this);showPage('reports')"><span class="side-ico">📊</span><span>Reports</span></button>
@@ -3300,7 +3296,6 @@ document.addEventListener('DOMContentLoaded',()=>{
           '<a class="card-num" href="' + caseUrl + '" target="_blank">' + escapeHtml(number) + ' ↗</a>' +
           '<span class="card-prio-badge card-prio-' + prioVal + '">' + escapeHtml(priorityLabel) + '</span>' +
           (isAwaiting ? '<span class="badge-await">⏳ ' + escapeHtml(stateLabel) + '</span>' : '') +
-          '<button class="card-iu-btn" title="Alterar Impact/Urgency" data-sysid="' + escapeHtml(sysId) + '" data-impact="' + escapeHtml(impactVal) + '" data-urgency="' + escapeHtml(urgencyVal) + '" onclick="openImpactUrgencyBtn(event,this)">⚡ I/U</button>' +
           '<button class="card-reassign-btn" title="Reatribuir" data-sysid="' + escapeHtml(sysId) + '" data-gid="' + escapeHtml(gid) + '" data-assigned="' + escapeHtml(assName) + '" onclick="openReassignBtn(event,this)">👤 ✎</button>' +
         '</div>' +
         '<p class="card-desc">' + escapeHtml(desc || '—') + '</p>' +

@@ -199,10 +199,8 @@ a{text-decoration:none;}
 .mbtn-backlog.active{background:#6E40C9;color:#fff;border-color:#6E40C9;}
 
 /* REASSIGN BUTTON */
-.card-reassign-btn,.card-iu-btn{display:none;background:none;border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:10px;cursor:pointer;color:var(--muted);transition:all .15s;}
-.card-iu-btn{margin-left:auto;}
-.card:hover .card-reassign-btn,.card:hover .card-iu-btn{display:inline-flex;align-items:center;}
-.card-reassign-btn:hover,.card-iu-btn:hover{background:#EFF6FF;color:#0969DA;border-color:#0969DA;}
+.card-reassign-btn{display:inline-flex;align-items:center;background:none;border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:10px;cursor:pointer;color:var(--muted);transition:all .15s;margin-left:auto;}
+.card-reassign-btn:hover{background:#EFF6FF;color:#0969DA;border-color:#0969DA;}
 .tag-iu{font-variant-numeric:tabular-nums;}
 .card.dragging{opacity:.55;transform:scale(.99);}
 .lane-body.drop-target{outline:2px dashed #0969DA;outline-offset:-4px;border-radius:8px;}
