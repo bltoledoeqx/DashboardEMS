@@ -2777,6 +2777,71 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
   const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
   // ── Zabbix: busca via postMessage → content.js → background.js (sem CORS) ──
+  // Tentativa 1: consulta direta (mesma lógica validada no DevTools).
+  // Tentativa 2 (fallback): ponte content/background.
+  const ZABBIX_URL = 'https://monbr1.equinix.com.br/api_jsonrpc.php';
+  const ZABBIX_TOKEN = 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b';
+  const ZABBIX_DIRECT_TIMEOUT_MS = 7000;
+
+  const zabbixDirectCall = async (method, params) => {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), ZABBIX_DIRECT_TIMEOUT_MS);
+    try {
+      const res = await fetch(ZABBIX_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + ZABBIX_TOKEN
+        },
+        body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 }),
+        signal: ctl.signal
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error('Zabbix HTTP ' + res.status);
+      if (payload.error) throw new Error(payload.error.data || payload.error.message || 'Erro API');
+      return payload.result || [];
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  const fetchZabbixDirect = async (ciNameVal) => {
+    const term = String(ciNameVal || '').trim();
+    if (!term || term === '—') throw new Error('CI sem nome para busca direta');
+    const hosts = await zabbixDirectCall('host.get', {
+      search: { name: term },
+      output: ['hostid', 'name'],
+      limit: 10
+    });
+    if (!hosts.length) {
+      return { ok: true, data: { ciName: term, hostFound: false, hasAlert: false, alerts: [], hosts: [], problems: [] } };
+    }
+    const host = hosts[0];
+    const problems = await zabbixDirectCall('problem.get', {
+      hostids: host.hostid,
+      output: ['eventid', 'name', 'severity', 'clock'],
+      sortfield: 'eventid',
+      sortorder: 'DESC',
+      limit: 30
+    });
+    const alerts = (problems || []).map(p => ({
+      severity: parseInt(p.severity || 0, 10),
+      description: p.name || '',
+      time: p.clock ? new Date(Number(p.clock) * 1000).toISOString() : ''
+    }));
+    return {
+      ok: true,
+      data: {
+        ciName: host.name || term,
+        hostFound: true,
+        hasAlert: alerts.length > 0,
+        alerts,
+        hosts: [host],
+        problems
+      }
+    };
+  };
+
   // O dashboard roda em aba ServiceNow com content.js injetado.
   // Tentamos primeiro a própria aba (window), e opcionalmente também opener.
   const ZABBIX_BRIDGE_TIMEOUT_MS = 20000;
@@ -2965,11 +3030,13 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     const ciIpVal       = getVal(ci, 'ip_address');
     const ciHostnameVal = getVal(ci, 'host_name');
 
-    fetchZabbixViaBackground(ciName || getVal(ci,'name'), ciIpVal, ciHostnameVal)
+    const ciLookupName = ciName || getVal(ci,'name');
+    fetchZabbixDirect(ciLookupName)
+      .catch(() => fetchZabbixViaBackground(ciLookupName, ciIpVal, ciHostnameVal))
       .then(zbx => {
         const el = listEl.querySelector('#zabbix-section-'+ciId);
         if (!el) return;
-        el.outerHTML = buildZabbixHtml(zbx, ciName || getVal(ci,'name'));
+        el.outerHTML = buildZabbixHtml(zbx, ciLookupName);
         // Atualiza cache com Zabbix incluído (TTL menor se há alertas)
         const hasProblem = zbx.ok && zbx.data?.problems?.length > 0;
         if(cache.entries) {
