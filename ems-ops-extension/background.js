@@ -145,7 +145,7 @@ async function fetchZabbixAlertsForCI(ciName, ciIp, ciHostname) {
     output: ['eventid', 'name', 'severity', 'clock', 'value'],
     sortfield: 'clock',
     sortorder: 'DESC',
-    limit: 10
+    limit: 5
   });
   debug.totalMs = Date.now() - startedAt;
 
