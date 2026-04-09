@@ -151,7 +151,7 @@ async function fetchZabbixAlertsForCI(ciName, ciIp, ciHostname) {
   const alerts = topProblems.map(p => {
     const triggerId = p.objectid;
     const itemid = triggerId ? triggerToItem[triggerId] : null;
-    const graph = itemid ? `${ZABBIX_CHART_BASE_URL}?itemids=${encodeURIComponent(itemid)}&period=3600` : undefined;
+    const graph = itemid ? `${ZABBIX_CHART_BASE_URL}?itemids[]=${encodeURIComponent(itemid)}&period=3600` : undefined;
     return {
     severity: parseInt(p.severity || 0, 10),
     description: p.name || '',

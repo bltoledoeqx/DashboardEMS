@@ -2845,7 +2845,7 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
 
     const alerts = topProblems.map(p => {
       const itemid = p.objectid ? triggerToItem[p.objectid] : null;
-      const graph = itemid ? (ZABBIX_CHART_BASE_URL + '?itemids=' + encodeURIComponent(itemid) + '&period=3600') : undefined;
+      const graph = itemid ? (ZABBIX_CHART_BASE_URL + '?itemids[]=' + encodeURIComponent(itemid) + '&period=3600') : undefined;
       return {
         severity: parseInt(p.severity || 0, 10),
         description: p.name || '',
