@@ -93,8 +93,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (result?.error) {
         showStatus('error', `❌ ${result.error}`);
+      } else if (!result?.ok) {
+        showStatus('error', '❌ Não foi possível iniciar o painel (retorno inválido).');
       } else {
-        showStatus('success', msg.opened || '✅ Painel aberto!');
+        if (result?.sameTabFallback) {
+          showStatus('success', '✅ Painel aberto na aba atual (pop-up bloqueado pelo navegador).');
+        } else {
+          showStatus('success', msg.opened || '✅ Painel aberto!');
+        }
       }
     } catch (error) {
       showStatus('error', `❌ ${error.message}`);
