@@ -2781,6 +2781,7 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
   // Tentativa 2 (fallback): ponte content/background.
   const ZABBIX_URL = 'https://monbr1.equinix.com.br/api_jsonrpc.php';
   const ZABBIX_TOKEN = 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b';
+  const ZABBIX_CHART_BASE_URL = 'https://monbr1.equinix.com.br/chart.php';
   const ZABBIX_DIRECT_TIMEOUT_MS = 7000;
 
   const zabbixDirectCall = async (method, params) => {
@@ -2819,15 +2820,51 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     const host = hosts[0];
     const problems = await zabbixDirectCall('problem.get', {
       hostids: host.hostid,
-      output: ['eventid', 'name', 'severity', 'clock'],
+      output: ['eventid', 'name', 'severity', 'clock', 'objectid'],
       sortfield: 'eventid',
       sortorder: 'DESC',
       limit: 30
     });
-    const alerts = (problems || []).map(p => ({
-      severity: parseInt(p.severity || 0, 10),
-      description: p.name || '',
-      time: p.clock ? new Date(Number(p.clock) * 1000).toISOString() : ''
+    const topProblems = [...(problems || [])]
+      .sort((a, b) => (parseInt(b.severity || 0, 10) - parseInt(a.severity || 0, 10)))
+      .slice(0, 3);
+    const triggerIds = [...new Set(topProblems.map(p => p.objectid).filter(Boolean))];
+    let triggerToItem = {};
+    if (triggerIds.length) {
+      const triggers = await zabbixDirectCall('trigger.get', {
+        triggerids: triggerIds,
+        output: ['triggerid'],
+        selectItems: ['itemid', 'name']
+      });
+      triggerToItem = (triggers || []).reduce((acc, trg) => {
+        const firstItem = Array.isArray(trg.items) && trg.items.length ? trg.items[0] : null;
+        if (trg.triggerid && firstItem && firstItem.itemid) acc[trg.triggerid] = firstItem.itemid;
+        return acc;
+      }, {});
+    }
+
+    const alerts = topProblems.map(p => {
+      const itemid = p.objectid ? triggerToItem[p.objectid] : null;
+      const graph = itemid ? (ZABBIX_CHART_BASE_URL + '?itemids=' + encodeURIComponent(itemid) + '&period=3600') : undefined;
+      return {
+        severity: parseInt(p.severity || 0, 10),
+        description: p.name || '',
+        time: p.clock ? new Date(Number(p.clock) * 1000).toISOString() : '',
+        ...(graph ? { graph } : {})
+      };
+    });
+    const historyEvents = await zabbixDirectCall('event.get', {
+      hostids: host.hostid,
+      output: ['eventid', 'name', 'severity', 'clock', 'value'],
+      sortfield: 'clock',
+      sortorder: 'DESC',
+      limit: 10
+    });
+    const history = (historyEvents || []).map(ev => ({
+      severity: parseInt(ev.severity || 0, 10),
+      description: ev.name || '',
+      time: ev.clock ? new Date(Number(ev.clock) * 1000).toISOString() : '',
+      status: String(ev.value) === '1' ? 'PROBLEM' : 'RESOLVED'
     }));
     return {
       ok: true,
@@ -2836,6 +2873,7 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
         hostFound: true,
         hasAlert: alerts.length > 0,
         alerts,
+        history,
         hosts: [host],
         problems
       }
@@ -2910,6 +2948,12 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     }
 
     const problems = d.problems || [];
+    const alerts = d.alerts || problems.map(p => ({
+      severity: parseInt(p.severity || 0, 10),
+      description: p.name || '',
+      time: p.clock ? new Date(parseInt(p.clock, 10) * 1000).toISOString() : '',
+      graph: undefined
+    }));
     const hostNames = (d.hosts||[]).map(h=>h.name||h.host).join(', ');
     const debugInfo = (d && d.debug && d.debug.totalMs)
       ? '<div style="padding:0 10px 8px;font-size:10px;color:#8C959F;">Tempo consulta Zabbix: '+esc(String(d.debug.totalMs))+'ms</div>'
@@ -2926,31 +2970,43 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
       '</div>';
     }
 
-    const rows = problems.map(p => {
+    const rows = alerts.map(p => {
       const sev = parseInt(p.severity) || 0;
       const color = SEV_COLOR[sev] || '#57606A';
       const bg    = SEV_BG[sev]    || '#F6F8FA';
       const icon  = SEV_ICON[sev]  || '⚪';
       const label = SEV_LABEL[sev] || sev;
-      const dt    = new Date(parseInt(p.clock) * 1000).toLocaleString('pt-BR', {
+      const dt    = p.time ? new Date(p.time).toLocaleString('pt-BR', {
         day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
-      }).replace(',','');
-      const ackBadge = p.acknowledged === '1'
-        ? '<span style="font-size:9px;background:#DAFBE1;color:#116329;border:1px solid #A7F3C0;padding:1px 5px;border-radius:8px;">✓ ACK</span>'
-        : '<span style="font-size:9px;background:#FFF8C5;color:#7D4E00;border:1px solid #E3B341;padding:1px 5px;border-radius:8px;">Pendente</span>';
+      }).replace(',','') : '—';
+      const graphCell = p.graph
+        ? '<a href="'+esc(p.graph)+'" target="_blank" style="font-size:10px;">📊 gráfico</a>'
+        : '<span style="font-size:10px;color:#8C959F;">—</span>';
       return '<tr style="background:'+bg+'">'+
         '<td><span style="color:'+color+';font-weight:700;font-size:11px;">'+icon+' '+esc(label)+'</span></td>'+
-        '<td style="font-size:12px;color:#24292F;">'+esc(p.name)+'</td>'+
+        '<td style="font-size:12px;color:#24292F;">'+esc(p.description)+'</td>'+
         '<td style="font-size:11px;color:#57606A;white-space:nowrap;">'+esc(dt)+'</td>'+
-        '<td>'+ackBadge+'</td>'+
+        '<td>'+graphCell+'</td>'+
       '</tr>';
     }).join('');
 
-    const alertCount = problems.length;
-    const hasHigh = problems.some(p => parseInt(p.severity) >= 4);
+    const alertCount = alerts.length;
+    const hasHigh = alerts.some(p => parseInt(p.severity) >= 4);
     const badgeColor = hasHigh ? '#CF222E' : '#BF8700';
     const badgeBg    = hasHigh ? '#FFEBE9' : '#FFF8C5';
     const badgeBorder= hasHigh ? '#FFD1CC' : '#E3B341';
+
+    const historyRows = (d.history || []).map(h => {
+      const statusColor = h.status === 'PROBLEM' ? '#CF222E' : '#1A7F37';
+      const dt = h.time ? new Date(h.time).toLocaleString('pt-BR', {
+        day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
+      }).replace(',', '') : '—';
+      return '<tr>'+
+        '<td style="font-size:11px;color:'+statusColor+';font-weight:700;">'+esc(h.status || '—')+'</td>'+
+        '<td style="font-size:12px;color:#24292F;">'+esc(h.description || '—')+'</td>'+
+        '<td style="font-size:11px;color:#57606A;">'+esc(dt)+'</td>'+
+      '</tr>';
+    }).join('');
 
     return '<div class="acc-sec">'+
       '<div class="acc-sec-h" style="display:flex;align-items:center;justify-content:space-between;">'+
@@ -2961,10 +3017,14 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
       debugInfo+
       '<div class="acc-table-wrap">'+
         '<table class="acc-table">'+
-          '<thead><tr><th>Severidade</th><th>Problema</th><th>Desde</th><th>Status</th></tr></thead>'+
+          '<thead><tr><th>Severidade</th><th>Problema</th><th>Desde</th><th>Gráfico</th></tr></thead>'+
           '<tbody>'+rows+'</tbody>'+
         '</table>'+
       '</div>'+
+      ((d.history && d.history.length)
+        ? '<div style="padding:8px 10px 4px;font-size:11px;font-weight:700;color:#57606A;">Histórico (últimos 10 eventos)</div>'+
+          '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>Status</th><th>Evento</th><th>Quando</th></tr></thead><tbody>'+historyRows+'</tbody></table></div>'
+        : '')+
     '</div>';
   };
 

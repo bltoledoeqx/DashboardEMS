@@ -4,6 +4,7 @@
 
 const ZABBIX_URL   = 'https://monbr1.equinix.com.br/api_jsonrpc.php';
 const ZABBIX_TOKEN = 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b';
+const ZABBIX_CHART_BASE_URL = 'https://monbr1.equinix.com.br/chart.php';
 const ZABBIX_HTTP_TIMEOUT_MS = 7000;
 const ZABBIX_FLOW_TIMEOUT_MS = 17000;
 
@@ -112,17 +113,58 @@ async function fetchZabbixAlertsForCI(ciName, ciIp, ciHostname) {
   // Busca problemas ativos
   const problems = await zabbixCall('problem.get', {
     hostids,
-    output: ['eventid', 'name', 'severity', 'clock'],
+    output: ['eventid', 'name', 'severity', 'clock', 'objectid'],
     sortfield: 'eventid',
     sortorder: 'DESC',
     limit: 30
   });
+  const topProblems = [...(problems || [])]
+    .sort((a, b) => (parseInt(b.severity || 0, 10) - parseInt(a.severity || 0, 10)))
+    .slice(0, 3);
+
+  const triggerIds = [...new Set(topProblems.map(p => p.objectid).filter(Boolean))];
+  let triggerToItem = {};
+  if (triggerIds.length) {
+    const triggers = await zabbixCall('trigger.get', {
+      triggerids: triggerIds,
+      output: ['triggerid'],
+      selectItems: ['itemid', 'name']
+    });
+    triggerToItem = (triggers || []).reduce((acc, trg) => {
+      const firstItem = Array.isArray(trg.items) && trg.items.length ? trg.items[0] : null;
+      if (trg.triggerid && firstItem && firstItem.itemid) {
+        acc[trg.triggerid] = firstItem.itemid;
+      }
+      return acc;
+    }, {});
+  }
+
+  const historyEvents = await zabbixCall('event.get', {
+    hostids: hostids[0],
+    output: ['eventid', 'name', 'severity', 'clock', 'value'],
+    sortfield: 'clock',
+    sortorder: 'DESC',
+    limit: 10
+  });
   debug.totalMs = Date.now() - startedAt;
 
-  const alerts = (problems || []).map(p => ({
+  const alerts = topProblems.map(p => {
+    const triggerId = p.objectid;
+    const itemid = triggerId ? triggerToItem[triggerId] : null;
+    const graph = itemid ? `${ZABBIX_CHART_BASE_URL}?itemids=${encodeURIComponent(itemid)}&period=3600` : undefined;
+    return {
     severity: parseInt(p.severity || 0, 10),
     description: p.name || '',
-    time: p.clock ? new Date(Number(p.clock) * 1000).toISOString() : ''
+    time: p.clock ? new Date(Number(p.clock) * 1000).toISOString() : '',
+    ...(graph ? { graph } : {})
+  };
+  });
+
+  const history = (historyEvents || []).map(ev => ({
+    severity: parseInt(ev.severity || 0, 10),
+    description: ev.name || '',
+    time: ev.clock ? new Date(Number(ev.clock) * 1000).toISOString() : '',
+    status: String(ev.value) === '1' ? 'PROBLEM' : 'RESOLVED'
   }));
 
   return {
@@ -130,6 +172,7 @@ async function fetchZabbixAlertsForCI(ciName, ciIp, ciHostname) {
     hostFound: true,
     hasAlert: alerts.length > 0,
     alerts,
+    history,
     hosts: [host], // compatibilidade UI legada
     problems,      // compatibilidade UI legada
     debug
