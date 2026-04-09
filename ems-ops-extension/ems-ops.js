@@ -2833,6 +2833,7 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
         return acc;
       }, {});
     }
+  };
 
     const alerts = topProblems.map(p => {
       const itemid = p.objectid ? triggerToItem[p.objectid] : null;
@@ -3003,6 +3004,18 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     const badgeColor = hasHigh ? '#CF222E' : '#BF8700';
     const badgeBg    = hasHigh ? '#FFEBE9' : '#FFF8C5';
     const badgeBorder= hasHigh ? '#FFD1CC' : '#E3B341';
+
+    const historyRows = (d.history || []).map(h => {
+      const statusColor = h.status === 'PROBLEM' ? '#CF222E' : '#1A7F37';
+      const dt = h.time ? new Date(h.time).toLocaleString('pt-BR', {
+        day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
+      }).replace(',', '') : '—';
+      return '<tr>'+
+        '<td style="font-size:11px;color:'+statusColor+';font-weight:700;">'+esc(h.status || '—')+'</td>'+
+        '<td style="font-size:12px;color:#24292F;">'+esc(h.description || '—')+'</td>'+
+        '<td style="font-size:11px;color:#57606A;">'+esc(dt)+'</td>'+
+      '</tr>';
+    }).join('');
 
     return '<div class="acc-sec">'+
       '<div class="acc-sec-h" style="display:flex;align-items:center;justify-content:space-between;">'+
