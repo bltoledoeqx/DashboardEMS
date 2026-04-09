@@ -2777,17 +2777,10 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
   const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
   // ── Zabbix: busca via postMessage → content.js → background.js (sem CORS) ──
-  // O dashboard roda em nova aba (sem chrome.runtime). Usa window.opener
-  // (a aba do ServiceNow) como ponte — o content.js lá escuta e repassa
-  // ao background.js, devolvendo o resultado via postMessage.
+  // O dashboard roda em aba ServiceNow com content.js injetado.
+  // Tentamos primeiro a própria aba (window), e opcionalmente também opener.
   const ZABBIX_BRIDGE_TIMEOUT_MS = 20000;
   const fetchZabbixViaBackground = (ciNameVal, ciIpVal, ciHostnameVal) => new Promise(resolve => {
-    const opener = window.opener;
-    if (!opener || opener.closed) {
-      resolve({ ok: false, error: 'window.opener indisponível — abra o dashboard pelo botão da extensão.' });
-      return;
-    }
-
     const requestId = 'zbx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     const timeout = setTimeout(() => {
       window.removeEventListener('message', handler);
@@ -2806,8 +2799,18 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     }
 
     window.addEventListener('message', handler);
-    console.log('[EMS dashboard] Enviando EMS_ZABBIX_REQUEST via opener.postMessage, requestId:', requestId);
-    opener.postMessage({ type: 'EMS_ZABBIX_REQUEST', requestId, ciName: ciNameVal, ciIp: ciIpVal, ciHostname: ciHostnameVal }, '*');
+    const payload = { type: 'EMS_ZABBIX_REQUEST', requestId, ciName: ciNameVal, ciIp: ciIpVal, ciHostname: ciHostnameVal };
+    console.log('[EMS dashboard] Enviando EMS_ZABBIX_REQUEST via window.postMessage, requestId:', requestId);
+    window.postMessage(payload, '*');
+
+    if (window.opener && !window.opener.closed) {
+      try {
+        console.log('[EMS dashboard] Enviando EMS_ZABBIX_REQUEST também via opener.postMessage, requestId:', requestId);
+        window.opener.postMessage(payload, '*');
+      } catch (_) {
+        // sem ação: tentativa auxiliar
+      }
+    }
   });
 
   const buildZabbixHtml = (zbx, ciNameVal) => {
