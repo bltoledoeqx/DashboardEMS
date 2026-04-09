@@ -2825,7 +2825,8 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
       sortorder: 'DESC',
       limit: 30
     });
-    const topProblems = [...(problems || [])]
+    const classifiedProblems = (problems || []).filter(p => parseInt(p.severity || 0, 10) > 0);
+    const topProblems = [...classifiedProblems]
       .sort((a, b) => (parseInt(b.severity || 0, 10) - parseInt(a.severity || 0, 10)))
       .slice(0, 3);
     const triggerIds = [...new Set(topProblems.map(p => p.objectid).filter(Boolean))];
@@ -2953,13 +2954,14 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
       description: p.name || '',
       time: p.clock ? new Date(parseInt(p.clock, 10) * 1000).toISOString() : '',
       graph: undefined
-    }));
+    })).filter(a => parseInt(a.severity || 0, 10) > 0);
     const hostNames = (d.hosts||[]).map(h=>h.name||h.host).join(', ');
     const debugInfo = (d && d.debug && d.debug.totalMs)
       ? '<div style="padding:0 10px 8px;font-size:10px;color:#8C959F;">Tempo consulta Zabbix: '+esc(String(d.debug.totalMs))+'ms</div>'
       : '';
+    const primaryGraph = alerts.find(a => a.graph)?.graph;
 
-    if (!problems.length) {
+    if (!alerts.length) {
       return '<div class="acc-sec">'+
         '<div class="acc-sec-h" style="display:flex;align-items:center;justify-content:space-between;">'+
           '<span>🔔 Alertas Zabbix</span>'+
@@ -3015,6 +3017,12 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
       '</div>'+
       '<div style="padding:4px 10px 6px;font-size:11px;color:#57606A;">Host: <b>'+esc(hostNames)+'</b></div>'+
       debugInfo+
+      (primaryGraph
+        ? '<div style="padding:0 10px 8px;">'+
+            '<div style="font-size:11px;font-weight:700;color:#57606A;margin-bottom:4px;">📊 Gráfico do alerta principal</div>'+
+            '<img src="'+esc(primaryGraph)+'" alt="Grafico Zabbix" style="width:100%;max-height:220px;object-fit:contain;border:1px solid #D0D7DE;border-radius:6px;background:#fff;" />'+
+          '</div>'
+        : '')+
       '<div class="acc-table-wrap">'+
         '<table class="acc-table">'+
           '<thead><tr><th>Severidade</th><th>Problema</th><th>Desde</th><th>Gráfico</th></tr></thead>'+

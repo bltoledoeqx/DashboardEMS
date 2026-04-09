@@ -118,7 +118,8 @@ async function fetchZabbixAlertsForCI(ciName, ciIp, ciHostname) {
     sortorder: 'DESC',
     limit: 30
   });
-  const topProblems = [...(problems || [])]
+  const classifiedProblems = (problems || []).filter(p => parseInt(p.severity || 0, 10) > 0);
+  const topProblems = [...classifiedProblems]
     .sort((a, b) => (parseInt(b.severity || 0, 10) - parseInt(a.severity || 0, 10)))
     .slice(0, 3);
 
