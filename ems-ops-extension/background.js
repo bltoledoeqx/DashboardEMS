@@ -56,8 +56,11 @@ async function zabbixCall(method, params) {
 
 async function fetchZabbixAlertsForCI(ciName, ciIp, ciHostname) {
   const startedAt = Date.now();
-  // Tenta encontrar o host por nome, hostname ou IP — na ordem
-  const searchTerms = [ciName, ciHostname, ciIp].filter(Boolean);
+  const normalize = value => String(value || '').trim();
+  const normalizedName = normalize(ciName);
+  const normalizedHostname = normalize(ciHostname); // mantido para debug
+  const normalizedIp = normalize(ciIp); // mantido para debug
+  const searchTerms = [normalizedName, normalizedHostname, normalizedIp].filter(Boolean);
 
   let hosts = [];
   const debug = {
@@ -65,86 +68,70 @@ async function fetchZabbixAlertsForCI(ciName, ciIp, ciHostname) {
     totalMs: 0
   };
 
-  // 1) Uma busca exata com todos os termos (mais barata que 1 request por termo)
-  const exactTerms = searchTerms.filter(term => term && term !== '—');
-  if (exactTerms.length) {
+  // Busca por nome visível do host no Zabbix (campo "name")
+  for (const term of [...new Set(searchTerms)]) {
+    if (!term || term === '—') continue;
     try {
-      const exactStartedAt = Date.now();
+      const started = Date.now();
       hosts = await zabbixCall('host.get', {
-        filter: { host: exactTerms },
-        output: ['hostid', 'host', 'name', 'status'],
-        limit: 5
+        search: { name: term },
+        output: ['hostid', 'name'],
+        limit: 10
       });
       debug.attempts.push({
-        mode: 'exact-batch',
-        term: exactTerms.join(','),
-        ms: Date.now() - exactStartedAt,
+        mode: 'search-name',
+        term,
+        ms: Date.now() - started,
         found: hosts.length
       });
+      if (hosts.length) break;
     } catch (e) {
       debug.attempts.push({
         mode: 'error',
-        term: exactTerms.join(','),
+        term,
         error: e.message
       });
     }
   }
 
-  // 2) Fallback parcial com no máximo 2 termos para evitar estourar o bridge timeout
-  if (!hosts.length) {
-    const fallbackTerms = [];
-    if (ciName && ciName !== '—') fallbackTerms.push(ciName);
-    if (ciHostname && ciHostname !== '—' && ciHostname !== ciName) fallbackTerms.push(ciHostname);
-    if (!fallbackTerms.length && ciIp && ciIp !== '—') fallbackTerms.push(ciIp);
-
-    for (const term of fallbackTerms.slice(0, 2)) {
-      try {
-        const likeStartedAt = Date.now();
-        hosts = await zabbixCall('host.get', {
-          search: { host: term, name: term },
-          searchByAny: true,
-          output: ['hostid', 'host', 'name', 'status'],
-          limit: 5
-        });
-        debug.attempts.push({
-          mode: 'like',
-          term,
-          ms: Date.now() - likeStartedAt,
-          found: hosts.length
-        });
-        if (hosts.length) break;
-      } catch (e) {
-        debug.attempts.push({
-          mode: 'error',
-          term,
-          error: e.message
-        });
-      }
-    }
-  }
-
   if (!hosts.length) {
     debug.totalMs = Date.now() - startedAt;
-    return { hostFound: false, searchedTerms: searchTerms, debug };
+    return {
+      ciName: normalizedName || normalizedHostname || normalizedIp || '',
+      hostFound: false,
+      hasAlert: false,
+      alerts: [],
+      searchedTerms: searchTerms,
+      debug
+    };
   }
 
-  const hostids = hosts.map(h => h.hostid);
+  const host = hosts[0];
+  const hostids = [host.hostid];
 
-  // 3. Busca problemas ativos
+  // Busca problemas ativos
   const problems = await zabbixCall('problem.get', {
     hostids,
-    output: ['eventid', 'name', 'severity', 'clock', 'acknowledged', 'objectid'],
-    sortfield: 'severity',
+    output: ['eventid', 'name', 'severity', 'clock'],
+    sortfield: 'eventid',
     sortorder: 'DESC',
-    recent: true,
     limit: 30
   });
   debug.totalMs = Date.now() - startedAt;
 
+  const alerts = (problems || []).map(p => ({
+    severity: parseInt(p.severity || 0, 10),
+    description: p.name || '',
+    time: p.clock ? new Date(Number(p.clock) * 1000).toISOString() : ''
+  }));
+
   return {
+    ciName: host.name || normalizedName || '',
     hostFound: true,
-    hosts,
-    problems,
+    hasAlert: alerts.length > 0,
+    alerts,
+    hosts: [host], // compatibilidade UI legada
+    problems,      // compatibilidade UI legada
     debug
   };
 }
