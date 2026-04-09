@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EMS Ops Dashboard",
-  "version": "1.1",
+  "version": "1.2",
   "description": "Painel Operacional EMS — Casos sem Escalation · L1 / L2 / Event BR",
   "permissions": [
     "activeTab",
@@ -9,8 +9,12 @@
     "storage"
   ],
   "host_permissions": [
-    "https://*.service-now.com/*"
+    "https://*.service-now.com/*",
+    "https://monbr1.equinix.com.br/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_icon": {

@@ -2776,6 +2776,112 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
 
   const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
+  // ── Zabbix: busca via postMessage → content.js → background.js (sem CORS) ──
+  // O dashboard roda em nova aba (sem chrome.runtime). Usa window.opener
+  // (a aba do ServiceNow) como ponte — o content.js lá escuta e repassa
+  // ao background.js, devolvendo o resultado via postMessage.
+  const fetchZabbixViaBackground = (ciNameVal, ciIpVal, ciHostnameVal) => new Promise(resolve => {
+    const opener = window.opener;
+    if (!opener || opener.closed) {
+      resolve({ ok: false, error: 'window.opener indisponível — abra o dashboard pelo botão da extensão.' });
+      return;
+    }
+
+    const requestId = 'zbx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const timeout = setTimeout(() => {
+      window.removeEventListener('message', handler);
+      resolve({ ok: false, error: 'Timeout ao aguardar resposta do Zabbix (10s).' });
+    }, 10000);
+
+    function handler(event) {
+      if (!event.data || event.data.type !== 'EMS_ZABBIX_RESPONSE') return;
+      if (event.data.requestId !== requestId) return;
+      clearTimeout(timeout);
+      window.removeEventListener('message', handler);
+      resolve(event.data.response);
+    }
+
+    window.addEventListener('message', handler);
+    console.log('[EMS dashboard] Enviando EMS_ZABBIX_REQUEST via opener.postMessage, requestId:', requestId);
+    opener.postMessage({ type: 'EMS_ZABBIX_REQUEST', requestId, ciName: ciNameVal, ciIp: ciIpVal, ciHostname: ciHostnameVal }, '*');
+  });
+
+  const buildZabbixHtml = (zbx, ciNameVal) => {
+    const SEV_LABEL = ['Not classified','Information','Warning','Average','High','Disaster'];
+    const SEV_COLOR = ['#8C959F','#0969DA','#BF8700','#E36209','#CF222E','#82071E'];
+    const SEV_BG    = ['#F6F8FA','#EFF6FF','#FFF8C5','#FFEDCB','#FFEBE9','#FFF0F0'];
+    const SEV_ICON  = ['⚪','🔵','🟡','🟠','🔴','🚨'];
+
+    if (!zbx.ok) {
+      return '<div class="acc-sec">'+
+        '<div class="acc-sec-h">🔔 Alertas Zabbix</div>'+
+        '<div style="padding:10px;font-size:12px;color:#BF8700;">⚠️ Não foi possível consultar o Zabbix: '+esc(zbx.error||'erro desconhecido')+'</div>'+
+      '</div>';
+    }
+
+    const d = zbx.data;
+    if (!d.hostFound) {
+      return '<div class="acc-sec">'+
+        '<div class="acc-sec-h">🔔 Alertas Zabbix</div>'+
+        '<div style="padding:10px;font-size:12px;color:#57606A;">Host não encontrado no Zabbix.<br>'+
+        '<span style="font-size:11px;color:#8C959F;">Buscado por: '+esc((d.searchedTerms||[ciNameVal]).join(', '))+'</span></div>'+
+      '</div>';
+    }
+
+    const problems = d.problems || [];
+    const hostNames = (d.hosts||[]).map(h=>h.name||h.host).join(', ');
+
+    if (!problems.length) {
+      return '<div class="acc-sec">'+
+        '<div class="acc-sec-h" style="display:flex;align-items:center;justify-content:space-between;">'+
+          '<span>🔔 Alertas Zabbix</span>'+
+          '<span style="font-size:10px;font-weight:500;color:#1A7F37;background:#DAFBE1;padding:2px 8px;border-radius:10px;border:1px solid #A7F3C0;">✅ Sem alertas ativos</span>'+
+        '</div>'+
+        '<div style="padding:8px 10px;font-size:11px;color:#57606A;">Host: <b>'+esc(hostNames)+'</b></div>'+
+      '</div>';
+    }
+
+    const rows = problems.map(p => {
+      const sev = parseInt(p.severity) || 0;
+      const color = SEV_COLOR[sev] || '#57606A';
+      const bg    = SEV_BG[sev]    || '#F6F8FA';
+      const icon  = SEV_ICON[sev]  || '⚪';
+      const label = SEV_LABEL[sev] || sev;
+      const dt    = new Date(parseInt(p.clock) * 1000).toLocaleString('pt-BR', {
+        day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
+      }).replace(',','');
+      const ackBadge = p.acknowledged === '1'
+        ? '<span style="font-size:9px;background:#DAFBE1;color:#116329;border:1px solid #A7F3C0;padding:1px 5px;border-radius:8px;">✓ ACK</span>'
+        : '<span style="font-size:9px;background:#FFF8C5;color:#7D4E00;border:1px solid #E3B341;padding:1px 5px;border-radius:8px;">Pendente</span>';
+      return '<tr style="background:'+bg+'">'+
+        '<td><span style="color:'+color+';font-weight:700;font-size:11px;">'+icon+' '+esc(label)+'</span></td>'+
+        '<td style="font-size:12px;color:#24292F;">'+esc(p.name)+'</td>'+
+        '<td style="font-size:11px;color:#57606A;white-space:nowrap;">'+esc(dt)+'</td>'+
+        '<td>'+ackBadge+'</td>'+
+      '</tr>';
+    }).join('');
+
+    const alertCount = problems.length;
+    const hasHigh = problems.some(p => parseInt(p.severity) >= 4);
+    const badgeColor = hasHigh ? '#CF222E' : '#BF8700';
+    const badgeBg    = hasHigh ? '#FFEBE9' : '#FFF8C5';
+    const badgeBorder= hasHigh ? '#FFD1CC' : '#E3B341';
+
+    return '<div class="acc-sec">'+
+      '<div class="acc-sec-h" style="display:flex;align-items:center;justify-content:space-between;">'+
+        '<span>🔔 Alertas Zabbix</span>'+
+        '<span style="font-size:10px;font-weight:700;color:'+badgeColor+';background:'+badgeBg+';padding:2px 8px;border-radius:10px;border:1px solid '+badgeBorder+';">'+alertCount+' alerta'+(alertCount>1?'s':'')+' ativo'+(alertCount>1?'s':'')+'</span>'+
+      '</div>'+
+      '<div style="padding:4px 10px 6px;font-size:11px;color:#57606A;">Host: <b>'+esc(hostNames)+'</b></div>'+
+      '<div class="acc-table-wrap">'+
+        '<table class="acc-table">'+
+          '<thead><tr><th>Severidade</th><th>Problema</th><th>Desde</th><th>Status</th></tr></thead>'+
+          '<tbody>'+rows+'</tbody>'+
+        '</table>'+
+      '</div>'+
+    '</div>';
+  };
+
   Promise.all([fetchSingleCi(), fetchCredentials()])
   .then(([ci, creds]) => {
     const ciComments = getVal(ci, 'comments');
@@ -2819,11 +2925,38 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
         )+
       '</div>';
 
+    // ── Original: monta e exibe o html ────────────────────────────────────
     const html = ciHtml + commentsHtml + credsHtml;
     listEl.innerHTML = html;
     if(!cache.entries) cache.entries = {};
     cache.entries[cacheKey] = { ts: Date.now(), html };
     window._ACCOUNT_PRODUCTS_CACHE = cache;
+
+    // ── ADIÇÃO: seção Zabbix inserida após o conteúdo original ────────────
+    const zabbixPlaceholder = document.createElement('div');
+    zabbixPlaceholder.id = 'zabbix-section-'+ciId;
+    zabbixPlaceholder.className = 'acc-sec';
+    zabbixPlaceholder.innerHTML =
+      '<div class="acc-sec-h">🔔 Alertas Zabbix</div>'+
+      '<div style="padding:10px;font-size:12px;color:#57606A;">⏳ Consultando Zabbix...</div>';
+    listEl.prepend(zabbixPlaceholder);
+
+    const ciIpVal       = getVal(ci, 'ip_address');
+    const ciHostnameVal = getVal(ci, 'host_name');
+
+    fetchZabbixViaBackground(ciName || getVal(ci,'name'), ciIpVal, ciHostnameVal)
+      .then(zbx => {
+        const el = listEl.querySelector('#zabbix-section-'+ciId);
+        if (!el) return;
+        el.outerHTML = buildZabbixHtml(zbx, ciName || getVal(ci,'name'));
+        // Atualiza cache com Zabbix incluído (TTL menor se há alertas)
+        const hasProblem = zbx.ok && zbx.data?.problems?.length > 0;
+        if(cache.entries) {
+          cache.entries[cacheKey] = { ts: Date.now(), html: listEl.innerHTML };
+          cache.ttlMs = hasProblem ? 30000 : 120000;
+          window._ACCOUNT_PRODUCTS_CACHE = cache;
+        }
+      });
   })
   .catch(err => {
     listEl.innerHTML='<div class="account-product-empty">❌ Erro ao carregar CI ('+( err?.status||err?.message||'desconhecido')+').</div>';
