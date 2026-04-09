@@ -2872,6 +2872,43 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     };
   };
 
+    const alerts = topProblems.map(p => {
+      const itemid = p.objectid ? triggerToItem[p.objectid] : null;
+      const graph = itemid ? (ZABBIX_CHART_BASE_URL + '?itemids[]=' + encodeURIComponent(itemid) + '&period=3600') : undefined;
+      return {
+        severity: parseInt(p.severity || 0, 10),
+        description: p.name || '',
+        time: p.clock ? new Date(Number(p.clock) * 1000).toISOString() : '',
+        ...(graph ? { graph } : {})
+      };
+    });
+    const historyEvents = await zabbixDirectCall('event.get', {
+      hostids: host.hostid,
+      output: ['eventid', 'name', 'severity', 'clock', 'value'],
+      sortfield: 'clock',
+      sortorder: 'DESC',
+      limit: 5
+    });
+    const history = (historyEvents || []).map(ev => ({
+      severity: parseInt(ev.severity || 0, 10),
+      description: ev.name || '',
+      time: ev.clock ? new Date(Number(ev.clock) * 1000).toISOString() : '',
+      status: String(ev.value) === '1' ? 'PROBLEM' : 'RESOLVED'
+    }));
+    return {
+      ok: true,
+      data: {
+        ciName: host.name || term,
+        hostFound: true,
+        hasAlert: alerts.length > 0,
+        alerts,
+        history,
+        hosts: [host],
+        problems
+      }
+    };
+  };
+
   // O dashboard roda em aba ServiceNow com content.js injetado.
   // Tentamos primeiro a própria aba (window), e opcionalmente também opener.
   const ZABBIX_BRIDGE_TIMEOUT_MS = 20000;
@@ -3878,8 +3915,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     .catch(e=>console.error('_emsOpsRender:',e));
   };
 
-  const outWin = window.open('','_blank') || window;
+  const outWin = window.open('about:blank','EMS_OPS_DASHBOARD') || window;
   const sameTabFallback = outWin === window;
+  try { outWin.focus && outWin.focus(); } catch(_) {}
   outWin.document.write('<html><body style="background:#F6F8FA;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:system-ui"><div style="text-align:center;color:#57606A"><div style="font-size:40px;margin-bottom:12px">🖥</div><div style="font-size:16px;font-weight:600;color:#24292F">EMS Ops Dashboard</div><div style="font-size:13px;margin-top:6px">Carregando dados...</div></div></body></html>');
 
   // Stagger agg calls to reduce server load (performance improvement)
@@ -3911,5 +3949,5 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (outWin && !outWin.closed) outWin.document.write(`<html><body style="background:#F6F8FA;padding:40px;font-family:system-ui"><h2 style="color:#CF222E">Erro ao carregar painel</h2><pre style="color:#57606A">${e.message}</pre></body></html>`);
   });
 
-  return { ok: true, sameTabFallback };
+  return { ok: true, sameTabFallback, openedTarget: !!outWin && !outWin.closed };
 }
