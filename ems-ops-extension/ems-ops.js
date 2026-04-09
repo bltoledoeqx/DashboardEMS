@@ -2457,10 +2457,9 @@ function switchAnalyst(userId){
   renderFilterChips();
   syncReportsFilters();
   if(_slaSortOn) applySlaSort();
-
-  if(!userId){return;}
-  const name=(window._GMEMBERS[gid]||[]).find(m=>m.id===userId)?.name||'Analista';
-  // Don't fetch separately — boards are filtered
+  // Don't fetch separately — boards are filtered.
+  // Keep this function side-effect free for polling callbacks
+  // (avoid optional data lookups that may throw and interrupt delta updates).
   return;
 
   // DEAD CODE BELOW (kept for reference)
