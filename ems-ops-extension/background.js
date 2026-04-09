@@ -4,7 +4,8 @@
 
 const ZABBIX_URL   = 'https://monbr1.equinix.com.br/api_jsonrpc.php';
 const ZABBIX_TOKEN = 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b';
-const ZABBIX_HTTP_TIMEOUT_MS = 12000;
+const ZABBIX_HTTP_TIMEOUT_MS = 7000;
+const ZABBIX_FLOW_TIMEOUT_MS = 17000;
 
 function withTimeout(promiseFactory, timeoutMs, timeoutMessage) {
   const controller = new AbortController();
@@ -64,46 +65,61 @@ async function fetchZabbixAlertsForCI(ciName, ciIp, ciHostname) {
     totalMs: 0
   };
 
-  // 1. Busca exata pelo nome
-  for (const term of searchTerms) {
-    if (!term || term === '—') continue;
+  // 1) Uma busca exata com todos os termos (mais barata que 1 request por termo)
+  const exactTerms = searchTerms.filter(term => term && term !== '—');
+  if (exactTerms.length) {
     try {
       const exactStartedAt = Date.now();
       hosts = await zabbixCall('host.get', {
-        filter: { host: [term] },
+        filter: { host: exactTerms },
         output: ['hostid', 'host', 'name', 'status'],
         limit: 5
       });
       debug.attempts.push({
-        mode: 'exact',
-        term,
+        mode: 'exact-batch',
+        term: exactTerms.join(','),
         ms: Date.now() - exactStartedAt,
         found: hosts.length
       });
-      if (hosts.length) break;
-
-      // 2. Busca parcial (LIKE) se exata não encontrou
-      const likeStartedAt = Date.now();
-      hosts = await zabbixCall('host.get', {
-        search: { host: term, name: term },
-        searchByAny: true,
-        output: ['hostid', 'host', 'name', 'status'],
-        limit: 5
-      });
-      debug.attempts.push({
-        mode: 'like',
-        term,
-        ms: Date.now() - likeStartedAt,
-        found: hosts.length
-      });
-      if (hosts.length) break;
-    } catch(e) {
+    } catch (e) {
       debug.attempts.push({
         mode: 'error',
-        term,
+        term: exactTerms.join(','),
         error: e.message
       });
-      // Continua para o próximo termo
+    }
+  }
+
+  // 2) Fallback parcial com no máximo 2 termos para evitar estourar o bridge timeout
+  if (!hosts.length) {
+    const fallbackTerms = [];
+    if (ciName && ciName !== '—') fallbackTerms.push(ciName);
+    if (ciHostname && ciHostname !== '—' && ciHostname !== ciName) fallbackTerms.push(ciHostname);
+    if (!fallbackTerms.length && ciIp && ciIp !== '—') fallbackTerms.push(ciIp);
+
+    for (const term of fallbackTerms.slice(0, 2)) {
+      try {
+        const likeStartedAt = Date.now();
+        hosts = await zabbixCall('host.get', {
+          search: { host: term, name: term },
+          searchByAny: true,
+          output: ['hostid', 'host', 'name', 'status'],
+          limit: 5
+        });
+        debug.attempts.push({
+          mode: 'like',
+          term,
+          ms: Date.now() - likeStartedAt,
+          found: hosts.length
+        });
+        if (hosts.length) break;
+      } catch (e) {
+        debug.attempts.push({
+          mode: 'error',
+          term,
+          error: e.message
+        });
+      }
     }
   }
 
@@ -138,13 +154,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type !== 'ZABBIX_FETCH') return false;
 
   const { ciName, ciIp, ciHostname } = message;
+  let responded = false;
+  const safeSend = payload => {
+    if (responded) return;
+    responded = true;
+    sendResponse(payload);
+  };
 
-  fetchZabbixAlertsForCI(ciName, ciIp, ciHostname)
-    .then(result => sendResponse({ ok: true, data: result }))
-    .catch(err  => sendResponse({
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => reject(new Error(`Fluxo Zabbix: timeout após ${Math.round(ZABBIX_FLOW_TIMEOUT_MS / 1000)}s`)), ZABBIX_FLOW_TIMEOUT_MS);
+  });
+
+  Promise.race([fetchZabbixAlertsForCI(ciName, ciIp, ciHostname), timeoutPromise])
+    .then(result => safeSend({ ok: true, data: result }))
+    .catch(err  => safeSend({
       ok: false,
       error: err.message,
-      debug: { source: 'background', at: new Date().toISOString() }
+      debug: { source: 'background', at: new Date().toISOString(), timeoutMs: ZABBIX_FLOW_TIMEOUT_MS }
     }));
 
   return true; // mantém o canal aberto para resposta assíncrona

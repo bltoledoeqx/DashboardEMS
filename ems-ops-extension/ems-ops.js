@@ -2817,7 +2817,8 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     const SEV_ICON  = ['⚪','🔵','🟡','🟠','🔴','🚨'];
 
     if (!zbx.ok) {
-      const dbg = zbx.debug?.attempts?.length
+      const hasAttempts = !!(zbx && zbx.debug && Array.isArray(zbx.debug.attempts) && zbx.debug.attempts.length);
+      const dbg = hasAttempts
         ? '<div style="margin-top:6px;font-size:11px;color:#8C959F;">'+
             'Debug: '+esc(zbx.debug.attempts.map(a => {
               if (a.mode === 'error') return (a.term || 'term') + ': ' + (a.error || 'erro');
@@ -2842,7 +2843,7 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
 
     const problems = d.problems || [];
     const hostNames = (d.hosts||[]).map(h=>h.name||h.host).join(', ');
-    const debugInfo = d.debug?.totalMs
+    const debugInfo = (d && d.debug && d.debug.totalMs)
       ? '<div style="padding:0 10px 8px;font-size:10px;color:#8C959F;">Tempo consulta Zabbix: '+esc(String(d.debug.totalMs))+'ms</div>'
       : '';
 
