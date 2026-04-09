@@ -2777,21 +2777,121 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
   const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
   // ── Zabbix: busca via postMessage → content.js → background.js (sem CORS) ──
-  // O dashboard roda em nova aba (sem chrome.runtime). Usa window.opener
-  // (a aba do ServiceNow) como ponte — o content.js lá escuta e repassa
-  // ao background.js, devolvendo o resultado via postMessage.
-  const fetchZabbixViaBackground = (ciNameVal, ciIpVal, ciHostnameVal) => new Promise(resolve => {
-    const opener = window.opener;
-    if (!opener || opener.closed) {
-      resolve({ ok: false, error: 'window.opener indisponível — abra o dashboard pelo botão da extensão.' });
-      return;
+  // Tentativa 1: consulta direta (mesma lógica validada no DevTools).
+  // Tentativa 2 (fallback): ponte content/background.
+  const ZABBIX_URL = 'https://monbr1.equinix.com.br/api_jsonrpc.php';
+  const ZABBIX_TOKEN = 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b';
+  const ZABBIX_CHART_BASE_URL = 'https://monbr1.equinix.com.br/chart.php';
+  const ZABBIX_DIRECT_TIMEOUT_MS = 7000;
+
+  const zabbixDirectCall = async (method, params) => {
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(), ZABBIX_DIRECT_TIMEOUT_MS);
+    try {
+      const res = await fetch(ZABBIX_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + ZABBIX_TOKEN
+        },
+        body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 }),
+        signal: ctl.signal
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error('Zabbix HTTP ' + res.status);
+      if (payload.error) throw new Error(payload.error.data || payload.error.message || 'Erro API');
+      return payload.result || [];
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  const fetchZabbixDirect = async (ciNameVal) => {
+    const term = String(ciNameVal || '').trim();
+    if (!term || term === '—') throw new Error('CI sem nome para busca direta');
+    const hosts = await zabbixDirectCall('host.get', {
+      search: { name: term },
+      output: ['hostid', 'name'],
+      limit: 10
+    });
+    if (!hosts.length) {
+      return { ok: true, data: { ciName: term, hostFound: false, hasAlert: false, alerts: [], hosts: [], problems: [] } };
+    }
+    const host = hosts[0];
+    const problems = await zabbixDirectCall('problem.get', {
+      hostids: host.hostid,
+      output: ['eventid', 'name', 'severity', 'clock', 'objectid'],
+      sortfield: 'eventid',
+      sortorder: 'DESC',
+      limit: 30
+    });
+    const topProblems = [...(problems || [])]
+      .sort((a, b) => (parseInt(b.severity || 0, 10) - parseInt(a.severity || 0, 10)))
+      .slice(0, 3);
+    const triggerIds = [...new Set(topProblems.map(p => p.objectid).filter(Boolean))];
+    let triggerToItem = {};
+    if (triggerIds.length) {
+      const triggers = await zabbixDirectCall('trigger.get', {
+        triggerids: triggerIds,
+        output: ['triggerid'],
+        selectItems: ['itemid', 'name']
+      });
+      triggerToItem = (triggers || []).reduce((acc, trg) => {
+        const firstItem = Array.isArray(trg.items) && trg.items.length ? trg.items[0] : null;
+        if (trg.triggerid && firstItem && firstItem.itemid) acc[trg.triggerid] = firstItem.itemid;
+        return acc;
+      }, {});
     }
 
+    const alerts = topProblems.map(p => {
+      const itemid = p.objectid ? triggerToItem[p.objectid] : null;
+      const graph = itemid ? (ZABBIX_CHART_BASE_URL + '?itemids[]=' + encodeURIComponent(itemid) + '&period=3600') : undefined;
+      return {
+        severity: parseInt(p.severity || 0, 10),
+        description: p.name || '',
+        time: p.clock ? new Date(Number(p.clock) * 1000).toISOString() : '',
+        ...(graph ? { graph } : {})
+      };
+    });
+    const historyEvents = await zabbixDirectCall('event.get', {
+      hostids: host.hostid,
+      output: ['eventid', 'name', 'severity', 'clock', 'value'],
+      sortfield: 'clock',
+      sortorder: 'DESC',
+      limit: 10
+    });
+    const history = (historyEvents || []).map(ev => ({
+      severity: parseInt(ev.severity || 0, 10),
+      description: ev.name || '',
+      time: ev.clock ? new Date(Number(ev.clock) * 1000).toISOString() : '',
+      status: String(ev.value) === '1' ? 'PROBLEM' : 'RESOLVED'
+    }));
+    return {
+      ok: true,
+      data: {
+        ciName: host.name || term,
+        hostFound: true,
+        hasAlert: alerts.length > 0,
+        alerts,
+        history,
+        hosts: [host],
+        problems
+      }
+    };
+  };
+
+  // O dashboard roda em aba ServiceNow com content.js injetado.
+  // Tentamos primeiro a própria aba (window), e opcionalmente também opener.
+  const ZABBIX_BRIDGE_TIMEOUT_MS = 20000;
+  const fetchZabbixViaBackground = (ciNameVal, ciIpVal, ciHostnameVal) => new Promise(resolve => {
     const requestId = 'zbx-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
     const timeout = setTimeout(() => {
       window.removeEventListener('message', handler);
-      resolve({ ok: false, error: 'Timeout ao aguardar resposta do Zabbix (10s).' });
-    }, 10000);
+      resolve({
+        ok: false,
+        error: 'Timeout ao aguardar resposta do Zabbix (' + Math.round(ZABBIX_BRIDGE_TIMEOUT_MS / 1000) + 's).'
+      });
+    }, ZABBIX_BRIDGE_TIMEOUT_MS);
 
     function handler(event) {
       if (!event.data || event.data.type !== 'EMS_ZABBIX_RESPONSE') return;
@@ -2802,8 +2902,18 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     }
 
     window.addEventListener('message', handler);
-    console.log('[EMS dashboard] Enviando EMS_ZABBIX_REQUEST via opener.postMessage, requestId:', requestId);
-    opener.postMessage({ type: 'EMS_ZABBIX_REQUEST', requestId, ciName: ciNameVal, ciIp: ciIpVal, ciHostname: ciHostnameVal }, '*');
+    const payload = { type: 'EMS_ZABBIX_REQUEST', requestId, ciName: ciNameVal, ciIp: ciIpVal, ciHostname: ciHostnameVal };
+    console.log('[EMS dashboard] Enviando EMS_ZABBIX_REQUEST via window.postMessage, requestId:', requestId);
+    window.postMessage(payload, '*');
+
+    if (window.opener && !window.opener.closed) {
+      try {
+        console.log('[EMS dashboard] Enviando EMS_ZABBIX_REQUEST também via opener.postMessage, requestId:', requestId);
+        window.opener.postMessage(payload, '*');
+      } catch (_) {
+        // sem ação: tentativa auxiliar
+      }
+    }
   });
 
   const buildZabbixHtml = (zbx, ciNameVal) => {
@@ -2813,9 +2923,18 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     const SEV_ICON  = ['⚪','🔵','🟡','🟠','🔴','🚨'];
 
     if (!zbx.ok) {
+      const hasAttempts = !!(zbx && zbx.debug && Array.isArray(zbx.debug.attempts) && zbx.debug.attempts.length);
+      const dbg = hasAttempts
+        ? '<div style="margin-top:6px;font-size:11px;color:#8C959F;">'+
+            'Debug: '+esc(zbx.debug.attempts.map(a => {
+              if (a.mode === 'error') return (a.term || 'term') + ': ' + (a.error || 'erro');
+              return (a.mode || 'mode') + ':' + (a.term || 'term') + ' (' + (a.ms || 0) + 'ms, found=' + (a.found || 0) + ')';
+            }).join(' | '))+
+          '</div>'
+        : '';
       return '<div class="acc-sec">'+
         '<div class="acc-sec-h">🔔 Alertas Zabbix</div>'+
-        '<div style="padding:10px;font-size:12px;color:#BF8700;">⚠️ Não foi possível consultar o Zabbix: '+esc(zbx.error||'erro desconhecido')+'</div>'+
+        '<div style="padding:10px;font-size:12px;color:#BF8700;">⚠️ Não foi possível consultar o Zabbix: '+esc(zbx.error||'erro desconhecido')+dbg+'</div>'+
       '</div>';
     }
 
@@ -2829,7 +2948,16 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     }
 
     const problems = d.problems || [];
+    const alerts = d.alerts || problems.map(p => ({
+      severity: parseInt(p.severity || 0, 10),
+      description: p.name || '',
+      time: p.clock ? new Date(parseInt(p.clock, 10) * 1000).toISOString() : '',
+      graph: undefined
+    }));
     const hostNames = (d.hosts||[]).map(h=>h.name||h.host).join(', ');
+    const debugInfo = (d && d.debug && d.debug.totalMs)
+      ? '<div style="padding:0 10px 8px;font-size:10px;color:#8C959F;">Tempo consulta Zabbix: '+esc(String(d.debug.totalMs))+'ms</div>'
+      : '';
 
     if (!problems.length) {
       return '<div class="acc-sec">'+
@@ -2838,34 +2966,47 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
           '<span style="font-size:10px;font-weight:500;color:#1A7F37;background:#DAFBE1;padding:2px 8px;border-radius:10px;border:1px solid #A7F3C0;">✅ Sem alertas ativos</span>'+
         '</div>'+
         '<div style="padding:8px 10px;font-size:11px;color:#57606A;">Host: <b>'+esc(hostNames)+'</b></div>'+
+        debugInfo+
       '</div>';
     }
 
-    const rows = problems.map(p => {
+    const rows = alerts.map(p => {
       const sev = parseInt(p.severity) || 0;
       const color = SEV_COLOR[sev] || '#57606A';
       const bg    = SEV_BG[sev]    || '#F6F8FA';
       const icon  = SEV_ICON[sev]  || '⚪';
       const label = SEV_LABEL[sev] || sev;
-      const dt    = new Date(parseInt(p.clock) * 1000).toLocaleString('pt-BR', {
+      const dt    = p.time ? new Date(p.time).toLocaleString('pt-BR', {
         day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
-      }).replace(',','');
-      const ackBadge = p.acknowledged === '1'
-        ? '<span style="font-size:9px;background:#DAFBE1;color:#116329;border:1px solid #A7F3C0;padding:1px 5px;border-radius:8px;">✓ ACK</span>'
-        : '<span style="font-size:9px;background:#FFF8C5;color:#7D4E00;border:1px solid #E3B341;padding:1px 5px;border-radius:8px;">Pendente</span>';
+      }).replace(',','') : '—';
+      const graphCell = p.graph
+        ? '<a href="'+esc(p.graph)+'" target="_blank" style="font-size:10px;">📊 gráfico</a>'
+        : '<span style="font-size:10px;color:#8C959F;">—</span>';
       return '<tr style="background:'+bg+'">'+
         '<td><span style="color:'+color+';font-weight:700;font-size:11px;">'+icon+' '+esc(label)+'</span></td>'+
-        '<td style="font-size:12px;color:#24292F;">'+esc(p.name)+'</td>'+
+        '<td style="font-size:12px;color:#24292F;">'+esc(p.description)+'</td>'+
         '<td style="font-size:11px;color:#57606A;white-space:nowrap;">'+esc(dt)+'</td>'+
-        '<td>'+ackBadge+'</td>'+
+        '<td>'+graphCell+'</td>'+
       '</tr>';
     }).join('');
 
-    const alertCount = problems.length;
-    const hasHigh = problems.some(p => parseInt(p.severity) >= 4);
+    const alertCount = alerts.length;
+    const hasHigh = alerts.some(p => parseInt(p.severity) >= 4);
     const badgeColor = hasHigh ? '#CF222E' : '#BF8700';
     const badgeBg    = hasHigh ? '#FFEBE9' : '#FFF8C5';
     const badgeBorder= hasHigh ? '#FFD1CC' : '#E3B341';
+
+    const historyRows = (d.history || []).map(h => {
+      const statusColor = h.status === 'PROBLEM' ? '#CF222E' : '#1A7F37';
+      const dt = h.time ? new Date(h.time).toLocaleString('pt-BR', {
+        day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
+      }).replace(',', '') : '—';
+      return '<tr>'+
+        '<td style="font-size:11px;color:'+statusColor+';font-weight:700;">'+esc(h.status || '—')+'</td>'+
+        '<td style="font-size:12px;color:#24292F;">'+esc(h.description || '—')+'</td>'+
+        '<td style="font-size:11px;color:#57606A;">'+esc(dt)+'</td>'+
+      '</tr>';
+    }).join('');
 
     return '<div class="acc-sec">'+
       '<div class="acc-sec-h" style="display:flex;align-items:center;justify-content:space-between;">'+
@@ -2873,12 +3014,17 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
         '<span style="font-size:10px;font-weight:700;color:'+badgeColor+';background:'+badgeBg+';padding:2px 8px;border-radius:10px;border:1px solid '+badgeBorder+';">'+alertCount+' alerta'+(alertCount>1?'s':'')+' ativo'+(alertCount>1?'s':'')+'</span>'+
       '</div>'+
       '<div style="padding:4px 10px 6px;font-size:11px;color:#57606A;">Host: <b>'+esc(hostNames)+'</b></div>'+
+      debugInfo+
       '<div class="acc-table-wrap">'+
         '<table class="acc-table">'+
-          '<thead><tr><th>Severidade</th><th>Problema</th><th>Desde</th><th>Status</th></tr></thead>'+
+          '<thead><tr><th>Severidade</th><th>Problema</th><th>Desde</th><th>Gráfico</th></tr></thead>'+
           '<tbody>'+rows+'</tbody>'+
         '</table>'+
       '</div>'+
+      ((d.history && d.history.length)
+        ? '<div style="padding:8px 10px 4px;font-size:11px;font-weight:700;color:#57606A;">Histórico (últimos 10 eventos)</div>'+
+          '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>Status</th><th>Evento</th><th>Quando</th></tr></thead><tbody>'+historyRows+'</tbody></table></div>'
+        : '')+
     '</div>';
   };
 
@@ -2944,11 +3090,13 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     const ciIpVal       = getVal(ci, 'ip_address');
     const ciHostnameVal = getVal(ci, 'host_name');
 
-    fetchZabbixViaBackground(ciName || getVal(ci,'name'), ciIpVal, ciHostnameVal)
+    const ciLookupName = ciName || getVal(ci,'name');
+    fetchZabbixDirect(ciLookupName)
+      .catch(() => fetchZabbixViaBackground(ciLookupName, ciIpVal, ciHostnameVal))
       .then(zbx => {
         const el = listEl.querySelector('#zabbix-section-'+ciId);
         if (!el) return;
-        el.outerHTML = buildZabbixHtml(zbx, ciName || getVal(ci,'name'));
+        el.outerHTML = buildZabbixHtml(zbx, ciLookupName);
         // Atualiza cache com Zabbix incluído (TTL menor se há alertas)
         const hasProblem = zbx.ok && zbx.data?.problems?.length > 0;
         if(cache.entries) {
