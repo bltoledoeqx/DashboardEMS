@@ -3785,6 +3785,30 @@ document.addEventListener('DOMContentLoaded',()=>{
 </body></html>`;
   };
 
+  // ── Export handlers for inline onclick attributes ──────────────────────
+  Object.assign(window, {
+    activateSide,
+    showPage,
+    topAction,
+    toggleQueueMenu,
+    toggleFilterMenu,
+    refreshKanban,
+    refreshBacklog,
+    refreshPostmortem,
+    refreshReports,
+    switchFila,
+    switchFilaBacklog,
+    switchReportsFila,
+    switchReportsManager,
+    switchReportsAnalyst,
+    switchManager,
+    switchAnalyst,
+    switchAnalystBacklogFromToolbar,
+    openCaseModal,
+    openCaseModalBtn,
+    openReassignBtn
+  });
+
   // ── Fetch and build ────────────────────────────────────────────────────
   const {ini, fim} = mesRange(mes);
   const qA = `assignment_groupIN${G_IDS}${EXCL}`; // All active — backlog split done client-side by age
