@@ -3004,6 +3004,9 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
       .filter(h => String(h.status || '').toUpperCase().includes('RESOLVED'))
       .slice(0, 5);
 
+    const chartViewerId = 'zbx-chart-img-' + Math.random().toString(36).slice(2,8);
+    const chartLinkId = 'zbx-chart-link-' + Math.random().toString(36).slice(2,8);
+
     const rows = alerts.map(p => {
       const sev = parseInt(p.severity) || 0;
       const color = SEV_COLOR[sev] || '#57606A';
@@ -3427,7 +3430,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     openImpactUrgencyBtn,openReassignBtn,closeImpactUrgencyEditor,
     closeCaseModal,modalReassign,
     modalTabSwitch,saveModal,saveModalImpactUrgency,uploadModalAttachment,
-    closeAccountProductsModal,toggleCiPassword,pgNav,pgGoTo,remFil,clrCol,applyCol
+    closeAccountProductsModal,toggleCiPassword,setZabbixChart,pgNav,pgGoTo,remFil,clrCol,applyCol
   });
 
   // ── Delta Polling (Real-time updates) ──────────────────────────────────
