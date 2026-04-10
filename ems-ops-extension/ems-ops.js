@@ -519,13 +519,13 @@ function runEMSOps(userToken, userMes) {
   --border:#D0D7DE;--border2:#BFC8D3;
   --text:#24292F;--text2:#57606A;--muted:#8C959F;
   --red:#CF222E;--ora:#BF8700;--blue:#0550AE;
-  --green:#1A7F37;--gray:#57606A;--await:#0969DA;
+  --green:#1A7F37;--gray:#57606A;--await:#0969DA;--z-idx-side:100;--z-idx-hdr:200;--z-idx-modal:500;--z-idx-popover:600;--z-idx-max:9999;
   --sans:'Inter',system-ui,sans-serif;--mono:'IBM Plex Mono',monospace;
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;padding-left:56px;}
 a{text-decoration:none;}
-.side-nav{position:fixed;left:0;top:0;bottom:0;width:56px;background:#1f2937;border-right:1px solid #111827;z-index:300;display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;}
+.side-nav{position:fixed;left:0;top:0;bottom:0;width:56px;background:#1f2937;border-right:1px solid #111827;z-index:var(--z-idx-side);display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;}
 .side-btn{width:42px;height:42px;border:none;border-radius:8px;background:transparent;color:#D1D5DB;cursor:pointer;font-size:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
 .side-btn:hover{background:#374151;color:#fff;}
 .side-btn.active{background:#2563EB;color:#fff;}
@@ -535,7 +535,7 @@ a{text-decoration:none;}
 .top-icon-btn:hover{border-color:#0969DA;color:#0969DA;background:#EFF6FF;}
 
 /* HEADER */
-.header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:0 1px 3px rgba(27,31,36,.04);}
+.header{background:var(--surface);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:var(--z-idx-hdr);box-shadow:0 1px 3px rgba(27,31,36,.04);}
 .logo{display:flex;align-items:center;gap:10px;}
 .logo-mark{width:28px;height:28px;background:#0969DA;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;}
 .logo-text{font-size:15px;font-weight:600;color:var(--text);}
@@ -721,8 +721,8 @@ a{text-decoration:none;}
 .card.dragging{opacity:.55;transform:scale(.99);}
 .lane-body.drop-target{outline:2px dashed #0969DA;outline-offset:-4px;border-radius:8px;}
 /* REASSIGN DROPDOWN */
-.reassign-dd{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(27,31,36,.15);z-index:2000;width:210px;max-height:280px;display:flex;flex-direction:column;}
-.iu-dd{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(27,31,36,.15);z-index:2000;width:230px;padding:10px;display:flex;flex-direction:column;gap:8px;}
+.reassign-dd{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(27,31,36,.15);z-index:var(--z-idx-popover);width:210px;max-height:280px;display:flex;flex-direction:column;}
+.iu-dd{position:fixed;background:var(--surface);border:1px solid var(--border2);border-radius:8px;box-shadow:0 8px 24px rgba(27,31,36,.15);z-index:var(--z-idx-popover);width:230px;padding:10px;display:flex;flex-direction:column;gap:8px;}
 .iu-dd label{font-size:10px;font-weight:600;color:#57606A;text-transform:uppercase;}
 .iu-dd select{width:100%;font-size:12px;padding:5px 6px;border:1px solid #D0D7DE;border-radius:4px;}
 .iu-dd-actions{display:flex;justify-content:flex-end;gap:6px;}
@@ -733,7 +733,7 @@ a{text-decoration:none;}
 .reassign-opt:hover{background:var(--bg);}
 .reassign-current{color:#0969DA;font-weight:600;}
 /* TOAST */
-.toast{position:fixed;bottom:24px;right:24px;background:#24292F;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;z-index:3000;opacity:0;transform:translateY(8px);transition:all .25s;}
+.toast{position:fixed;bottom:24px;right:24px;background:#24292F;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;font-weight:500;z-index:var(--z-idx-max);opacity:0;transform:translateY(8px);transition:all .25s;}
 .toast.toast-show{opacity:1;transform:none;}
 .toast.toast-error{background:#CF222E;}
 .toast.toast-warn{background:#BF8700;}
@@ -917,9 +917,9 @@ tr:hover td{background:#F6F8FA;}
 .fdd-clear{background:var(--surface);color:var(--text2);}
 
 /* TOKEN ERROR */
-#tok-err{position:fixed;inset:0;background:rgba(27,31,36,.5);z-index:9999;display:none;align-items:center;justify-content:center;}
+#tok-err{position:fixed;inset:0;background:rgba(27,31,36,.5);z-index:var(--z-idx-max);display:none;align-items:center;justify-content:center;}
 .tok-modal{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px 36px;text-align:center;max-width:360px;box-shadow:0 8px 24px rgba(27,31,36,.12);}
-.settings-ov{position:fixed;inset:0;background:rgba(27,31,36,.45);z-index:5000;display:flex;align-items:center;justify-content:center;}
+.settings-ov{position:fixed;inset:0;background:rgba(27,31,36,.45);z-index:var(--z-idx-modal);display:flex;align-items:center;justify-content:center;}
 .settings-md{width:min(520px,92vw);background:var(--surface);border:1px solid var(--border2);border-radius:12px;box-shadow:0 12px 36px rgba(27,31,36,.24);padding:16px;}
 .settings-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
 .settings-ttl{font-size:14px;font-weight:700;color:var(--text);}
@@ -2137,6 +2137,7 @@ let _lastActivesCount = -1;
 
 function startPolling(){
   stopPolling();
+  window.__deltaPollingActive = true;
 
   // Layer 1: KPIs (60s) — 3 lightweight aggregate calls
   _pollL1 = setInterval(()=>pollKPIs(), 60000);
@@ -2646,8 +2647,8 @@ function openCaseModal(sysId, number, cardEl) {
   modal.style.cssText = 'width:95%;height:95%;background:#fff;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;';
 
   const header = document.createElement('div');
-  header.style.cssText = 'background:#111;color:#fff;padding:12px;display:flex;justify-content:space-between;align-items:center;font-size:14px;';
-  header.innerHTML = '<span id="case-iframe-title">'+emsEscapeHtml(number||'Case')+'</span><div><button id="reloadBtn">🔄</button><button id="closeBtn">✖</button></div>';
+  header.style.cssText = 'background:#0969DA;color:#fff;padding:12px;display:flex;justify-content:space-between;align-items:center;font-size:14px;';
+  header.innerHTML = '<div style="flex:1"></div><img src="https://i.postimg.cc/NFB5VZyG/equinix-logo-icon-169199-resized.png" style="height:12px;display:block;"><div style="flex:1;display:flex;justify-content:flex-end;gap:8px;"><button id="reloadBtn">🔄</button><button id="closeBtn">✖</button></div>';
 
   const bodyWrap = document.createElement('div');
   bodyWrap.style.cssText = 'flex:1;display:flex;min-height:0;';
@@ -2865,7 +2866,7 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     const alerts = topProblems.map(p => {
       const itemid = p.objectid ? triggerToItem[p.objectid] : null;
       const graph = itemid
-        ? (ZABBIX_CHART_BASE_URL + '?itemids[]=' + encodeURIComponent(itemid) + '&type=0&width=600&height=220&period=3600&legend=0')
+        ? (ZABBIX_CHART_BASE_URL + '?itemids[]=' + encodeURIComponent(itemid) + '&type=0&width=1200&height=500&period=86400&legend=1&showworkperiod=1&showtriggers=1')
         : undefined;
       return {
         severity: parseInt(p.severity || 0, 10),
@@ -2899,7 +2900,7 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     const history = (historyEvents || []).map(ev => {
       const itemid = ev.objectid ? historyTriggerToItem[ev.objectid] : null;
       const graph = itemid
-        ? (ZABBIX_CHART_BASE_URL + '?itemids[]=' + encodeURIComponent(itemid) + '&type=0&width=600&height=220&period=3600&legend=0')
+        ? (ZABBIX_CHART_BASE_URL + '?itemids[]=' + encodeURIComponent(itemid) + '&type=0&width=1200&height=500&period=86400&legend=1&showworkperiod=1&showtriggers=1')
         : undefined;
       return {
       severity: parseInt(ev.severity || 0, 10),
@@ -3430,7 +3431,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     openImpactUrgencyBtn,openReassignBtn,closeImpactUrgencyEditor,
     closeCaseModal,modalReassign,
     modalTabSwitch,saveModal,saveModalImpactUrgency,uploadModalAttachment,
-    closeAccountProductsModal,toggleCiPassword,setZabbixChart,pgNav,pgGoTo,remFil,clrCol,applyCol
+    closeAccountProductsModal,toggleCiPassword,pgNav,pgGoTo,remFil,clrCol,applyCol
   });
 
   // ── Delta Polling (Real-time updates) ──────────────────────────────────
@@ -3441,7 +3442,9 @@ document.addEventListener('DOMContentLoaded',()=>{
     console.log('[DeltaPolling] Inicializando...');
 
     let POLLING_INTERVAL = window._UI_SETTINGS?.pollingMs || 30000;
-    let lastSyncTime = new Date().toISOString().split('.')[0].replace('T', ' ');
+    // Inicia 2 minutos no passado para cobrir o delay de renderização inicial
+    let lastSyncTime = new Date(Date.now() - 120000).toISOString().split('.')[0].replace('T', ' ');
+    let isFetching = false;
     
     const _HEADERS = { 'Accept': 'application/json', 'X-UserToken': _TOK };
     const _G_IDS = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
@@ -3449,6 +3452,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     const isTerminalState = st => ['3','6'].includes(String(st||''));
 
     async function fetchDeltas() {
+      if (!window.__deltaPollingActive) return;
+      
       const visibleIds = Array.from(document.querySelectorAll('.card[data-sysid]'))
         .map(c => c.dataset.sysid)
         .filter(Boolean);
@@ -3462,6 +3467,11 @@ document.addEventListener('DOMContentLoaded',()=>{
         const url = endpoint + '?sysparm_query=' + encodeURIComponent(query) + params;
         const response = await fetch(url, { headers: _HEADERS });
         const raw = await response.text();
+        if (response.status === 401 || response.status === 403) {
+          const errModal = document.getElementById('tok-err');
+          if (errModal) errModal.style.display = 'flex';
+          throw new Error('Sessão expirada');
+        }
         if (!response.ok) {
           const msg = raw ? ': ' + raw.slice(0, 180) : '';
           throw new Error('delta_polling HTTP ' + response.status + msg);
@@ -3501,16 +3511,19 @@ document.addEventListener('DOMContentLoaded',()=>{
         if (cases.length > 0) {
           console.log('[DeltaPolling] ' + cases.length + ' casos alterados.');
           cases.forEach(c => {
-            const card = document.querySelector('.card[data-sysid="' + c.sys_id.value + '"]');
-            if (card && isTerminalState(c?.state?.value)) {
-              const board = card.closest('.board-inner');
-              card.remove();
-              updateLaneCounters(board);
-              reapplyAnalystFilters();
-              return;
-            }
-            if (card) updateCard(card, c);
-            else {
+            const cards = document.querySelectorAll('.card[data-sysid="' + c.sys_id.value + '"]');
+            if (cards.length > 0) {
+              if (isTerminalState(c?.state?.value)) {
+                cards.forEach(card => {
+                  const board = card.closest('.board-inner');
+                  card.remove();
+                  if (board) updateLaneCounters(board);
+                });
+                reapplyAnalystFilters();
+                return;
+              }
+              cards.forEach(card => updateCard(card, c));
+            } else {
               if (isTerminalState(c?.state?.value)) return;
               console.log('[DeltaPolling] Novo caso detectado: ' + c.number.display_value);
               insertNewCaseCard(c);
@@ -3561,9 +3574,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       updateLaneCounters(board);
     }
 
-    function queueMatchesCurrent(groupId) {
-      if (currentFila === 'all') return true;
-      const selected = window._GID_MAP?.[currentFila] || '';
+    function queueMatchesFila(groupId, filaKey) {
+      if (filaKey === 'all') return true;
+      const selected = window._GID_MAP?.[filaKey] || '';
       return !selected || selected.split(',').includes(groupId);
     }
 
@@ -3642,15 +3655,39 @@ document.addEventListener('DOMContentLoaded',()=>{
     function insertNewCaseCard(data) {
       if (isTerminalState(data?.state?.value)) return;
       const gid = data?.assignment_group?.value || '';
-      if (!queueMatchesCurrent(gid)) return;
-      const lane = resolveLaneFromDelta(data);
-      const targetBody = document.querySelector('.board-inner .lane[data-lane="' + lane + '"] .lane-body');
-      if (!targetBody) return;
-      const empty = targetBody.querySelector('.lane-empty');
-      if (empty) empty.remove();
-      const card = buildCardElement(data, lane);
-      targetBody.prepend(card);
-      updateLaneCounters(card.closest('.board-inner'));
+      
+      // 1. Kanban Board
+      if (queueMatchesFila(gid, currentFila)) {
+        const board = document.getElementById('board-wrap');
+        if (board) {
+          const lane = resolveLaneFromDelta(data);
+          const targetBody = board.querySelector('.lane[data-lane="' + lane + '"] .lane-body');
+          if (targetBody) {
+            const empty = targetBody.querySelector('.lane-empty');
+            if (empty) empty.remove();
+            const card = buildCardElement(data, lane);
+            targetBody.prepend(card);
+            updateLaneCounters(board);
+          }
+        }
+      }
+
+      // 2. Backlog Board
+      if (queueMatchesFila(gid, currentBacklogFila)) {
+        const board = document.getElementById('board-wrap-backlog-tab');
+        if (board) {
+          const lane = resolveLaneFromDelta(data);
+          const targetBody = board.querySelector('.lane[data-lane="' + lane + '"] .lane-body');
+          if (targetBody) {
+            const empty = targetBody.querySelector('.lane-empty');
+            if (empty) empty.remove();
+            const card = buildCardElement(data, lane);
+            targetBody.prepend(card);
+            updateLaneCounters(board);
+          }
+        }
+      }
+      
       reapplyAnalystFilters();
     }
 
@@ -3666,13 +3703,20 @@ document.addEventListener('DOMContentLoaded',()=>{
     function updateCard(card, data) {
       const newGroupId = data.assignment_group?.value || '';
       const managedGroups = _G_IDS.split(',');
-      const expectedGroup = (window._GID_MAP?.[currentFila] || '').split(',')[0];
+      
+      // Otimização de Performance: Se o sys_updated_on for igual, não faz nada
+      if (card.dataset.lastUpdated === data.sys_updated_on.value) return;
+      card.dataset.lastUpdated = data.sys_updated_on.value;
+      
+      // Determine which board this card belongs to
+      const board = card.closest('.board-inner');
+      const isBacklog = board && board.id === 'board-wrap-backlog-tab';
+      const filaKey = isBacklog ? currentBacklogFila : currentFila;
 
-      // Remove cards that left monitored groups or no longer belong to the selected queue.
-      if (!managedGroups.includes(newGroupId) || (currentFila !== 'all' && expectedGroup && newGroupId !== expectedGroup)) {
-        const board = card.closest('.board-inner');
+      // Remove cards that left monitored groups or no longer belong to the selected queue for THIS board.
+      if (!managedGroups.includes(newGroupId) || !queueMatchesFila(newGroupId, filaKey)) {
         card.remove();
-        updateLaneCounters(board);
+        if (board) updateLaneCounters(board);
         reapplyAnalystFilters();
         return;
       }
@@ -3711,6 +3755,8 @@ document.addEventListener('DOMContentLoaded',()=>{
         const ass = footer.querySelector('.card-assigned');
         if (ass) {
           const name = data.assigned_to?.display_value || '';
+          // Só atualiza se o responsável mudar
+          if (card.dataset.assignedname !== name) {
           card.dataset.assignedid = data.assigned_to?.value || '';
           card.dataset.assignedname = name;
           const avatar = ass.querySelector('.card-avatar');
@@ -3718,6 +3764,7 @@ document.addEventListener('DOMContentLoaded',()=>{
           const lbl = ass.querySelector('span:last-child');
           if (lbl) lbl.textContent = name || 'Sem responsável';
           ass.className = 'card-assigned' + (name ? '' : ' unassigned');
+          }
         }
       }
 
