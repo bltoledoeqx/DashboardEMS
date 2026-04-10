@@ -1320,6 +1320,11 @@ function refreshMyCases(){
 }
 
 let currentFila='all';
+let currentBacklogFila='all';
+let currentBacklogAnalyst='';
+let currentReportsFila='all';
+let currentReportsManager='';
+let currentReportsAnalyst='';
 window._GMEMBERS=${gmembersJson};
 window._GID_MAP={'all':_IDS,'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
 window._MANAGER_CACHE={};
@@ -1607,32 +1612,56 @@ function topAction(kind){
   }
 }
 
-function syncReportsFilters(){
-  const mainFila=document.getElementById('fila-sel');
-  const mainManager=document.getElementById('manager-sel');
-  const mainAnalyst=document.getElementById('analyst-sel');
+function switchReportsFila(value){
+  const safeKey=['all','l1','l2','event'].includes(value)?value:'all';
+  currentReportsFila=safeKey;
   const rptFila=document.getElementById('rpt-fila-sel');
-  const rptManager=document.getElementById('rpt-manager-sel');
-  const rptAnalyst=document.getElementById('rpt-analyst-sel');
-  if(rptFila) rptFila.value=mainFila?.value||currentFila||'all';
-  if(rptManager&&mainManager){
-    const sig='m|'+mainManager.options.length+'|'+(mainManager.value||'');
-    if(rptManager.dataset.sig!==sig){rptManager.innerHTML=mainManager.innerHTML;rptManager.dataset.sig=sig;}
-    rptManager.value=mainManager.value||'';
-  }
-  if(rptAnalyst&&mainAnalyst){
-    const sig='a|'+mainAnalyst.options.length+'|'+(mainAnalyst.value||'');
-    if(rptAnalyst.dataset.sig!==sig){rptAnalyst.innerHTML=mainAnalyst.innerHTML;rptAnalyst.dataset.sig=sig;}
-    rptAnalyst.value=mainAnalyst.value||'';
-  }
+  if(rptFila&&rptFila.value!==safeKey) rptFila.value=safeKey;
+  populateManagerDropdown('rpt-manager-sel', safeKey).then(()=>{
+    const managerSel=document.getElementById('rpt-manager-sel');
+    if(managerSel&&managerSel.value!==currentReportsManager) managerSel.value=currentReportsManager||'';
+    if(managerSel&&!Array.from(managerSel.options).some(o=>o.value===managerSel.value)){
+      managerSel.value='';
+      currentReportsManager='';
+    }
+    populateAnalystDropdown('rpt-analyst-sel', safeKey, currentReportsManager, '— Todos —');
+    const analystSel=document.getElementById('rpt-analyst-sel');
+    if(analystSel&&analystSel.value!==currentReportsAnalyst) analystSel.value=currentReportsAnalyst||'';
+    if(analystSel&&!Array.from(analystSel.options).some(o=>o.value===analystSel.value)){
+      analystSel.value='';
+      currentReportsAnalyst='';
+    }
+    updateReportsByFila();
+    applyAnalystTableFilter();
+    fetchAccordionScores();
+  });
 }
-function switchReportsFila(value){switchFila(value);}
-function switchReportsManager(value){switchManager(value);}
-function switchReportsAnalyst(value){switchAnalyst(value);}
+function switchReportsManager(value){
+  currentReportsManager=value||'';
+  const managerSel=document.getElementById('rpt-manager-sel');
+  if(managerSel&&managerSel.value!==currentReportsManager) managerSel.value=currentReportsManager;
+  populateAnalystDropdown('rpt-analyst-sel', currentReportsFila, currentReportsManager, '— Todos —');
+  const analystSel=document.getElementById('rpt-analyst-sel');
+  if(analystSel){
+    if(!Array.from(analystSel.options).some(o=>o.value===currentReportsAnalyst)){
+      currentReportsAnalyst='';
+    }
+    analystSel.value=currentReportsAnalyst;
+  }
+  applyAnalystTableFilter();
+  fetchAccordionScores();
+}
+function switchReportsAnalyst(value){
+  currentReportsAnalyst=value||'';
+  const analystSel=document.getElementById('rpt-analyst-sel');
+  if(analystSel&&analystSel.value!==currentReportsAnalyst) analystSel.value=currentReportsAnalyst;
+  applyAnalystTableFilter();
+  fetchAccordionScores();
+}
 
 function getReportAssigneeFilter(gid){
-  const analystId=document.getElementById('analyst-sel')?.value||'';
-  const managerId=document.getElementById('manager-sel')?.value||'';
+  const analystId=currentReportsAnalyst||document.getElementById('rpt-analyst-sel')?.value||'';
+  const managerId=currentReportsManager||document.getElementById('rpt-manager-sel')?.value||'';
   if(analystId) return '^assigned_to='+analystId;
   if(managerId){
     const ids=getMembersByManager(gid,managerId).map(m=>m.id).filter(Boolean);
@@ -1642,16 +1671,16 @@ function getReportAssigneeFilter(gid){
 }
 
 function getRatingAssigneeFilter(){
-  const analystId=document.getElementById('analyst-sel')?.value||'';
-  const managerId=document.getElementById('manager-sel')?.value||'';
+  const analystId=currentReportsAnalyst||document.getElementById('rpt-analyst-sel')?.value||'';
+  const managerId=currentReportsManager||document.getElementById('rpt-manager-sel')?.value||'';
   if(analystId) return {type:'analyst',id:analystId};
   if(managerId) return {type:'manager',id:managerId};
   return {type:'none'};
 }
 
 function applyAnalystTableFilter(){
-  const managerId=document.getElementById('manager-sel')?.value||'';
-  const analystId=document.getElementById('analyst-sel')?.value||'';
+  const managerId=currentReportsManager||document.getElementById('rpt-manager-sel')?.value||'';
+  const analystId=currentReportsAnalyst||document.getElementById('rpt-analyst-sel')?.value||'';
   const queueCfg=[
     {key:'l1', gid:window._GID_MAP?.l1||''},
     {key:'l2', gid:window._GID_MAP?.l2||''},
@@ -1698,7 +1727,10 @@ function showPage(id,el){
   }
   if(id==='postmortem') pgInit();
   if(id==='backlog'){
-    switchAnalystBacklog(document.getElementById('analyst-sel')?.value||'');
+    switchAnalystBacklog(currentBacklogAnalyst||document.getElementById('backlog-analyst-sel')?.value||'');
+  }
+  if(id==='reports'){
+    switchReportsFila(currentReportsFila||document.getElementById('rpt-fila-sel')?.value||'all');
   }
   if(id==='kanban'){
     // Re-init accordion in case it wasn't loaded yet
@@ -1794,49 +1826,32 @@ function switchFila(key){
   closeReqMenus();
   const filaSel=document.getElementById('fila-sel');
   if(filaSel && filaSel.value!==safeKey) filaSel.value=safeKey;
-  const filaSelBacklog=document.getElementById('backlog-fila-sel');
-  if(filaSelBacklog && filaSelBacklog.value!==safeKey) filaSelBacklog.value=safeKey;
   const ativosBoards={'all':${JSON.stringify(renderBoard('all',ativosMap))},'l1':${JSON.stringify(renderBoard('l1',ativosMap))},'l2':${JSON.stringify(renderBoard('l2',ativosMap))},'event':${JSON.stringify(renderBoard('event',ativosMap))}};
-  const backlogBoards={'all':${JSON.stringify(renderBoard('all',backlogMap,false))},'l1':${JSON.stringify(renderBoard('l1',backlogMap,false))},'l2':${JSON.stringify(renderBoard('l2',backlogMap,false))},'event':${JSON.stringify(renderBoard('event',backlogMap,false))}};
   window._queueCaseCounts=Object.fromEntries(Object.entries(ativosBoards).map(([k,html])=>{
     const c=(html||'').match(/data-count="(\d+)"/g)||[];
     const total=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,''),10),0);
     return [k,total];
   }));
   const bAtivos=document.getElementById('board-wrap');
-  const bBacklog=document.getElementById('board-wrap-backlog-tab');
   if(bAtivos)bAtivos.innerHTML=ativosBoards[safeKey]||'';
-  if(bBacklog)bBacklog.innerHTML=backlogBoards[safeKey]||'';
   initCardDragAndDrop();
   const ba=document.getElementById('section-badge-ativos');
   if(ba){const c=(ativosBoards[safeKey]||'').match(/data-count="(\d+)"/g)||[];const tot=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,'')),0);ba.textContent=tot+' cases · <20 dias';}
   const tbl=document.getElementById('_at_'+safeKey)?.innerHTML||'';
   document.getElementById('ana-table-wrap').innerHTML=tbl;
-  updateReportsByFila();
-  initAccordion();
   populateManagerDropdown('manager-sel', safeKey).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
     populateAnalystDropdown('analyst-sel', safeKey, managerId, '— Todos —');
-    syncBacklogAnalystDropdown();
     switchAnalyst(document.getElementById('analyst-sel')?.value||'');
-    applyAnalystTableFilter();
     renderFilterChips();
-    syncReportsFilters();
   });
   document.getElementById('analyst-board-content').innerHTML='';
-  ['resolved-month-score-l1','resolved-month-score-l2','resolved-month-score-event'].forEach(id=>{
-    const elResolved=document.getElementById(id);
-    if(elResolved)elResolved.innerHTML='<div style="color:var(--muted);font-size:12px;padding:8px 0;">Carregando...</div>';
-  });
-  ['sem-type-score','last-interacted-score','support-attention-score','customer-satisfaction-score'].forEach(id=>{const e=document.getElementById(id);if(e)e.textContent='—';});
-  fetchAccordionScores();
   renderFilterChips();
-  syncReportsFilters();
   if(_slaSortOn) applySlaSort();
 }
 
 function updateReportsByFila(){
-  const key=currentFila||'all';
+  const key=currentReportsFila||'all';
   const showAll=key==='all';
   const accGrid=document.querySelector('.acc-grid');
   if(accGrid) accGrid.style.justifyContent=showAll?'space-between':'flex-start';
@@ -1860,43 +1875,50 @@ function updateReportsByFila(){
 
 function switchManager(managerId){
   populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
-  syncBacklogAnalystDropdown();
   const analystId=document.getElementById('analyst-sel')?.value||'';
   switchAnalyst(analystId);
   renderFilterChips();
-  syncReportsFilters();
 }
 
 function syncBacklogAnalystDropdown(){
-  const src=document.getElementById('analyst-sel');
+  populateAnalystDropdown('backlog-analyst-sel', currentBacklogFila, '', '— Todos —');
   const dst=document.getElementById('backlog-analyst-sel');
-  if(!src||!dst) return;
-  dst.innerHTML=src.innerHTML;
-  dst.value=src.value||'';
+  if(!dst) return;
+  if(Array.from(dst.options).some(o=>o.value===currentBacklogAnalyst)){
+    dst.value=currentBacklogAnalyst;
+  }else{
+    currentBacklogAnalyst='';
+    dst.value='';
+  }
 }
 
 function switchFilaBacklog(key){
-  switchFila(key);
+  const safeKey=['all','l1','l2','event'].includes(key)?key:'all';
+  currentBacklogFila=safeKey;
+  const filaSelBacklog=document.getElementById('backlog-fila-sel');
+  if(filaSelBacklog && filaSelBacklog.value!==safeKey) filaSelBacklog.value=safeKey;
+  const backlogBoards={'all':${JSON.stringify(renderBoard('all',backlogMap,false))},'l1':${JSON.stringify(renderBoard('l1',backlogMap,false))},'l2':${JSON.stringify(renderBoard('l2',backlogMap,false))},'event':${JSON.stringify(renderBoard('event',backlogMap,false))}};
+  const bBacklog=document.getElementById('board-wrap-backlog-tab');
+  if(bBacklog)bBacklog.innerHTML=backlogBoards[safeKey]||'';
+  syncBacklogAnalystDropdown();
+  switchAnalystBacklog(currentBacklogAnalyst);
 }
 
 function switchAnalystBacklogFromToolbar(analystId){
-  const mainSel=document.getElementById('analyst-sel');
-  if(mainSel) mainSel.value=analystId||'';
-  switchAnalyst(analystId||'');
+  currentBacklogAnalyst=analystId||'';
+  const bsel=document.getElementById('backlog-analyst-sel');
+  if(bsel&&bsel.value!==currentBacklogAnalyst) bsel.value=currentBacklogAnalyst;
+  switchAnalystBacklog(currentBacklogAnalyst);
 }
 
 function switchAnalystBacklog(analystId){
   const bb=document.getElementById('board-wrap-backlog-tab');
   if(!bb)return;
-  const gid=window._GID_MAP?.[currentFila]||'';
-  const managerId=document.getElementById('manager-sel')?.value||'';
-  const managerAllowed=new Set(getMembersByManager(gid,managerId).map(m=>m.id));
   const cards=bb.querySelectorAll('.card');
   cards.forEach(card=>{
     const assignedId=card.dataset.assignedid||'';
     const passesAnalyst=!analystId||assignedId===analystId;
-    const passesManager=!managerId||managerAllowed.has(assignedId);
-    if(passesAnalyst&&passesManager){
+    if(passesAnalyst){
       card.style.display='';
     } else {
       card.style.display='none';
@@ -1991,7 +2013,7 @@ function setRefreshStatus(msg){const el=document.getElementById('refresh-status'
 
 function fetchAccordionScores(){
   const h={'Accept':'application/json','X-UserToken':_TOK};
-  const gid=window._GID_MAP?.[currentFila]||'1c7c9057db6771d0832ead8ed396197a';
+  const gid=window._GID_MAP?.[currentReportsFila]||'1c7c9057db6771d0832ead8ed396197a';
   const grpQ=gid.includes(',')?'assignment_groupIN'+gid:'assignment_group='+gid;
   const assigneeF=getReportAssigneeFilter(gid);
   const allGid=window._GID_MAP?.['all']||_IDS;
@@ -2296,6 +2318,7 @@ function filterReassign(input){
   const q=input.value.toLowerCase();
   document.querySelectorAll('.reassign-opt').forEach(o=>{o.style.display=o.textContent.toLowerCase().includes(q)?'':'none';});
 }
+
 function closeReassignOutside(e){
   if(_reassignDd&&!_reassignDd.contains(e.target)){_reassignDd.remove();_reassignDd=null;document.removeEventListener('click',closeReassignOutside);}
 }
@@ -2425,8 +2448,6 @@ function showToast(msg,type='success'){
 function switchAnalyst(userId){
   const asel=document.getElementById('analyst-sel');
   if(asel&&asel.value!==userId) asel.value=userId||'';
-  const bsel=document.getElementById('backlog-analyst-sel');
-  if(bsel&&bsel.value!==userId) bsel.value=userId||'';
   // Filter existing boards by analyst instead of rendering separate section
   const analystContent=document.getElementById('analyst-board-content');
   if(analystContent) analystContent.innerHTML='';
@@ -2452,10 +2473,7 @@ function switchAnalyst(userId){
     });
   });
 
-  applyAnalystTableFilter();
-  fetchAccordionScores();
   renderFilterChips();
-  syncReportsFilters();
   if(_slaSortOn) applySlaSort();
   // Don't fetch separately — boards are filtered.
   // Keep this function side-effect free for polling callbacks
@@ -2481,7 +2499,7 @@ function switchAnalyst(userId){
 function reapplyAnalystFilters(){
   const activeSel=document.getElementById('analyst-sel');
   if(activeSel) switchAnalyst(activeSel.value||'');
-  switchAnalystBacklog(activeSel?.value||'');
+  switchAnalystBacklog(currentBacklogAnalyst||document.getElementById('backlog-analyst-sel')?.value||'');
 }
 
 function renderAnalystBoard(cases,analystName,gid,container){
@@ -2846,7 +2864,9 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
 
     const alerts = topProblems.map(p => {
       const itemid = p.objectid ? triggerToItem[p.objectid] : null;
-      const graph = itemid ? (ZABBIX_CHART_BASE_URL + '?itemids[]=' + encodeURIComponent(itemid) + '&period=3600') : undefined;
+      const graph = itemid
+        ? (ZABBIX_CHART_BASE_URL + '?itemids[]=' + encodeURIComponent(itemid) + '&type=0&width=600&height=220&period=3600&legend=0')
+        : undefined;
       return {
         severity: parseInt(p.severity || 0, 10),
         description: p.name || '',
@@ -2856,17 +2876,38 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     });
     const historyEvents = await zabbixDirectCall('event.get', {
       hostids: host.hostid,
-      output: ['eventid', 'name', 'severity', 'clock', 'value'],
+      output: ['eventid', 'name', 'severity', 'clock', 'value', 'objectid'],
+      value: 0,
       sortfield: 'clock',
       sortorder: 'DESC',
-      limit: 10
+      limit: 5
     });
-    const history = (historyEvents || []).map(ev => ({
+    const historyTriggerIds = [...new Set((historyEvents || []).map(ev => ev.objectid).filter(Boolean))];
+    let historyTriggerToItem = {};
+    if (historyTriggerIds.length) {
+      const histTriggers = await zabbixDirectCall('trigger.get', {
+        triggerids: historyTriggerIds,
+        output: ['triggerid'],
+        selectItems: ['itemid']
+      });
+      historyTriggerToItem = (histTriggers || []).reduce((acc, trg) => {
+        const firstItem = Array.isArray(trg.items) && trg.items.length ? trg.items[0] : null;
+        if (trg.triggerid && firstItem && firstItem.itemid) acc[trg.triggerid] = firstItem.itemid;
+        return acc;
+      }, {});
+    }
+    const history = (historyEvents || []).map(ev => {
+      const itemid = ev.objectid ? historyTriggerToItem[ev.objectid] : null;
+      const graph = itemid
+        ? (ZABBIX_CHART_BASE_URL + '?itemids[]=' + encodeURIComponent(itemid) + '&type=0&width=600&height=220&period=3600&legend=0')
+        : undefined;
+      return {
       severity: parseInt(ev.severity || 0, 10),
       description: ev.name || '',
       time: ev.clock ? new Date(Number(ev.clock) * 1000).toISOString() : '',
-      status: String(ev.value) === '1' ? 'PROBLEM' : 'RESOLVED'
-    }));
+      status: String(ev.value) === '1' ? 'PROBLEM' : 'RESOLVED',
+      ...(graph ? { graph } : {})
+    };});
     return {
       ok: true,
       data: {
@@ -2949,28 +2990,19 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     }
 
     const problems = d.problems || [];
-    const alerts = d.alerts || problems.map(p => ({
+    const alerts = (d.alerts || problems.map(p => ({
       severity: parseInt(p.severity || 0, 10),
       description: p.name || '',
       time: p.clock ? new Date(parseInt(p.clock, 10) * 1000).toISOString() : '',
       graph: undefined
-    })).filter(a => parseInt(a.severity || 0, 10) > 0);
+    }))).filter(a => parseInt(a.severity || 0, 10) > 0); // Not classified (0) fora dos ativos
     const hostNames = (d.hosts||[]).map(h=>h.name||h.host).join(', ');
     const debugInfo = (d && d.debug && d.debug.totalMs)
       ? '<div style="padding:0 10px 8px;font-size:10px;color:#8C959F;">Tempo consulta Zabbix: '+esc(String(d.debug.totalMs))+'ms</div>'
       : '';
-    const primaryGraph = alerts.find(a => a.graph)?.graph;
-
-    if (!alerts.length) {
-      return '<div class="acc-sec">'+
-        '<div class="acc-sec-h" style="display:flex;align-items:center;justify-content:space-between;">'+
-          '<span>🔔 Alertas Zabbix</span>'+
-          '<span style="font-size:10px;font-weight:500;color:#1A7F37;background:#DAFBE1;padding:2px 8px;border-radius:10px;border:1px solid #A7F3C0;">✅ Sem alertas ativos</span>'+
-        '</div>'+
-        '<div style="padding:8px 10px;font-size:11px;color:#57606A;">Host: <b>'+esc(hostNames)+'</b></div>'+
-        debugInfo+
-      '</div>';
-    }
+    const resolvedHistory = (d.history || [])
+      .filter(h => String(h.status || '').toUpperCase().includes('RESOLVED'))
+      .slice(0, 5);
 
     const rows = alerts.map(p => {
       const sev = parseInt(p.severity) || 0;
@@ -2982,7 +3014,7 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
         day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
       }).replace(',','') : '—';
       const graphCell = p.graph
-        ? '<a href="'+esc(p.graph)+'" target="_blank" style="font-size:10px;">📊 gráfico</a>'
+        ? '<a href="'+esc(p.graph)+'" target="_blank" style="font-size:10px;border:1px solid #D0D7DE;background:#fff;border-radius:4px;padding:2px 6px;cursor:pointer;display:inline-block;text-decoration:none;color:#0969DA;">📊 gráfico</a>'
         : '<span style="font-size:10px;color:#8C959F;">—</span>';
       return '<tr style="background:'+bg+'">'+
         '<td><span style="color:'+color+';font-weight:700;font-size:11px;">'+icon+' '+esc(label)+'</span></td>'+
@@ -2998,41 +3030,37 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     const badgeBg    = hasHigh ? '#FFEBE9' : '#FFF8C5';
     const badgeBorder= hasHigh ? '#FFD1CC' : '#E3B341';
 
-    const historyRows = (d.history || []).map(h => {
+    const historyRows = resolvedHistory.map(h => {
       const statusColor = h.status === 'PROBLEM' ? '#CF222E' : '#1A7F37';
       const dt = h.time ? new Date(h.time).toLocaleString('pt-BR', {
         day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
       }).replace(',', '') : '—';
+      const historyGraphCell = h.graph
+        ? '<a href="'+esc(h.graph)+'" target="_blank" style="font-size:10px;border:1px solid #D0D7DE;background:#fff;border-radius:4px;padding:2px 6px;cursor:pointer;display:inline-block;text-decoration:none;color:#0969DA;">📊 gráfico</a>'
+        : '<span style="font-size:10px;color:#8C959F;">—</span>';
       return '<tr>'+
         '<td style="font-size:11px;color:'+statusColor+';font-weight:700;">'+esc(h.status || '—')+'</td>'+
         '<td style="font-size:12px;color:#24292F;">'+esc(h.description || '—')+'</td>'+
         '<td style="font-size:11px;color:#57606A;">'+esc(dt)+'</td>'+
+        '<td>'+historyGraphCell+'</td>'+
       '</tr>';
     }).join('');
 
     return '<div class="acc-sec">'+
       '<div class="acc-sec-h" style="display:flex;align-items:center;justify-content:space-between;">'+
         '<span>🔔 Alertas Zabbix</span>'+
-        '<span style="font-size:10px;font-weight:700;color:'+badgeColor+';background:'+badgeBg+';padding:2px 8px;border-radius:10px;border:1px solid '+badgeBorder+';">'+alertCount+' alerta'+(alertCount>1?'s':'')+' ativo'+(alertCount>1?'s':'')+'</span>'+
+        '<span style="font-size:10px;font-weight:700;color:'+(alertCount?badgeColor:'#1A7F37')+';background:'+(alertCount?badgeBg:'#DAFBE1')+';padding:2px 8px;border-radius:10px;border:1px solid '+(alertCount?badgeBorder:'#A7F3C0')+';">'+(alertCount?alertCount+' alerta'+(alertCount>1?'s':'')+' ativo'+(alertCount>1?'s':''):'✅ Sem alertas ativos')+'</span>'+
       '</div>'+
       '<div style="padding:4px 10px 6px;font-size:11px;color:#57606A;">Host: <b>'+esc(hostNames)+'</b></div>'+
       debugInfo+
-      (primaryGraph
-        ? '<div style="padding:0 10px 8px;">'+
-            '<div style="font-size:11px;font-weight:700;color:#57606A;margin-bottom:4px;">📊 Gráfico do alerta principal</div>'+
-            '<img src="'+esc(primaryGraph)+'" alt="Grafico Zabbix" style="width:100%;max-height:220px;object-fit:contain;border:1px solid #D0D7DE;border-radius:6px;background:#fff;" />'+
-          '</div>'
-        : '')+
       '<div class="acc-table-wrap">'+
         '<table class="acc-table">'+
           '<thead><tr><th>Severidade</th><th>Problema</th><th>Desde</th><th>Gráfico</th></tr></thead>'+
-          '<tbody>'+rows+'</tbody>'+
+          '<tbody>'+(rows || '<tr><td colspan="4" style="font-size:11px;color:#57606A;padding:8px;">Sem alertas ativos</td></tr>')+'</tbody>'+
         '</table>'+
       '</div>'+
-      ((d.history && d.history.length)
-        ? '<div style="padding:8px 10px 4px;font-size:11px;font-weight:700;color:#57606A;">Histórico (últimos 10 eventos)</div>'+
-          '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>Status</th><th>Evento</th><th>Quando</th></tr></thead><tbody>'+historyRows+'</tbody></table></div>'
-        : '')+
+      '<div style="padding:8px 10px 4px;font-size:11px;font-weight:700;color:#57606A;">Histórico (últimos 5 resolvidos)</div>'+
+      '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>Status</th><th>Evento</th><th>Quando</th><th>Gráfico</th></tr></thead><tbody>'+(historyRows || '<tr><td colspan="4" style="font-size:11px;color:#57606A;padding:8px;">Sem eventos resolvidos recentes</td></tr>')+'</tbody></table></div>'+
     '</div>';
   };
 
@@ -3334,12 +3362,16 @@ document.addEventListener('DOMContentLoaded',()=>{
   dedupeManagerToolbar();
   updateRequestsLabel();
   applyUiSettings();
+  currentBacklogFila=document.getElementById('backlog-fila-sel')?.value||'all';
+  currentBacklogAnalyst=document.getElementById('backlog-analyst-sel')?.value||'';
+  currentReportsFila=document.getElementById('rpt-fila-sel')?.value||'all';
+  currentReportsManager=document.getElementById('rpt-manager-sel')?.value||'';
+  currentReportsAnalyst=document.getElementById('rpt-analyst-sel')?.value||'';
   populateManagerDropdown('manager-sel', currentFila).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
     populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
     syncBacklogAnalystDropdown();
     renderFilterChips();
-    syncReportsFilters();
   });
   document.querySelectorAll('th[data-col]').forEach(th=>{th.addEventListener('click',e=>{e.stopPropagation();openFil(th,parseInt(th.getAttribute('data-col')));});});
   pgInit();
@@ -3370,8 +3402,8 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(accBody){accBody.style.display='block';accBody.dataset.open='1';}
     if(accArrow) accArrow.style.transform='rotate(180deg)';
   }
-  syncReportsFilters();
-  updateReportsByFila();
+  switchReportsFila(currentReportsFila);
+  switchFilaBacklog(currentBacklogFila);
   renderFilterChips();
   document.addEventListener('click',e=>{
     const queueWrap=document.getElementById('req-queue-menu');
