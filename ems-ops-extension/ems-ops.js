@@ -2644,11 +2644,11 @@ function openCaseModal(sysId, number, cardEl) {
   overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;';
 
   const modal = document.createElement('div');
-  modal.style.cssText = 'width:95%;height:95%;background:#fff;border-radius:10px;overflow:hidden;display:flex;flex-direction:column;';
+  modal.style.cssText = 'width:95%;height:95%;background:#fff;border-radius:5px;overflow:hidden;display:flex;flex-direction:column;';
 
   const header = document.createElement('div');
-  header.style.cssText = 'background:#0969DA;color:#fff;padding:12px;display:flex;justify-content:space-between;align-items:center;font-size:14px;';
-  header.innerHTML = '<div style="flex:1"></div><img src="https://i.postimg.cc/NFB5VZyG/equinix-logo-icon-169199-resized.png" style="height:12px;display:block;"><div style="flex:1;display:flex;justify-content:flex-end;gap:8px;"><button id="reloadBtn">🔄</button><button id="closeBtn">✖</button></div>';
+  header.style.cssText = 'background:#111;color:#fff;padding:12px;display:flex;justify-content:space-between;align-items:center;font-size:10px;';
+  header.innerHTML = '<div style="flex:1"></div><img src="https://i.postimg.cc/NFB5VZyG/equinix-logo-icon-169199-resized.png" style="height:42px;display:block;"><div style="flex:1;display:flex;justify-content:flex-end;gap:8px;"><button id="reloadBtn">🔄</button><button id="closeBtn">✖</button></div>';
 
   const bodyWrap = document.createElement('div');
   bodyWrap.style.cssText = 'flex:1;display:flex;min-height:0;';
