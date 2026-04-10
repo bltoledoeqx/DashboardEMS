@@ -2319,14 +2319,6 @@ function filterReassign(input){
   document.querySelectorAll('.reassign-opt').forEach(o=>{o.style.display=o.textContent.toLowerCase().includes(q)?'':'none';});
 }
 
-function setZabbixChart(chartUrl,targetImgId,targetLinkId){
-  const safeUrl=String(chartUrl||'').trim();
-  if(!safeUrl) return;
-  const img=document.getElementById(targetImgId);
-  if(img) img.src=safeUrl;
-  const link=document.getElementById(targetLinkId);
-  if(link) link.href=safeUrl;
-}
 function closeReassignOutside(e){
   if(_reassignDd&&!_reassignDd.contains(e.target)){_reassignDd.remove();_reassignDd=null;document.removeEventListener('click',closeReassignOutside);}
 }
@@ -2884,17 +2876,38 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     });
     const historyEvents = await zabbixDirectCall('event.get', {
       hostids: host.hostid,
-      output: ['eventid', 'name', 'severity', 'clock', 'value'],
+      output: ['eventid', 'name', 'severity', 'clock', 'value', 'objectid'],
+      value: 0,
       sortfield: 'clock',
       sortorder: 'DESC',
-      limit: 10
+      limit: 5
     });
-    const history = (historyEvents || []).map(ev => ({
+    const historyTriggerIds = [...new Set((historyEvents || []).map(ev => ev.objectid).filter(Boolean))];
+    let historyTriggerToItem = {};
+    if (historyTriggerIds.length) {
+      const histTriggers = await zabbixDirectCall('trigger.get', {
+        triggerids: historyTriggerIds,
+        output: ['triggerid'],
+        selectItems: ['itemid']
+      });
+      historyTriggerToItem = (histTriggers || []).reduce((acc, trg) => {
+        const firstItem = Array.isArray(trg.items) && trg.items.length ? trg.items[0] : null;
+        if (trg.triggerid && firstItem && firstItem.itemid) acc[trg.triggerid] = firstItem.itemid;
+        return acc;
+      }, {});
+    }
+    const history = (historyEvents || []).map(ev => {
+      const itemid = ev.objectid ? historyTriggerToItem[ev.objectid] : null;
+      const graph = itemid
+        ? (ZABBIX_CHART_BASE_URL + '?itemids[]=' + encodeURIComponent(itemid) + '&type=0&width=600&height=220&period=3600&legend=0')
+        : undefined;
+      return {
       severity: parseInt(ev.severity || 0, 10),
       description: ev.name || '',
       time: ev.clock ? new Date(Number(ev.clock) * 1000).toISOString() : '',
-      status: String(ev.value) === '1' ? 'PROBLEM' : 'RESOLVED'
-    }));
+      status: String(ev.value) === '1' ? 'PROBLEM' : 'RESOLVED',
+      ...(graph ? { graph } : {})
+    };});
     return {
       ok: true,
       data: {
@@ -2977,28 +2990,19 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     }
 
     const problems = d.problems || [];
-    const alerts = d.alerts || problems.map(p => ({
+    const alerts = (d.alerts || problems.map(p => ({
       severity: parseInt(p.severity || 0, 10),
       description: p.name || '',
       time: p.clock ? new Date(parseInt(p.clock, 10) * 1000).toISOString() : '',
       graph: undefined
-    })).filter(a => parseInt(a.severity || 0, 10) > 0);
+    }))).filter(a => parseInt(a.severity || 0, 10) > 0); // Not classified (0) fora dos ativos
     const hostNames = (d.hosts||[]).map(h=>h.name||h.host).join(', ');
     const debugInfo = (d && d.debug && d.debug.totalMs)
       ? '<div style="padding:0 10px 8px;font-size:10px;color:#8C959F;">Tempo consulta Zabbix: '+esc(String(d.debug.totalMs))+'ms</div>'
       : '';
-    const primaryGraph = alerts.find(a => a.graph)?.graph;
-
-    if (!alerts.length) {
-      return '<div class="acc-sec">'+
-        '<div class="acc-sec-h" style="display:flex;align-items:center;justify-content:space-between;">'+
-          '<span>🔔 Alertas Zabbix</span>'+
-          '<span style="font-size:10px;font-weight:500;color:#1A7F37;background:#DAFBE1;padding:2px 8px;border-radius:10px;border:1px solid #A7F3C0;">✅ Sem alertas ativos</span>'+
-        '</div>'+
-        '<div style="padding:8px 10px;font-size:11px;color:#57606A;">Host: <b>'+esc(hostNames)+'</b></div>'+
-        debugInfo+
-      '</div>';
-    }
+    const resolvedHistory = (d.history || [])
+      .filter(h => String(h.status || '').toUpperCase().includes('RESOLVED'))
+      .slice(0, 5);
 
     const chartViewerId = 'zbx-chart-img-' + Math.random().toString(36).slice(2,8);
     const chartLinkId = 'zbx-chart-link-' + Math.random().toString(36).slice(2,8);
@@ -3013,7 +3017,7 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
         day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
       }).replace(',','') : '—';
       const graphCell = p.graph
-        ? '<button type="button" onclick="setZabbixChart(\''+esc(p.graph)+'\', \''+chartViewerId+'\', \''+chartLinkId+'\')" style="font-size:10px;border:1px solid #D0D7DE;background:#fff;border-radius:4px;padding:2px 6px;cursor:pointer;">📊 gráfico</button>'
+        ? '<a href="'+esc(p.graph)+'" target="_blank" style="font-size:10px;border:1px solid #D0D7DE;background:#fff;border-radius:4px;padding:2px 6px;cursor:pointer;display:inline-block;text-decoration:none;color:#0969DA;">📊 gráfico</a>'
         : '<span style="font-size:10px;color:#8C959F;">—</span>';
       return '<tr style="background:'+bg+'">'+
         '<td><span style="color:'+color+';font-weight:700;font-size:11px;">'+icon+' '+esc(label)+'</span></td>'+
@@ -3029,44 +3033,37 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     const badgeBg    = hasHigh ? '#FFEBE9' : '#FFF8C5';
     const badgeBorder= hasHigh ? '#FFD1CC' : '#E3B341';
 
-    const historyRows = (d.history || []).map(h => {
+    const historyRows = resolvedHistory.map(h => {
       const statusColor = h.status === 'PROBLEM' ? '#CF222E' : '#1A7F37';
       const dt = h.time ? new Date(h.time).toLocaleString('pt-BR', {
         day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
       }).replace(',', '') : '—';
+      const historyGraphCell = h.graph
+        ? '<a href="'+esc(h.graph)+'" target="_blank" style="font-size:10px;border:1px solid #D0D7DE;background:#fff;border-radius:4px;padding:2px 6px;cursor:pointer;display:inline-block;text-decoration:none;color:#0969DA;">📊 gráfico</a>'
+        : '<span style="font-size:10px;color:#8C959F;">—</span>';
       return '<tr>'+
         '<td style="font-size:11px;color:'+statusColor+';font-weight:700;">'+esc(h.status || '—')+'</td>'+
         '<td style="font-size:12px;color:#24292F;">'+esc(h.description || '—')+'</td>'+
         '<td style="font-size:11px;color:#57606A;">'+esc(dt)+'</td>'+
+        '<td>'+historyGraphCell+'</td>'+
       '</tr>';
     }).join('');
 
     return '<div class="acc-sec">'+
       '<div class="acc-sec-h" style="display:flex;align-items:center;justify-content:space-between;">'+
         '<span>🔔 Alertas Zabbix</span>'+
-        '<span style="font-size:10px;font-weight:700;color:'+badgeColor+';background:'+badgeBg+';padding:2px 8px;border-radius:10px;border:1px solid '+badgeBorder+';">'+alertCount+' alerta'+(alertCount>1?'s':'')+' ativo'+(alertCount>1?'s':'')+'</span>'+
+        '<span style="font-size:10px;font-weight:700;color:'+(alertCount?badgeColor:'#1A7F37')+';background:'+(alertCount?badgeBg:'#DAFBE1')+';padding:2px 8px;border-radius:10px;border:1px solid '+(alertCount?badgeBorder:'#A7F3C0')+';">'+(alertCount?alertCount+' alerta'+(alertCount>1?'s':'')+' ativo'+(alertCount>1?'s':''):'✅ Sem alertas ativos')+'</span>'+
       '</div>'+
       '<div style="padding:4px 10px 6px;font-size:11px;color:#57606A;">Host: <b>'+esc(hostNames)+'</b></div>'+
       debugInfo+
-      (primaryGraph
-        ? '<div style="padding:0 10px 8px;">'+
-            '<div style="font-size:11px;font-weight:700;color:#57606A;margin-bottom:4px;">📊 Gráfico do alerta principal</div>'+
-            '<img id="'+chartViewerId+'" src="'+esc(primaryGraph)+'" alt="Grafico Zabbix" style="width:100%;max-height:220px;object-fit:contain;border:1px solid #D0D7DE;border-radius:6px;background:#fff;" />'+
-            '<div style="margin-top:6px;">'+
-              '<a id="'+chartLinkId+'" href="'+esc(primaryGraph)+'" target="_blank" style="font-size:10px;color:#0969DA;text-decoration:none;">Abrir gráfico em nova aba ↗</a>'+
-            '</div>'+
-          '</div>'
-        : '')+
       '<div class="acc-table-wrap">'+
         '<table class="acc-table">'+
           '<thead><tr><th>Severidade</th><th>Problema</th><th>Desde</th><th>Gráfico</th></tr></thead>'+
-          '<tbody>'+rows+'</tbody>'+
+          '<tbody>'+(rows || '<tr><td colspan="4" style="font-size:11px;color:#57606A;padding:8px;">Sem alertas ativos</td></tr>')+'</tbody>'+
         '</table>'+
       '</div>'+
-      ((d.history && d.history.length)
-        ? '<div style="padding:8px 10px 4px;font-size:11px;font-weight:700;color:#57606A;">Histórico (últimos 10 eventos)</div>'+
-          '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>Status</th><th>Evento</th><th>Quando</th></tr></thead><tbody>'+historyRows+'</tbody></table></div>'
-        : '')+
+      '<div style="padding:8px 10px 4px;font-size:11px;font-weight:700;color:#57606A;">Histórico (últimos 5 resolvidos)</div>'+
+      '<div class="acc-table-wrap"><table class="acc-table"><thead><tr><th>Status</th><th>Evento</th><th>Quando</th><th>Gráfico</th></tr></thead><tbody>'+(historyRows || '<tr><td colspan="4" style="font-size:11px;color:#57606A;padding:8px;">Sem eventos resolvidos recentes</td></tr>')+'</tbody></table></div>'+
     '</div>';
   };
 
