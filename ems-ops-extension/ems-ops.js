@@ -2318,6 +2318,15 @@ function filterReassign(input){
   const q=input.value.toLowerCase();
   document.querySelectorAll('.reassign-opt').forEach(o=>{o.style.display=o.textContent.toLowerCase().includes(q)?'':'none';});
 }
+
+function setZabbixChart(chartUrl,targetImgId,targetLinkId){
+  const safeUrl=String(chartUrl||'').trim();
+  if(!safeUrl) return;
+  const img=document.getElementById(targetImgId);
+  if(img) img.src=safeUrl;
+  const link=document.getElementById(targetLinkId);
+  if(link) link.href=safeUrl;
+}
 function closeReassignOutside(e){
   if(_reassignDd&&!_reassignDd.contains(e.target)){_reassignDd.remove();_reassignDd=null;document.removeEventListener('click',closeReassignOutside);}
 }
@@ -2863,7 +2872,9 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
 
     const alerts = topProblems.map(p => {
       const itemid = p.objectid ? triggerToItem[p.objectid] : null;
-      const graph = itemid ? (ZABBIX_CHART_BASE_URL + '?itemids[]=' + encodeURIComponent(itemid) + '&period=3600') : undefined;
+      const graph = itemid
+        ? (ZABBIX_CHART_BASE_URL + '?itemids[]=' + encodeURIComponent(itemid) + '&type=0&width=600&height=220&period=3600&legend=0')
+        : undefined;
       return {
         severity: parseInt(p.severity || 0, 10),
         description: p.name || '',
@@ -2989,6 +3000,9 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
       '</div>';
     }
 
+    const chartViewerId = 'zbx-chart-img-' + Math.random().toString(36).slice(2,8);
+    const chartLinkId = 'zbx-chart-link-' + Math.random().toString(36).slice(2,8);
+
     const rows = alerts.map(p => {
       const sev = parseInt(p.severity) || 0;
       const color = SEV_COLOR[sev] || '#57606A';
@@ -2999,7 +3013,7 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
         day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'
       }).replace(',','') : '—';
       const graphCell = p.graph
-        ? '<a href="'+esc(p.graph)+'" target="_blank" style="font-size:10px;">📊 gráfico</a>'
+        ? '<button type="button" onclick="setZabbixChart(\''+esc(p.graph)+'\', \''+chartViewerId+'\', \''+chartLinkId+'\')" style="font-size:10px;border:1px solid #D0D7DE;background:#fff;border-radius:4px;padding:2px 6px;cursor:pointer;">📊 gráfico</button>'
         : '<span style="font-size:10px;color:#8C959F;">—</span>';
       return '<tr style="background:'+bg+'">'+
         '<td><span style="color:'+color+';font-weight:700;font-size:11px;">'+icon+' '+esc(label)+'</span></td>'+
@@ -3037,7 +3051,10 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
       (primaryGraph
         ? '<div style="padding:0 10px 8px;">'+
             '<div style="font-size:11px;font-weight:700;color:#57606A;margin-bottom:4px;">📊 Gráfico do alerta principal</div>'+
-            '<img src="'+esc(primaryGraph)+'" alt="Grafico Zabbix" style="width:100%;max-height:220px;object-fit:contain;border:1px solid #D0D7DE;border-radius:6px;background:#fff;" />'+
+            '<img id="'+chartViewerId+'" src="'+esc(primaryGraph)+'" alt="Grafico Zabbix" style="width:100%;max-height:220px;object-fit:contain;border:1px solid #D0D7DE;border-radius:6px;background:#fff;" />'+
+            '<div style="margin-top:6px;">'+
+              '<a id="'+chartLinkId+'" href="'+esc(primaryGraph)+'" target="_blank" style="font-size:10px;color:#0969DA;text-decoration:none;">Abrir gráfico em nova aba ↗</a>'+
+            '</div>'+
           '</div>'
         : '')+
       '<div class="acc-table-wrap">'+
@@ -3416,7 +3433,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     openImpactUrgencyBtn,openReassignBtn,closeImpactUrgencyEditor,
     closeCaseModal,modalReassign,
     modalTabSwitch,saveModal,saveModalImpactUrgency,uploadModalAttachment,
-    closeAccountProductsModal,toggleCiPassword,pgNav,pgGoTo,remFil,clrCol,applyCol
+    closeAccountProductsModal,toggleCiPassword,setZabbixChart,pgNav,pgGoTo,remFil,clrCol,applyCol
   });
 
   // ── Delta Polling (Real-time updates) ──────────────────────────────────
