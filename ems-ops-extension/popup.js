@@ -21,53 +21,74 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function runInPage(tabId, month) {
-    // Injeta os scripts via script tag para garantir que rodem no contexto MAIN (window)
-    // e tenham acesso às variáveis globais do ServiceNow (g_ck)
-    await chrome.scripting.executeScript({
+    const configUrl = chrome.runtime.getURL('config.js');
+    const emsOpsUrl = chrome.runtime.getURL('ems-ops.js');
+
+    const [{ result }] = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
-      func: (configUrl, scriptUrl, userMonth) => {
-        function injectScript(url) {
-          return new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = url;
-            script.onload = resolve;
-            script.onerror = reject;
-            (document.head || document.documentElement).appendChild(script);
-          });
-        }
-
-        async function init() {
-          try {
-            // Injeta config.js e ems-ops.js sequencialmente
-            await injectScript(configUrl);
-            await injectScript(scriptUrl);
-
-            // Verifica se a função foi carregada no window
-            if (typeof window.runEMSOps === 'function') {
-              window.runEMSOps(userMonth);
-              return { success: true };
-            } else {
-              return { error: 'Função runEMSOps não encontrada no window após injeção via tag.' };
-            }
-          } catch (e) {
-            return { error: `Erro na injeção de scripts: ${e.message}` };
+      func: async (cfgUrl, opsUrl, userMonth) => {
+        const loadScriptFromText = async (url, globalName, forceReload = false) => {
+          if (!forceReload && globalName && typeof window[globalName] === 'function') {
+            return;
           }
-        }
 
-        return init();
+          if (forceReload && globalName && window[globalName]) {
+            try {
+              delete window[globalName];
+            } catch (_) {
+              window[globalName] = undefined;
+            }
+          }
+
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`Falha ao carregar ${url} (HTTP ${response.status})`);
+          }
+
+          const code = await response.text();
+          (0, eval)(code);
+        };
+
+        try {
+          await loadScriptFromText(cfgUrl);
+          await loadScriptFromText(opsUrl, 'runEMSOps', true);
+
+          if (typeof window.runEMSOps !== 'function') {
+            return {
+              error: `Função runEMSOps não encontrada no window. typeof=${typeof window.runEMSOps}`
+            };
+          }
+
+          const runResult = await Promise.resolve(window.runEMSOps(userMonth));
+
+          if (runResult?.error) {
+            return { error: runResult.error };
+          }
+
+          if (runResult?.success === false || runResult?.ok === false) {
+            return { error: 'runEMSOps retornou falha ao iniciar o painel.' };
+          }
+
+          return { success: true };
+        } catch (e) {
+          return { error: `Erro ao executar runEMSOps: ${e.message}` };
+        }
       },
-      args: [
-        chrome.runtime.getURL('config.js'),
-        chrome.runtime.getURL('ems-ops.js'),
-        month
-      ]
+      args: [configUrl, emsOpsUrl, month]
     });
 
-    // Como a execução real acontece dentro do func acima, o result virá de lá
-    // Mas o executeScript retorna um array de resultados
-    return { success: true }; 
+    if (result?.error) {
+      throw new Error(result.error);
+    }
+
+    if (!result?.success) {
+      throw new Error('Não foi possível abrir o painel EMS Ops.');
+    }
+
+    return result;
   }
+
 
   btn.addEventListener('click', async () => {
     setLoading(true);
@@ -84,7 +105,6 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const currentMonth = new Date().getMonth() + 1;
       await runInPage(tab.id, currentMonth);
-      // Se não lançou erro, assumimos sucesso na injeção
       showStatus('success', msg.opened || '✅ Painel aberto!');
     } catch (error) {
       showStatus('error', `❌ ${error.message}`);
