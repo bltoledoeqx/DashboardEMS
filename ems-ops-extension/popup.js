@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function runInPage(tabId, month) {
     // Injeta os scripts via script tag para garantir que rodem no contexto MAIN (window)
     // e tenham acesso às variáveis globais do ServiceNow (g_ck)
-    await chrome.scripting.executeScript({
+    const [{ result }] = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
       func: (configUrl, scriptUrl, userMonth) => {
@@ -64,9 +64,15 @@ document.addEventListener('DOMContentLoaded', () => {
       ]
     });
 
-    // Como a execução real acontece dentro do func acima, o result virá de lá
-    // Mas o executeScript retorna um array de resultados
-    return { success: true }; 
+    if (result?.error) {
+      throw new Error(result.error);
+    }
+
+    if (!result?.success) {
+      throw new Error('Não foi possível abrir o painel EMS Ops.');
+    }
+
+    return result;
   }
 
   btn.addEventListener('click', async () => {
