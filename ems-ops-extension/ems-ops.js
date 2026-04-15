@@ -1,14 +1,28 @@
 // ── Token fetcher (injected into page context) ──────────────────────────
-function fetchSnToken() {
-  if (window.g_ck) return { token: window.g_ck };
-  return { error: 'g_ck n\u00E3o encontrado. Recarregue o ServiceNow (F5).' };
-}
+window.getSnToken = function() {
+  const token =
+    window.g_ck ||
+    window.top?.g_ck ||
+    window.parent?.g_ck ||
+    null;
+
+  if (!token) {
+    throw new Error('ServiceNow token (g_ck) não encontrado na sessão');
+  }
+
+  return token;
+};
 
 // ── Main injected function ────────────────────────────────────────────────
-function runEMSOps(userToken, userMes) {
+window.runEMSOps = function(userMes) {
 
   // ── Constants ─────────────────────────────────────────────────────────
-  const headers   = { 'Accept': 'application/json', 'X-UserToken': userToken };
+  const token = getSnToken();
+
+  const headers = {
+    'Accept': 'application/json',
+    'X-UserToken': token
+  };
   const G_IDS     = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
   const GROUP_MEMBERS = {
     '1c7c9057db6771d0832ead8ed396197a': [
@@ -1298,29 +1312,38 @@ tr:hover td{background:#F6F8FA;}
 </div>
 
 <script>
-let _TOK='${userToken}'; let _HEADERS_OBJ = { 'Accept': 'application/json', 'X-UserToken': '${userToken}' }; const _BASE='${BASE}',_IDS='${G_IDS}',_MES=${m};
+let _TOK = (window.opener && !window.opener.closed) ? (window.opener.g_ck || window.opener.top?.g_ck || window.opener.parent?.g_ck) : null;
+let _HEADERS_OBJ = { 'Accept': 'application/json', 'X-UserToken': _TOK };
+const _BASE='${BASE}',_IDS='${G_IDS}',_MES=${m};
 const _MN=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const _GN={'1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER','673c2170476422503cbfe07a216d430f':'Event Management BR','ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER'};
 const _GK={'1c7c9057db6771d0832ead8ed396197a':'l1','673c2170476422503cbfe07a216d430f':'event','ff72689247ee1e143cbfe07a216d4357':'l2'};
 
 // Helper de busca centralizado com renovação de sessão e tratamento de erro
 async function snFetch(url, opts = {}) {
+  // Tenta obter o token mais recente da janela pai se o atual for nulo ou falhar
+  if (!_TOK && window.opener && !window.opener.closed) {
+    _TOK = window.opener.g_ck || window.opener.top?.g_ck || window.opener.parent?.g_ck;
+  }
+
   opts.headers = opts.headers || { ..._HEADERS_OBJ };
   opts.headers['X-UserToken'] = _TOK;
+  
   let r = await fetch(url, opts);
+  
   // Se der erro de autenticação, tenta ler o token novo da aba 'mãe'
   if ((r.status === 401 || r.status === 403) && window.opener && !window.opener.closed) {
     try {
-      const nt = window.opener.g_ck;
+      const nt = window.opener.g_ck || window.opener.top?.g_ck || window.opener.parent?.g_ck;
       if (nt && nt !== _TOK) {
         console.log('[Dashboard] Sessão renovada via ServiceNow.');
-        _TOK = nt; _HEADERS_OBJ['X-UserToken'] = nt;
+        _TOK = nt;
+        _HEADERS_OBJ['X-UserToken'] = nt;
         opts.headers['X-UserToken'] = nt;
         r = await fetch(url, opts);
       }
     } catch(e) {}
   }
-  if (r.status === 401 || r.status === 403) document.getElementById('tok-err') && (document.getElementById('tok-err').style.display='flex');
   return r;
 }
 

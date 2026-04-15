@@ -43,5 +43,11 @@
     "matches": [
       "https://*.service-now.com/*"
     ]
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["config.js", "ems-ops.js"],
+      "matches": ["https://*.service-now.com/*"]
+    }
+  ]
 }

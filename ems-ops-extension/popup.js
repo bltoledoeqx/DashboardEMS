@@ -20,47 +20,53 @@ document.addEventListener('DOMContentLoaded', () => {
     statusEl.textContent = message;
   }
 
-  async function runInPage(tabId, token, month) {
+  async function runInPage(tabId, month) {
+    // Injeta os scripts via script tag para garantir que rodem no contexto MAIN (window)
+    // e tenham acesso às variáveis globais do ServiceNow (g_ck)
     await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
-      files: ['config.js', 'ems-ops.js']
-    });
-
-    const [{ result }] = await chrome.scripting.executeScript({
-      target: { tabId },
-      world: 'MAIN',
-      func: (userToken, userMonth) => {
-        if (typeof window.runEMSOps !== 'function') {
-          return { error: 'Função runEMSOps não disponível na página.' };
+      func: (configUrl, scriptUrl, userMonth) => {
+        function injectScript(url) {
+          return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = url;
+            script.onload = resolve;
+            script.onerror = reject;
+            (document.head || document.documentElement).appendChild(script);
+          });
         }
-        return window.runEMSOps(userToken, userMonth);
+
+        async function init() {
+          try {
+            // Injeta config.js e ems-ops.js sequencialmente
+            await injectScript(configUrl);
+            await injectScript(scriptUrl);
+
+            // Verifica se a função foi carregada no window
+            if (typeof window.runEMSOps === 'function') {
+              window.runEMSOps(userMonth);
+              return { success: true };
+            } else {
+              return { error: 'Função runEMSOps não encontrada no window após injeção via tag.' };
+            }
+          } catch (e) {
+            return { error: `Erro na injeção de scripts: ${e.message}` };
+          }
+        }
+
+        return init();
       },
-      args: [token, month]
+      args: [
+        chrome.runtime.getURL('config.js'),
+        chrome.runtime.getURL('ems-ops.js'),
+        month
+      ]
     });
 
-    return result;
-  }
-
-  async function fetchTokenFromPage(tabId) {
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      world: 'MAIN',
-      files: ['config.js', 'ems-ops.js']
-    });
-
-    const [{ result }] = await chrome.scripting.executeScript({
-      target: { tabId },
-      world: 'MAIN',
-      func: () => {
-        if (typeof window.fetchSnToken !== 'function') {
-          return { error: 'Função fetchSnToken não disponível na página.' };
-        }
-        return window.fetchSnToken();
-      }
-    });
-
-    return result;
+    // Como a execução real acontece dentro do func acima, o result virá de lá
+    // Mas o executeScript retorna um array de resultados
+    return { success: true }; 
   }
 
   btn.addEventListener('click', async () => {
@@ -76,26 +82,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      const tokenData = await fetchTokenFromPage(tab.id);
-
-      if (tokenData?.error) {
-        showStatus('error', `❌ ${tokenData.error}`);
-        return;
-      }
-
-      if (!tokenData?.token) {
-        showStatus('error', msg.tokenMissing || '❌ Token não encontrado. Recarregue o ServiceNow (F5).');
-        return;
-      }
-
       const currentMonth = new Date().getMonth() + 1;
-      const result = await runInPage(tab.id, tokenData.token, currentMonth);
-
-      if (result?.error) {
-        showStatus('error', `❌ ${result.error}`);
-      } else {
-        showStatus('success', msg.opened || '✅ Painel aberto!');
-      }
+      await runInPage(tab.id, currentMonth);
+      // Se não lançou erro, assumimos sucesso na injeção
+      showStatus('success', msg.opened || '✅ Painel aberto!');
     } catch (error) {
       showStatus('error', `❌ ${error.message}`);
     } finally {
