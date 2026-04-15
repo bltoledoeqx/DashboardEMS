@@ -2597,7 +2597,7 @@ function renderAnalystBoard(cases,analystName,gid,container){
     } else {
       prio = parseInt(rawValue || '5', 10);
     }
-    console.log(`[Priority Debug - renderAnalystBoard.classify] Case ${c.number?.display_value}: Display="${rawDisplayValue}", Value="${rawValue}", Calculated Prio="${prio}", State Value="${c.state?.value}"`);
+    console.log('[Priority Debug - renderAnalystBoard.classify] Case ' + (c.number?.display_value || '') + ': Display="' + rawDisplayValue + '", Value="' + rawValue + '", Calculated Prio="' + prio + '", State Value="' + (c.state?.value || '') + '"');
 
     const isAw=AWAIT_S.has(c.state?.value||'');
     const noAss=!c.assigned_to?.value;
@@ -2607,7 +2607,7 @@ function renderAnalystBoard(cases,analystName,gid,container){
     else                lane=PRIORITY_LANE[String(prio)]||'normal';
 
     if (lane === 'critical' && c.priority?.display_value && !c.priority.display_value.includes('1')) {
-      console.warn(`[Priority Bug Check - renderAnalystBoard.classify] Caso ${c.number?.display_value} classificado como CRITICAL mas Prioridade Display é "${c.priority.display_value}" (Value: ${c.priority.value})`);
+      console.warn('[Priority Bug Check - renderAnalystBoard.classify] Caso ' + (c.number?.display_value || '') + ' classificado como CRITICAL mas Prioridade Display é "' + c.priority.display_value + '" (Value: ' + c.priority.value + ')');
     }
 
     return{number:c.number?.display_value||'',sysId:c.sys_id?.value||'',url:caseUrl(c.number?.display_value||''),
@@ -3577,14 +3577,14 @@ document.addEventListener('DOMContentLoaded',()=>{
           
           const colors = ['#0969DA','#1A7F37','#BF8700','#CF222E','#8250DF','#0550AE','#116329','#7D4E00','#A40E26','#6E40C9'];
           const newIdx = container.querySelectorAll('.rt-row').length;
-          const rowHtml = `
-            <div class="rt-row">
-              <div class="rt-name" title="${escapeHtml(analystName)}">${escapeHtml(analystName.split(' ').slice(0,2).join(' '))}</div>
-              <div class="rt-track">
-                <div class="rt-fill" style="width:0%;background:${colors[newIdx % colors.length]}"></div>
-              </div>
-              <span class="rt-val">1</span>
-            </div>`;
+          const rowHtml =
+            '<div class="rt-row">' +
+              '<div class="rt-name" title="' + escapeHtml(analystName) + '">' + escapeHtml(analystName.split(' ').slice(0,2).join(' ')) + '</div>' +
+              '<div class="rt-track">' +
+                '<div class="rt-fill" style="width:0%;background:' + colors[newIdx % colors.length] + '"></div>' +
+              '</div>' +
+              '<span class="rt-val">1</span>' +
+            '</div>';
           container.insertAdjacentHTML('beforeend', rowHtml);
           row = container.lastElementChild;
         }
@@ -3673,7 +3673,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         if (cases.length > 0) {
           console.log('[DeltaPolling] ' + cases.length + ' casos alterados.');
           cases.forEach(c => {
-            console.log(`[DeltaPolling] Processando ${c.number?.display_value}: Prio Value=${c.priority?.value}, State=${c.state?.value}`);
+            console.log('[DeltaPolling] Processando ' + (c.number?.display_value || '') + ': Prio Value=' + (c.priority?.value || '') + ', State=' + (c.state?.value || ''));
             const cards = targetDoc.querySelectorAll('.card[data-sysid="' + (c.sys_id.value || c.sys_id) + '"]');
             if (cards.length > 0) {
               if (isTerminalState(c?.state?.value)) {
@@ -4101,10 +4101,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     .catch(e=>console.error('_emsOpsRender:',e));
   };
 
-  const outWin = window.open('','_blank');
-  if (outWin) {
-    outWin.document.write('<html><body style="background:#F6F8FA;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:system-ui"><div style="text-align:center;color:#57606A"><div style="font-size:40px;margin-bottom:12px">🖥</div><div style="font-size:16px;font-weight:600;color:#24292F">EMS Ops Dashboard</div><div style="font-size:13px;margin-top:6px">Carregando dados...</div></div></body></html>');
+  const outWin = window.open('', '_blank');
+  if (!outWin) {
+    throw new Error('Não foi possível abrir a nova aba do dashboard. Habilite pop-ups para o ServiceNow e tente novamente.');
   }
+
+  outWin.document.write('<html><body style="background:#F6F8FA;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:system-ui"><div style="text-align:center;color:#57606A"><div style="font-size:40px;margin-bottom:12px">🖥</div><div style="font-size:16px;font-weight:600;color:#24292F">EMS Ops Dashboard</div><div style="font-size:13px;margin-top:6px">Carregando dados...</div></div></body></html>');
 
   // Stagger agg calls to reduce server load (performance improvement)
   Promise.all([
