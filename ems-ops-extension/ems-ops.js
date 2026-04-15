@@ -48,6 +48,8 @@ window.runEMSOps = function(userMes) {
   const TZ_BR     = 'America/Sao_Paulo';
   const MES_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
+  let outWin = null;
+
   const nowD      = new Date();
   const YEAR      = nowD.getFullYear();
   const mes       = userMes || (nowD.getMonth() + 1);
@@ -4101,7 +4103,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     .catch(e=>console.error('_emsOpsRender:',e));
   };
 
-  const outWin = window.open('', '_blank');
+  outWin = window.open('', '_blank');
   if (!outWin) {
     throw new Error('Não foi possível abrir a nova aba do dashboard. Habilite pop-ups para o ServiceNow e tente novamente.');
   }
