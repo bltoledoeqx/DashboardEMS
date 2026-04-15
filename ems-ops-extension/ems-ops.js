@@ -127,18 +127,33 @@ function runEMSOps(userToken, userMes) {
     // Classify
     const classify = c => {
       const sl    = slaInfo(mapA[c.sys_id?.value], true);
-      const prio  = parseInt(c.priority?.value||'5');
+      const rawDV = (c.priority?.display_value || '').trim();
+      const rawV  = c.priority?.value || '5';
+      const match = rawDV.match(/^\d/); // Pega apenas o dígito no INÍCIO da string
+      let prio = match ? parseInt(match[0], 10) : parseInt(rawV, 10);
+
+      // Proteção Refinada: Só é P1 se o texto REALMENTE começar com "1". 
+      // Isso evita que "2 - High (Impact 1)" seja classificado como P1.
+      if (prio === 1 && !rawDV.startsWith('1')) prio = 2;
+      if (isNaN(prio)) prio = 5;
+
       const noAss = !c.assigned_to?.value;
-      const isAw  = AWAIT_ST.has(c.state?.value||'');
+      const stV   = String(c.state?.value || '');
+      const stD   = (c.state?.display_value || '').toLowerCase();
+      const isAw  = AWAIT_ST.has(stV) || stD.includes('awaiting') || stD.includes('aguardando') || stD.includes('info') || stD.includes('pendente');
+
       let lane;
       if      (isAw)                         lane='awaiting';
       else if (noAss)                        lane='orphan';
       else if (prio===1)                     lane='critical';
-      else if (prio===2&&sl.st==='breach')   lane='critical';
       else if (prio===2)                     lane='high';
-      else if (prio===3&&sl.st==='breach')   lane='high';
       else if (prio===3)                     lane='medium';
       else                                   lane='normal';
+
+      if (lane === 'critical' && c.priority?.display_value && !c.priority.display_value.includes('1')) {
+        console.warn(`[Priority Bug Check] Caso ${c.number?.display_value} classificado como CRITICAL mas Prioridade Display é "${c.priority.display_value}" (Value: ${c.priority.value})`);
+      }
+
       return {
         number  : c.number?.display_value||'',
         sysId   : c.sys_id?.value||'',
@@ -323,10 +338,12 @@ function runEMSOps(userToken, userMes) {
           </div>`).join('');
       if(key==='all'){
         const dL1=buildResolvedChart('l1'), dL2=buildResolvedChart('l2'), dEV=buildResolvedChart('event');
+        const initialTotal = dL1.reduce((s,d)=>s+d.count,0);
         return `
           <div class="lane lane-rt">
             <div class="lane-hdr" style="border-top:3px solid #6E40C9">
               <div class="lane-title"><span class="lane-dot" style="background:#6E40C9"></span>✅ Resolvidos Hoje</div>
+              <span class="lane-count" style="color:#6E40C9;margin-left:auto;margin-right:8px;">${initialTotal}</span>
               <select onchange="switchResolvedTodayQueue(this.value)" style="font-size:11px;padding:2px 6px;border:1px solid #d0d7de;border-radius:6px;">
                 <option value="l1">L1</option><option value="l2">L2</option><option value="event">Event</option>
               </select>
@@ -1031,9 +1048,9 @@ tr:hover td{background:#F6F8FA;}
       <button class="req-all-btn" onclick="toggleQueueMenu(event)" id="req-all-btn">🛡️ Todos os casos ▾</button>
       <div class="req-menu" id="req-queue-menu" style="display:none;">
         <button type="button" onclick="switchFila('all');closeReqMenus();">Todos os casos</button>
-        <button type="button" onclick="switchFila('l1');closeReqMenus();">L1</button>
-        <button type="button" onclick="switchFila('l2');closeReqMenus();">L2</button>
-        <button type="button" onclick="switchFila('event');closeReqMenus();">Event</button>
+        <button type="button" onclick="switchFila('l1');closeReqMenus();">EMS OPS L1</button>
+        <button type="button" onclick="switchFila('l2');closeReqMenus();">EMS OPS L2</button>
+        <button type="button" onclick="switchFila('event');closeReqMenus();">EMS Event BR</button>
       </div>
     </div>
     <div class="requests-actions">
@@ -1281,10 +1298,32 @@ tr:hover td{background:#F6F8FA;}
 </div>
 
 <script>
-const _TOK='${userToken}',_BASE='${BASE}',_IDS='${G_IDS}',_MES=${m};
+let _TOK='${userToken}'; let _HEADERS_OBJ = { 'Accept': 'application/json', 'X-UserToken': '${userToken}' }; const _BASE='${BASE}',_IDS='${G_IDS}',_MES=${m};
 const _MN=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const _GN={'1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER','673c2170476422503cbfe07a216d430f':'Event Management BR','ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER'};
 const _GK={'1c7c9057db6771d0832ead8ed396197a':'l1','673c2170476422503cbfe07a216d430f':'event','ff72689247ee1e143cbfe07a216d4357':'l2'};
+
+// Helper de busca centralizado com renovação de sessão e tratamento de erro
+async function snFetch(url, opts = {}) {
+  opts.headers = opts.headers || { ..._HEADERS_OBJ };
+  opts.headers['X-UserToken'] = _TOK;
+  let r = await fetch(url, opts);
+  // Se der erro de autenticação, tenta ler o token novo da aba 'mãe'
+  if ((r.status === 401 || r.status === 403) && window.opener && !window.opener.closed) {
+    try {
+      const nt = window.opener.g_ck;
+      if (nt && nt !== _TOK) {
+        console.log('[Dashboard] Sessão renovada via ServiceNow.');
+        _TOK = nt; _HEADERS_OBJ['X-UserToken'] = nt;
+        opts.headers['X-UserToken'] = nt;
+        r = await fetch(url, opts);
+      }
+    } catch(e) {}
+  }
+  if (r.status === 401 || r.status === 403) document.getElementById('tok-err') && (document.getElementById('tok-err').style.display='flex');
+  return r;
+}
+
 // Per-module refresh (no auto-refresh)
 function refreshKanban(){
   setRefreshStatus('↻ Atualizando...');
@@ -1331,7 +1370,7 @@ window._MANAGER_CACHE={};
 window._MSH_NOC_GID=undefined;
 window._REPORTS_FETCH_CACHE={ttlMs:30000,entries:{},inflight:{}};
 window._ACCOUNT_PRODUCTS_CACHE={ttlMs:120000,entries:{}};
-window._UI_SETTINGS={pollingMs:30000,compact:false,defaultSort:'none'};
+    window._UI_SETTINGS={pollingMs:120000,compact:false,defaultSort:'none'};
 try{
   const saved=JSON.parse(localStorage.getItem('ems_ops_ui_settings')||'{}');
   window._UI_SETTINGS={...window._UI_SETTINGS,...saved};
@@ -1386,7 +1425,7 @@ function fetchJsonCached(url, options){
   const hit=cache.entries[key];
   if(hit && now-hit.ts<cache.ttlMs) return Promise.resolve(hit.data);
   if(cache.inflight[key]) return cache.inflight[key];
-  cache.inflight[key]=fetch(url,options)
+  cache.inflight[key]=snFetch(url,options)
     .then(r=>r.json())
     .then(data=>{
       cache.entries[key]={ts:Date.now(),data};
@@ -1584,7 +1623,7 @@ function toggleSlaSort(){
 }
 
 function updateRequestsLabel(){
-  const labels={all:'Todos os casos',l1:'L1',l2:'L2',event:'Event'};
+  const labels={all:'Todos os casos',l1:'EMS OPS L1',l2:'EMS OPS L2',event:'EMS Event BR'};
   const btn=document.getElementById('req-all-btn');
   if(btn) btn.textContent='🛡️ '+(labels[currentFila]||'Todos os casos')+' ▾';
 }
@@ -1760,7 +1799,7 @@ function refreshLaneCountersInBoard(boardInner){
   if(!boardInner) return;
   boardInner.querySelectorAll('.lane[data-lane]').forEach(lane=>{
     const countEl=lane.querySelector('.lane-count');
-    if(countEl) countEl.textContent=String(lane.querySelectorAll('.lane-body .card').length);
+    if(countEl) countEl.textContent=String(Array.from(lane.querySelectorAll('.lane-body .card')).filter(c=>c.style.display!=='none').length);
   });
 }
 
@@ -1954,6 +1993,9 @@ function switchAnalystBacklog(analystId){
 
 function changeMes(m){
   document.querySelectorAll('.mbtn').forEach((b,i)=>{b.classList.toggle('active',i+1===m);b.disabled=true;});
+  if (window.opener && !window.opener.closed && window.opener.g_ck) {
+    _TOK = window.opener.g_ck;
+  }
   if(window.opener&&!window.opener.closed&&typeof window.opener._emsOpsRender==='function'){
     window.opener._emsOpsRender(_TOK,m,window);
   } else {
@@ -2229,10 +2271,20 @@ function toggleSection(key) {
 }
 
 function switchResolvedTodayQueue(key){
+  const lane = document.querySelector('.lane-rt');
+  const badge = lane?.querySelector('.lane-count');
+  let total = 0;
   ['l1','l2','event'].forEach(k=>{
     const el=document.getElementById('rt-'+k);
-    if(el) el.style.display=(k===key)?'':'none';
+    if(el) {
+      const active = (k === key);
+      el.style.display = active ? '' : 'none';
+      if (active) {
+        total = Array.from(el.querySelectorAll('.rt-val')).reduce((acc, v) => acc + parseInt(v.textContent || 0), 0);
+      }
+    }
   });
+  if (badge) badge.textContent = total;
 }
 
 function dedupeManagerToolbar(){
@@ -2468,8 +2520,9 @@ function switchAnalyst(userId){
     });
     // Hide empty lanes
     bw.querySelectorAll('.lane').forEach(lane=>{
-      const visible=lane.querySelectorAll('.card[style=""], .card:not([style])').length +
-                    Array.from(lane.querySelectorAll('.card')).filter(c=>c.style.display!=='none').length;
+      const visible = Array.from(lane.querySelectorAll('.card')).filter(c=>c.style.display!=='none').length;
+      const countEl = lane.querySelector('.lane-count');
+      if(countEl) countEl.textContent = String(visible);
       // Just dim instead of hide so layout stays stable
     });
   });
@@ -2511,9 +2564,29 @@ function renderAnalystBoard(cases,analystName,gid,container){
   const caseUrl=n=>_BASE+'/sn_customerservice_case.do?sysparm_query=number='+n;
   const PRIO_LANE={'1':'critical','2':'high','3':'medium','4':'normal','5':'normal'};
   const classify=c=>{
-    const prio=parseInt(c.priority?.value||'5');
+    const rawDisplayValue = c.priority?.display_value;
+    const rawValue = c.priority?.value;
+    let prio;
+    const firstChar = rawDisplayValue?.charAt(0);
+
+    if (firstChar && !isNaN(parseInt(firstChar, 10))) {
+      prio = parseInt(firstChar, 10);
+    } else {
+      prio = parseInt(rawValue || '5', 10);
+    }
+    console.log(`[Priority Debug - renderAnalystBoard.classify] Case ${c.number?.display_value}: Display="${rawDisplayValue}", Value="${rawValue}", Calculated Prio="${prio}", State Value="${c.state?.value}"`);
+
     const isAw=AWAIT_S.has(c.state?.value||'');
-    const lane=isAw?'awaiting':PRIO_LANE[c.priority?.value]||'normal';
+    const noAss=!c.assigned_to?.value;
+    let lane;
+    if      (isAw)      lane='awaiting';
+    else if (noAss)     lane='orphan';
+    else                lane=PRIORITY_LANE[String(prio)]||'normal';
+
+    if (lane === 'critical' && c.priority?.display_value && !c.priority.display_value.includes('1')) {
+      console.warn(`[Priority Bug Check - renderAnalystBoard.classify] Caso ${c.number?.display_value} classificado como CRITICAL mas Prioridade Display é "${c.priority.display_value}" (Value: ${c.priority.value})`);
+    }
+
     return{number:c.number?.display_value||'',sysId:c.sys_id?.value||'',url:caseUrl(c.number?.display_value||''),
       desc:(c.short_description?.display_value||'').substring(0,60),priority:c.priority?.display_value||'N/A',
       prio,state:c.state?.display_value||'N/A',isAw,uType:c.u_type?.display_value||'',
@@ -2647,8 +2720,8 @@ function openCaseModal(sysId, number, cardEl) {
   modal.style.cssText = 'width:95%;height:95%;background:#fff;border-radius:5px;overflow:hidden;display:flex;flex-direction:column;';
 
   const header = document.createElement('div');
-  header.style.cssText = 'background:#111;color:#fff;padding:12px;display:flex;justify-content:space-between;align-items:center;font-size:10px;';
-  header.innerHTML = '<div style="flex:1"></div><img src="https://i.postimg.cc/NFB5VZyG/equinix-logo-icon-169199-resized.png" style="height:42px;display:block;"><div style="flex:1;display:flex;justify-content:flex-end;gap:8px;"><button id="reloadBtn">🔄</button><button id="closeBtn">✖</button></div>';
+  header.style.cssText = 'background:#111;color:#fff;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;font-size:13px;';
+  header.innerHTML = '<div style="flex:1"></div><img src="https://i.postimg.cc/NFB5VZyG/equinix-logo-icon-169199-resized.png" style="height:26px;display:block;"><div style="flex:1;display:flex;justify-content:flex-end;gap:12px;"><button id="reloadBtn" style="background:transparent;border:none;color:#fff;cursor:pointer;opacity:0.8;">🔄</button><button id="closeBtn" style="background:transparent;border:none;color:#fff;cursor:pointer;font-size:16px;">✕</button></div>';
 
   const bodyWrap = document.createElement('div');
   bodyWrap.style.cssText = 'flex:1;display:flex;min-height:0;';
@@ -2991,12 +3064,14 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     }
 
     const problems = d.problems || [];
-    const alerts = (d.alerts || problems.map(p => ({
-      severity: parseInt(p.severity || 0, 10),
-      description: p.name || '',
-      time: p.clock ? new Date(parseInt(p.clock, 10) * 1000).toISOString() : '',
-      graph: undefined
-    }))).filter(a => parseInt(a.severity || 0, 10) > 0); // Not classified (0) fora dos ativos
+    const rawAlerts = d.alerts || problems.map(p => ({
+        severity: parseInt(p.severity || 0, 10),
+        description: p.name || '',
+        time: p.clock ? new Date(parseInt(p.clock, 10) * 1000).toISOString() : '',
+        historyValues: p.historyValues || []
+    }));
+    const alerts = rawAlerts.filter(a => parseInt(a.severity || 0, 10) > 0);
+
     const hostNames = (d.hosts||[]).map(h=>h.name||h.host).join(', ');
     const debugInfo = (d && d.debug && d.debug.totalMs)
       ? '<div style="padding:0 10px 8px;font-size:10px;color:#8C959F;">Tempo consulta Zabbix: '+esc(String(d.debug.totalMs))+'ms</div>'
@@ -3441,37 +3516,108 @@ document.addEventListener('DOMContentLoaded',()=>{
     window.__deltaPollingActive = true;
     console.log('[DeltaPolling] Inicializando...');
 
-    let POLLING_INTERVAL = window._UI_SETTINGS?.pollingMs || 30000;
-    // Inicia 2 minutos no passado para cobrir o delay de renderização inicial
-    let lastSyncTime = new Date(Date.now() - 120000).toISOString().split('.')[0].replace('T', ' ');
+    let POLLING_INTERVAL = window._UI_SETTINGS?.pollingMs || 120000;
+    // Inicia 5 minutos no passado para garantir que nada foi perdido no carregamento inicial
+    let lastSyncTime = new Date(Date.now() - 300000).toISOString().split('.')[0].replace('T', ' ');
     let isFetching = false;
     
-    const _HEADERS = { 'Accept': 'application/json', 'X-UserToken': _TOK };
     const _G_IDS = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
     const _FIELDS = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
-    const isTerminalState = st => ['3','6'].includes(String(st||''));
+    const isTerminalState = st => ['3','6','7','24','25','33','35'].includes(String(st||''));
+
+    function updateResolvedTodayUI(data) {
+      const gid = data.assignment_group?.value || '';
+      const gkey = _GK[gid];
+      if (!gkey) return;
+
+      const analystName = data.assigned_to?.display_value || '— Sem responsável';
+      // Procura nos containers de grupo (rt-l1, etc) e no corpo da lane (caso seja board filtrado)
+      const targets = [];
+      const groupContainer = document.getElementById('rt-' + gkey);
+      if (groupContainer) targets.push(groupContainer);
+      
+      const standardBody = document.querySelector('.lane-rt .lane-body');
+      if (standardBody && !standardBody.querySelector('.rt-group')) targets.push(standardBody);
+
+      targets.forEach(container => {
+        let row = Array.from(container.querySelectorAll('.rt-row')).find(r => 
+          (r.querySelector('.rt-name').title === analystName) || 
+          (r.querySelector('.rt-name').textContent.trim() === analystName.split(' ').slice(0,2).join(' '))
+        );
+
+        if (row) {
+          const valEl = row.querySelector('.rt-val');
+          if (valEl) valEl.textContent = parseInt(valEl.textContent) + 1;
+        } else {
+          const empty = container.querySelector('.lane-empty');
+          if (empty) empty.remove();
+          
+          const colors = ['#0969DA','#1A7F37','#BF8700','#CF222E','#8250DF','#0550AE','#116329','#7D4E00','#A40E26','#6E40C9'];
+          const newIdx = container.querySelectorAll('.rt-row').length;
+          const rowHtml = `
+            <div class="rt-row">
+              <div class="rt-name" title="${escapeHtml(analystName)}">${escapeHtml(analystName.split(' ').slice(0,2).join(' '))}</div>
+              <div class="rt-track">
+                <div class="rt-fill" style="width:0%;background:${colors[newIdx % colors.length]}"></div>
+              </div>
+              <span class="rt-val">1</span>
+            </div>`;
+          container.insertAdjacentHTML('beforeend', rowHtml);
+          row = container.lastElementChild;
+        }
+
+        // Recalcula escalas das barras
+        const rows = Array.from(container.querySelectorAll('.rt-row'));
+        const counts = rows.map(r => parseInt(r.querySelector('.rt-val').textContent || '0'));
+        const max = Math.max(...counts, 1);
+        
+        rows.forEach(r => {
+          const c = parseInt(r.querySelector('.rt-val').textContent || '0');
+          const fill = r.querySelector('.rt-fill');
+          if (fill) fill.style.width = Math.round((c / max) * 100) + '%';
+        });
+
+        // Atualiza o contador no cabeçalho da lane
+        const laneHdr = container.closest('.lane');
+        const dropdown = laneHdr?.querySelector('select');
+        const currentView = dropdown ? dropdown.value : null;
+        const countBadge = laneHdr?.querySelector('.lane-count');
+
+        if (countBadge) {
+          // Se houver dropdown, só incrementa o badge se a fila do caso for a fila visível
+          if (!currentView || currentView === gkey) {
+            countBadge.textContent = parseInt(countBadge.textContent || '0') + 1;
+          }
+        }
+      });
+    }
 
     async function fetchDeltas() {
       if (!window.__deltaPollingActive) return;
-      
-      const visibleIds = Array.from(document.querySelectorAll('.card[data-sysid]'))
-        .map(c => c.dataset.sysid)
-        .filter(Boolean);
+      if (!outWin || outWin.closed) return;
+      if (isFetching) return;
+      isFetching = true;
 
-      const baseQuery = 'assignment_groupIN' + _G_IDS + '^stateNOT IN3,6^sys_updated_on>' + lastSyncTime;
+      const targetDoc = outWin.document;
+
+      // Se o estado for resolvido/fechado, queremos garantir que ele apareça na lista de hoje
+      const isResolvedToday = c => {
+        if (!c.resolved_at?.value && !c.closed_at?.value) return false;
+        const resDate = (c.resolved_at?.value || c.closed_at?.value).split(' ')[0];
+        const today = new Date().toISOString().split('T')[0];
+        return resDate === today;
+      };
+
+      const fetchStartTime = new Date(Date.now() - 2000).toISOString().split('.')[0].replace('T', ' '); // Overlap de 2s para segurança
+
+      const baseQuery = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
       const endpoint = _BASE + '/api/now/table/sn_customerservice_case';
       const params = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all&sysparm_limit=100';
-      const visibleBatchSize = 40;
 
       async function fetchByQuery(query) {
         const url = endpoint + '?sysparm_query=' + encodeURIComponent(query) + params;
-        const response = await fetch(url, { headers: _HEADERS });
+        const response = await snFetch(url);
         const raw = await response.text();
-        if (response.status === 401 || response.status === 403) {
-          const errModal = document.getElementById('tok-err');
-          if (errModal) errModal.style.display = 'flex';
-          throw new Error('Sessão expirada');
-        }
         if (!response.ok) {
           const msg = raw ? ': ' + raw.slice(0, 180) : '';
           throw new Error('delta_polling HTTP ' + response.status + msg);
@@ -3489,80 +3635,79 @@ document.addEventListener('DOMContentLoaded',()=>{
         const seen = new Set();
         const addCases = list => {
           list.forEach(c => {
-            const sid = c?.sys_id?.value;
+            const sid = c?.sys_id?.value || c?.sys_id;
             if (!sid || seen.has(sid)) return;
             seen.add(sid);
             out.push(c);
           });
         };
 
+        // Otimização: A query por grupo captura todas as atualizações relevantes.
+        // Removido o loop por ID individual para poupar dezenas de chamadas de rede e melhorar a velocidade.
         addCases(await fetchByQuery(baseQuery));
-
-        if (visibleIds.length) {
-          for (let i = 0; i < visibleIds.length; i += visibleBatchSize) {
-            const batch = visibleIds.slice(i, i + visibleBatchSize);
-            const q = 'sys_idIN' + batch.join(',') + '^sys_updated_on>' + lastSyncTime;
-            addCases(await fetchByQuery(q));
-          }
-        }
-
         const cases = out;
 
         if (cases.length > 0) {
           console.log('[DeltaPolling] ' + cases.length + ' casos alterados.');
           cases.forEach(c => {
-            const cards = document.querySelectorAll('.card[data-sysid="' + c.sys_id.value + '"]');
+            console.log(`[DeltaPolling] Processando ${c.number?.display_value}: Prio Value=${c.priority?.value}, State=${c.state?.value}`);
+            const cards = targetDoc.querySelectorAll('.card[data-sysid="' + (c.sys_id.value || c.sys_id) + '"]');
             if (cards.length > 0) {
               if (isTerminalState(c?.state?.value)) {
                 cards.forEach(card => {
                   const board = card.closest('.board-inner');
+                if (isResolvedToday(c)) updateResolvedTodayUI(c);
                   card.remove();
                   if (board) updateLaneCounters(board);
                 });
-                reapplyAnalystFilters();
                 return;
               }
               cards.forEach(card => updateCard(card, c));
             } else {
-              if (isTerminalState(c?.state?.value)) return;
+              if (isTerminalState(c?.state?.value)) {
+                if (isResolvedToday(c)) updateResolvedTodayUI(c);
+                return;
+              }
               console.log('[DeltaPolling] Novo caso detectado: ' + c.number.display_value);
               insertNewCaseCard(c);
             }
           });
-          lastSyncTime = cases.reduce((p, c) => (c.sys_updated_on.value > p ? c.sys_updated_on.value : p), lastSyncTime);
+          reapplyAnalystFilters();
         }
+        lastSyncTime = fetchStartTime;
       } catch (err) { console.error('[DeltaPolling] Erro:', err); }
+      finally { isFetching = false; }
     }
+
+    // Mantém a sessão ativa e verifica token a cada 5 minutos
+    setInterval(() => {
+      snFetch(_BASE + '/api/now/table/sys_user?sysparm_limit=1').catch(() => {});
+    }, 300000);
 
     const LANE_CLASSES = new Set(['card-critical','card-high','card-medium','card-normal','card-awaiting','card-orphan']);
 
     function resolveLaneFromDelta(data) {
-      const isAwaiting = ['18','32','5','29','30'].includes(data?.state?.value);
+      const stV = String(data?.state?.value || '');
+      const stD = (data?.state?.display_value || '').toLowerCase();
+      const isAwaiting = ['18','32','5','29','30'].includes(stV) || stD.includes('awaiting') || stD.includes('aguardando') || stD.includes('info');
+
       const hasAssigned = !!data?.assigned_to?.value;
-      const prio = parseInt(data?.priority?.value || '5', 10);
+      const rawDV = (data?.priority?.display_value || '').trim();
+      const match = rawDV.match(/^\d/);
+      let prio = match ? parseInt(match[0], 10) : parseInt(data?.priority?.value || '5', 10);
+      if (prio === 1 && !rawDV.startsWith('1')) prio = 2;
 
       if (isAwaiting) return 'awaiting';
       if (!hasAssigned) return 'orphan';
 
-      // Mirror the original classify() SLA-breach logic using the card's current
-      // SLA bar colour as a signal (breach = red bar visible on the card).
-      // Since we don't have slaInfo here, we use a best-effort approach:
-      // read the sla-bar-fill colour already rendered on the card (set at render time).
       if (prio === 1) return 'critical';
-      if (prio === 2) return 'high';   // SLA breach bump handled separately below
-      if (prio === 3) return 'medium'; // idem
+      if (prio === 2) return 'high';
+      if (prio === 3) return 'medium';
       return 'normal';
     }
 
     function resolveLaneWithSla(data, card) {
-      const base = resolveLaneFromDelta(data);
-      const prio = parseInt(data?.priority?.value || '5', 10);
-      // Check if this card has a visible breach indicator
-      const fill = card.querySelector('.sla-bar-fill');
-      const isBreach = fill && fill.style.background === 'rgb(207, 34, 46)'; // #CF222E
-      if (isBreach && prio === 2) return 'critical';
-      if (isBreach && prio === 3) return 'high';
-      return base;
+      return resolveLaneFromDelta(data);
     }
 
     function moveCardToLane(card, lane) {
@@ -3655,10 +3800,11 @@ document.addEventListener('DOMContentLoaded',()=>{
     function insertNewCaseCard(data) {
       if (isTerminalState(data?.state?.value)) return;
       const gid = data?.assignment_group?.value || '';
+      const targetDoc = outWin.document;
       
       // 1. Kanban Board
       if (queueMatchesFila(gid, currentFila)) {
-        const board = document.getElementById('board-wrap');
+        const board = targetDoc.getElementById('board-wrap');
         if (board) {
           const lane = resolveLaneFromDelta(data);
           const targetBody = board.querySelector('.lane[data-lane="' + lane + '"] .lane-body');
@@ -3674,7 +3820,7 @@ document.addEventListener('DOMContentLoaded',()=>{
 
       // 2. Backlog Board
       if (queueMatchesFila(gid, currentBacklogFila)) {
-        const board = document.getElementById('board-wrap-backlog-tab');
+        const board = targetDoc.getElementById('board-wrap-backlog-tab');
         if (board) {
           const lane = resolveLaneFromDelta(data);
           const targetBody = board.querySelector('.lane[data-lane="' + lane + '"] .lane-body');
@@ -3687,14 +3833,12 @@ document.addEventListener('DOMContentLoaded',()=>{
           }
         }
       }
-      
-      reapplyAnalystFilters();
     }
 
     function updateLaneCounters(board) {
       if (!board) return;
       board.querySelectorAll('.lane[data-lane]').forEach(laneEl => {
-        const count = laneEl.querySelectorAll('.lane-body .card').length;
+        const count = Array.from(laneEl.querySelectorAll('.lane-body .card')).filter(c => c.style.display !== 'none').length;
         const countEl = laneEl.querySelector('.lane-count');
         if (countEl) countEl.textContent = String(count);
       });
@@ -3731,10 +3875,17 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
       } else if (badge) badge.remove();
 
+      const desc = card.querySelector('.card-desc');
+      if (desc) desc.textContent = (data.short_description?.display_value || '').substring(0, 60);
+
       const tags = card.querySelector('.card-tags');
       if (tags) {
         const sTag = tags.querySelector('.tag-state');
         if (sTag) sTag.textContent = data.state.display_value;
+
+        const tTag = tags.querySelector('.tag-type');
+        if (tTag) tTag.textContent = data.u_type?.display_value || '';
+
         const iuTag = tags.querySelector('.tag-iu');
         if (iuTag) iuTag.textContent = 'I:' + (data.impact?.value||'—') + ' · U:' + (data.urgency?.value||'—');
       }
@@ -3776,8 +3927,6 @@ document.addEventListener('DOMContentLoaded',()=>{
       card.classList.add('card-' + nextLane);
       moveCardToLane(card, nextLane);
       pulseCard(card, prevLane !== ('card-' + nextLane));
-      // Mantém consistência quando a visão está filtrada por analista.
-      reapplyAnalystFilters();
     }
 
     window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
@@ -3905,7 +4054,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     const qA2=`assignment_groupIN${G_IDS}${EXCL}`; // All active cases
     const qP2=`assignment_groupIN${G_IDS}^stateIN3,6^resolved_at>=${i2}^resolved_at<=${f2}`;
     const todayStr2=(()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;})();
-    const qRT2=`assignment_groupIN${G_IDS}^u_escalation_typeISEMPTY^stateIN3,6^resolved_at>=${todayStr2} 00:00:00^resolved_at<=${todayStr2} 23:59:59`;
+    const qRT2=`assignment_groupIN${G_IDS}^stateIN3,6,7,24,25,33,35^resolved_at>=${todayStr2} 00:00:00^resolved_at<=${todayStr2} 23:59:59^ORclosed_at>=${todayStr2} 00:00:00^closed_at<=${todayStr2} 23:59:59`;
     const rodrigoEx2=['1a8b95014fc1af00f3d33d828110c7cf','1d2a4cd84f347788c58b8e1f0210c767','38483f9fdbb7b0d0545dee0c139619ab','46b501304fea0700f5e08e1f0210c770','5a1ed5054fc1af00f3d33d828110c7ce'].map(id=>`^assigned_to!=${id}`).join('');
     const aggF2=gid=>`assigned_toANYTHING^u_typeIN0,1^u_operating_country=BR^stateIN1,10,21,8,2^u_internal_cases=false${rodrigoEx2}^assignment_group=${gid}`;
     const fa2=gid=>fetch(`${snBase}/api/now/stats/sn_customerservice_case?sysparm_query=${encodeURIComponent(aggF2(gid))}&sysparm_group_by=assigned_to,u_type&sysparm_count=true&sysparm_display_value=all&sysparm_limit=200`,{headers:h2}).then(r=>r.json()).then(d=>({gid,rows:d.result||[]}));

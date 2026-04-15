@@ -125,20 +125,47 @@ async function fetchZabbixAlertsForCI(ciName, ciIp, ciHostname) {
 
   const triggerIds = [...new Set(topProblems.map(p => p.objectid).filter(Boolean))];
   let triggerToItem = {};
+  let triggerExpressions = {};
   if (triggerIds.length) {
     const triggers = await zabbixCall('trigger.get', {
       triggerids: triggerIds,
-      output: ['triggerid'],
-      selectItems: ['itemid', 'name']
+      output: ['triggerid', 'expression', 'recovery_expression'],
+      selectItems: ['itemid', 'name', 'units', 'value_type']
     });
     triggerToItem = (triggers || []).reduce((acc, trg) => {
       const firstItem = Array.isArray(trg.items) && trg.items.length ? trg.items[0] : null;
-      if (trg.triggerid && firstItem && firstItem.itemid) {
-        acc[trg.triggerid] = firstItem.itemid;
-      }
+      if (trg.triggerid && firstItem && firstItem.itemid) acc[trg.triggerid] = firstItem;
+      return acc;
+    }, {});
+    triggerExpressions = (triggers || []).reduce((acc, trg) => {
+      acc[trg.triggerid] = { expression: trg.expression || '', recovery: trg.recovery_expression || '' };
       return acc;
     }, {});
   }
+
+  // Busca histórico de valores para o primeiro alerta (última 1h) para o gráfico SVG
+  const primaryTriggerId = topProblems[0]?.objectid;
+  const primaryItem = primaryTriggerId ? triggerToItem[primaryTriggerId] : null;
+  let historyValues = [];
+  if (primaryItem?.itemid) {
+    const vtype = parseInt(primaryItem.value_type || '0');
+    const htype = (vtype === 0 || vtype === 3) ? 0 : 1; 
+    try {
+      historyValues = await zabbixCall('history.get', {
+        itemids: [primaryItem.itemid],
+        history: htype,
+        sortfield: 'clock',
+        sortorder: 'ASC',
+        time_from: Math.floor(Date.now() / 1000) - 3600,
+        limit: 200
+      });
+    } catch (_) {}
+  }
+
+  const parseThreshold = expr => {
+    const m = expr.match(/[<>]=?\s*(\d+(?:\.\d+)?)/);
+    return m ? parseFloat(m[1]) : null;
+  };
 
   const historyEvents = await zabbixCall('event.get', {
     hostids: hostids[0],
@@ -150,15 +177,22 @@ async function fetchZabbixAlertsForCI(ciName, ciIp, ciHostname) {
   debug.totalMs = Date.now() - startedAt;
 
   const alerts = topProblems.map(p => {
-    const triggerId = p.objectid;
-    const itemid = triggerId ? triggerToItem[triggerId] : null;
+    const item = p.objectid ? triggerToItem[p.objectid] : null;
+    const itemid = item?.itemid;
+    const expr = triggerExpressions[p.objectid] || {};
     const graph = itemid ? `${ZABBIX_CHART_BASE_URL}?itemids[]=${encodeURIComponent(itemid)}&period=86400&width=1200&height=500&legend=1&showworkperiod=1&showtriggers=1` : undefined;
     return {
-    severity: parseInt(p.severity || 0, 10),
-    description: p.name || '',
-    time: p.clock ? new Date(Number(p.clock) * 1000).toISOString() : '',
-    ...(graph ? { graph } : {})
-  };
+      severity: parseInt(p.severity || 0, 10),
+      description: p.name || '',
+      time: p.clock ? new Date(Number(p.clock) * 1000).toISOString() : '',
+      itemid,
+      itemName: item?.name || '',
+      itemUnits: item?.units || '',
+      thresholdAlarm: parseThreshold(expr.expression || ''),
+      thresholdRecover: parseThreshold(expr.recovery || ''),
+      historyValues: p.objectid === primaryTriggerId ? historyValues : [],
+      ...(graph ? { graph } : {})
+    };
   });
 
   const history = (historyEvents || []).map(ev => ({
@@ -205,4 +239,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }));
 
   return true; // mantém o canal aberto para resposta assíncrona
+});
+
+// ── Busca imagem do gráfico como base64 (sem CORS) ────────────────────────
+async function fetchChartAsBase64(url) {
+  const res = await fetch(url, {
+    headers: { 'Authorization': 'Bearer ' + ZABBIX_TOKEN }
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const buf = await res.arrayBuffer();
+  const b64 = btoa(new Uint8Array(buf).reduce((s, b) => s + String.fromCharCode(b), ''));
+  return 'data:image/png;base64,' + b64;
+}
+
+// Aceita mensagens externas (do dashboard em nova aba via extensionId)
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  if (message.type !== 'ZABBIX_FETCH_IMAGE') return false;
+  fetchChartAsBase64(message.url)
+    .then(dataUrl => sendResponse({ ok: true, dataUrl }))
+    .catch(err   => sendResponse({ ok: false, error: err.message }));
+  return true;
 });
