@@ -4101,10 +4101,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     .catch(e=>console.error('_emsOpsRender:',e));
   };
 
-  const outWin = window.open('','_blank');
-  if (outWin) {
-    outWin.document.write('<html><body style="background:#F6F8FA;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:system-ui"><div style="text-align:center;color:#57606A"><div style="font-size:40px;margin-bottom:12px">🖥</div><div style="font-size:16px;font-weight:600;color:#24292F">EMS Ops Dashboard</div><div style="font-size:13px;margin-top:6px">Carregando dados...</div></div></body></html>');
+  const outWin = window.open('', '_blank');
+  if (!outWin) {
+    throw new Error('Não foi possível abrir a nova aba do dashboard. Habilite pop-ups para o ServiceNow e tente novamente.');
   }
+
+  outWin.document.write('<html><body style="background:#F6F8FA;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:system-ui"><div style="text-align:center;color:#57606A"><div style="font-size:40px;margin-bottom:12px">🖥</div><div style="font-size:16px;font-weight:600;color:#24292F">EMS Ops Dashboard</div><div style="font-size:13px;margin-top:6px">Carregando dados...</div></div></body></html>');
 
   // Stagger agg calls to reduce server load (performance improvement)
   Promise.all([
