@@ -3619,11 +3619,11 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     async function fetchDeltas() {
       if (!window.__deltaPollingActive) return;
-      if (!outWin || outWin.closed) return;
+      if (window.closed) return;
       if (isFetching) return;
       isFetching = true;
 
-      const targetDoc = outWin.document;
+      const targetDoc = document;
 
       // Se o estado for resolvido/fechado, queremos garantir que ele apareça na lista de hoje
       const isResolvedToday = c => {
@@ -3852,7 +3852,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     function insertNewCaseCard(data) {
       if (isTerminalState(data?.state?.value)) return;
       const gid = data?.assignment_group?.value || '';
-      const targetDoc = outWin.document;
+      const targetDoc = document;
       
       // 1. Kanban Board
       if (queueMatchesFila(gid, currentFila)) {
