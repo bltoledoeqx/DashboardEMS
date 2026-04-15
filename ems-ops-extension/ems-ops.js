@@ -3636,6 +3636,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       const fetchStartTime = new Date(Date.now() - 2000).toISOString().split('.')[0].replace('T', ' '); // Overlap de 2s para segurança
 
       const baseQuery = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
+      const activeAnalystId = document.getElementById('analyst-sel')?.value || '';
+      const activeBacklogAnalystId = currentBacklogAnalyst || document.getElementById('backlog-analyst-sel')?.value || '';
+      const extraAnalystIds = [...new Set([activeAnalystId, activeBacklogAnalystId].filter(Boolean))];
       const endpoint = _BASE + '/api/now/table/sn_customerservice_case';
       const params = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all';
       const DELTA_PAGE_SIZE = 200;
@@ -3682,16 +3685,25 @@ document.addEventListener('DOMContentLoaded',()=>{
           });
         };
 
-        // Otimização: A query por grupo captura todas as atualizações relevantes.
-        // Removido o loop por ID individual para poupar dezenas de chamadas de rede e melhorar a velocidade.
+        // Query base: mantém movimentação geral dos cards (mudança de fila/analista/estado).
         addCases(await fetchByQuery(baseQuery));
+
+        // Smart mode: quando filtro por analista estiver ativo, consulta adicional focada no analista
+        // para reforçar responsividade sem perder eventos gerais.
+        for (const analystId of extraAnalystIds) {
+          const analystQuery = baseQuery + '^assigned_to=' + analystId;
+          addCases(await fetchByQuery(analystQuery));
+        }
+
         const cases = out;
 
         if (cases.length > 0) {
           console.log('[DeltaPolling] ' + cases.length + ' casos alterados.');
           cases.forEach(c => {
             console.log('[DeltaPolling] Processando ' + (c.number?.display_value || '') + ': Prio Value=' + (c.priority?.value || '') + ', State=' + (c.state?.value || ''));
-            const cards = targetDoc.querySelectorAll('.card[data-sysid="' + (c.sys_id.value || c.sys_id) + '"]');
+            const sid = c?.sys_id?.value || c?.sys_id || '';
+            if (!sid) return;
+            const cards = targetDoc.querySelectorAll('.card[data-sysid="' + sid + '"]');
             if (cards.length > 0) {
               if (isTerminalState(c?.state?.value)) {
                 cards.forEach(card => {
@@ -3708,7 +3720,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                 if (isResolvedToday(c)) updateResolvedTodayUI(c);
                 return;
               }
-              console.log('[DeltaPolling] Novo caso detectado: ' + c.number.display_value);
+              console.log('[DeltaPolling] Novo caso detectado: ' + (c?.number?.display_value || 'sem número'));
               insertNewCaseCard(c);
             }
           });
