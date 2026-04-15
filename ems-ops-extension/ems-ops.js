@@ -3637,22 +3637,37 @@ document.addEventListener('DOMContentLoaded',()=>{
 
       const baseQuery = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
       const endpoint = _BASE + '/api/now/table/sn_customerservice_case';
-      const params = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all&sysparm_limit=100';
+      const params = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all';
+      const DELTA_PAGE_SIZE = 200;
+      const DELTA_MAX_PAGES = 10;
 
       async function fetchByQuery(query) {
-        const url = endpoint + '?sysparm_query=' + encodeURIComponent(query) + params;
-        const response = await snFetch(url);
-        const raw = await response.text();
-        if (!response.ok) {
-          const msg = raw ? ': ' + raw.slice(0, 180) : '';
-          throw new Error('delta_polling HTTP ' + response.status + msg);
+        const allRows = [];
+
+        for (let page = 0; page < DELTA_MAX_PAGES; page += 1) {
+          const offset = page * DELTA_PAGE_SIZE;
+          const paging = '&sysparm_limit=' + DELTA_PAGE_SIZE + '&sysparm_offset=' + offset;
+          const url = endpoint + '?sysparm_query=' + encodeURIComponent(query) + params + paging;
+          const response = await snFetch(url);
+          const raw = await response.text();
+          if (!response.ok) {
+            const msg = raw ? ': ' + raw.slice(0, 180) : '';
+            throw new Error('delta_polling HTTP ' + response.status + msg);
+          }
+          let data = {};
+          if (raw) {
+            try { data = JSON.parse(raw); }
+            catch (_) { throw new Error('delta_polling retornou JSON inválido (HTTP ' + response.status + ')'); }
+          }
+
+          const rows = data.result || [];
+          if (!rows.length) break;
+          allRows.push(...rows);
+
+          if (rows.length < DELTA_PAGE_SIZE) break;
         }
-        let data = {};
-        if (raw) {
-          try { data = JSON.parse(raw); }
-          catch (_) { throw new Error('delta_polling retornou JSON inválido (HTTP ' + response.status + ')'); }
-        }
-        return data.result || [];
+
+        return allRows;
       }
 
       try {
