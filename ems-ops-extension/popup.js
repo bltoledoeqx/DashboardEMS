@@ -45,7 +45,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Verifica se a função foi carregada no window
             if (typeof window.runEMSOps === 'function') {
-              window.runEMSOps(userMonth);
+              const runResult = await Promise.resolve(window.runEMSOps(userMonth));
+
+              if (runResult?.error) {
+                return { error: runResult.error };
+              }
+
+              if (runResult?.success === false || runResult?.ok === false) {
+                return { error: 'runEMSOps retornou falha ao iniciar o painel.' };
+              }
+
               return { success: true };
             } else {
               return { error: 'Função runEMSOps não encontrada no window após injeção via tag.' };
