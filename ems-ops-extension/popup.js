@@ -21,17 +21,31 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function runInPage(tabId, month) {
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      world: 'MAIN',
-      files: ['config.js', 'ems-ops.js']
-    });
+    const configUrl = chrome.runtime.getURL('config.js');
+    const emsOpsUrl = chrome.runtime.getURL('ems-ops.js');
 
     const [{ result }] = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
-      func: async userMonth => {
+      func: async (cfgUrl, opsUrl, userMonth) => {
+        const loadScriptFromText = async (url, globalName) => {
+          if (globalName && typeof window[globalName] === 'function') {
+            return;
+          }
+
+          const response = await fetch(url);
+          if (!response.ok) {
+            throw new Error(`Falha ao carregar ${url} (HTTP ${response.status})`);
+          }
+
+          const code = await response.text();
+          (0, eval)(code);
+        };
+
         try {
+          await loadScriptFromText(cfgUrl);
+          await loadScriptFromText(opsUrl, 'runEMSOps');
+
           if (typeof window.runEMSOps !== 'function') {
             return {
               error: `Função runEMSOps não encontrada no window. typeof=${typeof window.runEMSOps}`
@@ -53,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return { error: `Erro ao executar runEMSOps: ${e.message}` };
         }
       },
-      args: [month]
+      args: [configUrl, emsOpsUrl, month]
     });
 
     if (result?.error) {
@@ -66,6 +80,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     return result;
   }
+
 
   btn.addEventListener('click', async () => {
     setLoading(true);
