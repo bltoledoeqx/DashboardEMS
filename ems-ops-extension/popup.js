@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function runInPage(tabId, month) {
     // Injeta os scripts via script tag para garantir que rodem no contexto MAIN (window)
     // e tenham acesso às variáveis globais do ServiceNow (g_ck)
-    await chrome.scripting.executeScript({
+    const [{ result }] = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
       func: (configUrl, scriptUrl, userMonth) => {
@@ -45,7 +45,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Verifica se a função foi carregada no window
             if (typeof window.runEMSOps === 'function') {
-              window.runEMSOps(userMonth);
+              const runResult = await Promise.resolve(window.runEMSOps(userMonth));
+
+              if (runResult?.error) {
+                return { error: runResult.error };
+              }
+
+              if (runResult?.success === false || runResult?.ok === false) {
+                return { error: 'runEMSOps retornou falha ao iniciar o painel.' };
+              }
+
               return { success: true };
             } else {
               return { error: 'Função runEMSOps não encontrada no window após injeção via tag.' };
@@ -64,9 +73,15 @@ document.addEventListener('DOMContentLoaded', () => {
       ]
     });
 
-    // Como a execução real acontece dentro do func acima, o result virá de lá
-    // Mas o executeScript retorna um array de resultados
-    return { success: true }; 
+    if (result?.error) {
+      throw new Error(result.error);
+    }
+
+    if (!result?.success) {
+      throw new Error('Não foi possível abrir o painel EMS Ops.');
+    }
+
+    return result;
   }
 
   btn.addEventListener('click', async () => {
