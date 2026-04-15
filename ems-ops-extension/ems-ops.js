@@ -48,6 +48,8 @@ window.runEMSOps = function(userMes) {
   const TZ_BR     = 'America/Sao_Paulo';
   const MES_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
+  let outWin = null;
+
   const nowD      = new Date();
   const YEAR      = nowD.getFullYear();
   const mes       = userMes || (nowD.getMonth() + 1);
@@ -1846,37 +1848,54 @@ function applyImpactUrgencyFromLane(card,laneKey){
 }
 
 function initCardDragAndDrop(){
-  const board=document.getElementById('board-wrap');
-  if(!board) return;
-  board.querySelectorAll('.card').forEach(card=>{
-    if(card.dataset.dragReady==='1') return;
-    card.dataset.dragReady='1';
-    card.draggable=true;
-    card.addEventListener('dragstart',()=>{_dragCard=card;card.classList.add('dragging');});
-    card.addEventListener('dragend',()=>{card.classList.remove('dragging');_dragCard=null;board.querySelectorAll('.lane-body.drop-target').forEach(el=>el.classList.remove('drop-target'));});
-  });
+  const boards=['board-wrap','board-wrap-backlog-tab'];
+  boards.forEach(boardId=>{
+    const board=document.getElementById(boardId);
+    if(!board) return;
 
-  board.querySelectorAll('.lane .lane-body').forEach(body=>{
-    if(body.dataset.dropReady==='1') return;
-    body.dataset.dropReady='1';
-    body.addEventListener('dragover',e=>{e.preventDefault();body.classList.add('drop-target');});
-    body.addEventListener('dragleave',()=>body.classList.remove('drop-target'));
-    body.addEventListener('drop',e=>{
-      e.preventDefault();
-      body.classList.remove('drop-target');
-      if(!_dragCard) return;
-      if(_dragCard.parentElement!==body){
-        body.insertBefore(_dragCard,body.firstChild);
-      }
-      const laneEl=body.closest('.lane');
-      const laneKey=laneEl?.dataset?.lane||'';
-      if(laneKey){
-        Array.from(_dragCard.classList).filter(c=>c.startsWith('card-')).forEach(c=>_dragCard.classList.remove(c));
-        _dragCard.classList.add('card-'+laneKey);
-      }
-      refreshLaneCountersInBoard(board.querySelector('.board-inner'));
-      if(laneKey) applyImpactUrgencyFromLane(_dragCard,laneKey);
-      reapplyAnalystFilters();
+    board.querySelectorAll('.card').forEach(card=>{
+      if(card.dataset.dragReady==='1') return;
+      card.dataset.dragReady='1';
+      card.draggable=true;
+      card.addEventListener('dragstart',e=>{
+        _dragCard=card;
+        card.classList.add('dragging');
+        window.__suppressCardModalUntil=Date.now()+500;
+        if(e?.dataTransfer){
+          e.dataTransfer.effectAllowed='move';
+          e.dataTransfer.setData('text/plain',card.dataset.sysid||'drag-card');
+        }
+      });
+      card.addEventListener('dragend',()=>{
+        card.classList.remove('dragging');
+        _dragCard=null;
+        window.__suppressCardModalUntil=Date.now()+200;
+        board.querySelectorAll('.lane-body.drop-target').forEach(el=>el.classList.remove('drop-target'));
+      });
+    });
+
+    board.querySelectorAll('.lane .lane-body').forEach(body=>{
+      if(body.dataset.dropReady==='1') return;
+      body.dataset.dropReady='1';
+      body.addEventListener('dragover',e=>{e.preventDefault();body.classList.add('drop-target');});
+      body.addEventListener('dragleave',()=>body.classList.remove('drop-target'));
+      body.addEventListener('drop',e=>{
+        e.preventDefault();
+        body.classList.remove('drop-target');
+        if(!_dragCard) return;
+        if(_dragCard.parentElement!==body){
+          body.insertBefore(_dragCard,body.firstChild);
+        }
+        const laneEl=body.closest('.lane');
+        const laneKey=laneEl?.dataset?.lane||'';
+        if(laneKey){
+          Array.from(_dragCard.classList).filter(c=>c.startsWith('card-')).forEach(c=>_dragCard.classList.remove(c));
+          _dragCard.classList.add('card-'+laneKey);
+        }
+        refreshLaneCountersInBoard(board.querySelector('.board-inner'));
+        if(laneKey) applyImpactUrgencyFromLane(_dragCard,laneKey);
+        reapplyAnalystFilters();
+      });
     });
   });
 }
@@ -2597,7 +2616,7 @@ function renderAnalystBoard(cases,analystName,gid,container){
     } else {
       prio = parseInt(rawValue || '5', 10);
     }
-    console.log(`[Priority Debug - renderAnalystBoard.classify] Case ${c.number?.display_value}: Display="${rawDisplayValue}", Value="${rawValue}", Calculated Prio="${prio}", State Value="${c.state?.value}"`);
+    console.log('[Priority Debug - renderAnalystBoard.classify] Case ' + (c.number?.display_value || '') + ': Display="' + rawDisplayValue + '", Value="' + rawValue + '", Calculated Prio="' + prio + '", State Value="' + (c.state?.value || '') + '"');
 
     const isAw=AWAIT_S.has(c.state?.value||'');
     const noAss=!c.assigned_to?.value;
@@ -2607,7 +2626,7 @@ function renderAnalystBoard(cases,analystName,gid,container){
     else                lane=PRIORITY_LANE[String(prio)]||'normal';
 
     if (lane === 'critical' && c.priority?.display_value && !c.priority.display_value.includes('1')) {
-      console.warn(`[Priority Bug Check - renderAnalystBoard.classify] Caso ${c.number?.display_value} classificado como CRITICAL mas Prioridade Display é "${c.priority.display_value}" (Value: ${c.priority.value})`);
+      console.warn('[Priority Bug Check - renderAnalystBoard.classify] Caso ' + (c.number?.display_value || '') + ' classificado como CRITICAL mas Prioridade Display é "' + c.priority.display_value + '" (Value: ' + c.priority.value + ')');
     }
 
     return{number:c.number?.display_value||'',sysId:c.sys_id?.value||'',url:caseUrl(c.number?.display_value||''),
@@ -2728,6 +2747,7 @@ function openCaseModalBtn(el) {
   openCaseModal(el.dataset.sysid||'', el.dataset.num||'', el);
 }
 function openCaseModal(sysId, number, cardEl) {
+  if(window.__suppressCardModalUntil && Date.now()<window.__suppressCardModalUntil) return;
   _modalSysId = sysId;
   if (_modalActiveCard) _modalActiveCard.classList.remove('modal-active');
   _modalActiveCard = cardEl;
@@ -3577,14 +3597,14 @@ document.addEventListener('DOMContentLoaded',()=>{
           
           const colors = ['#0969DA','#1A7F37','#BF8700','#CF222E','#8250DF','#0550AE','#116329','#7D4E00','#A40E26','#6E40C9'];
           const newIdx = container.querySelectorAll('.rt-row').length;
-          const rowHtml = `
-            <div class="rt-row">
-              <div class="rt-name" title="${escapeHtml(analystName)}">${escapeHtml(analystName.split(' ').slice(0,2).join(' '))}</div>
-              <div class="rt-track">
-                <div class="rt-fill" style="width:0%;background:${colors[newIdx % colors.length]}"></div>
-              </div>
-              <span class="rt-val">1</span>
-            </div>`;
+          const rowHtml =
+            '<div class="rt-row">' +
+              '<div class="rt-name" title="' + escapeHtml(analystName) + '">' + escapeHtml(analystName.split(' ').slice(0,2).join(' ')) + '</div>' +
+              '<div class="rt-track">' +
+                '<div class="rt-fill" style="width:0%;background:' + colors[newIdx % colors.length] + '"></div>' +
+              '</div>' +
+              '<span class="rt-val">1</span>' +
+            '</div>';
           container.insertAdjacentHTML('beforeend', rowHtml);
           row = container.lastElementChild;
         }
@@ -3617,11 +3637,11 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     async function fetchDeltas() {
       if (!window.__deltaPollingActive) return;
-      if (!outWin || outWin.closed) return;
+      if (window.closed) return;
       if (isFetching) return;
       isFetching = true;
 
-      const targetDoc = outWin.document;
+      const targetDoc = document;
 
       // Se o estado for resolvido/fechado, queremos garantir que ele apareça na lista de hoje
       const isResolvedToday = c => {
@@ -3634,23 +3654,41 @@ document.addEventListener('DOMContentLoaded',()=>{
       const fetchStartTime = new Date(Date.now() - 2000).toISOString().split('.')[0].replace('T', ' '); // Overlap de 2s para segurança
 
       const baseQuery = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
+      const activeAnalystId = document.getElementById('analyst-sel')?.value || '';
+      const activeBacklogAnalystId = currentBacklogAnalyst || document.getElementById('backlog-analyst-sel')?.value || '';
+      const extraAnalystIds = [...new Set([activeAnalystId, activeBacklogAnalystId].filter(Boolean))];
       const endpoint = _BASE + '/api/now/table/sn_customerservice_case';
-      const params = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all&sysparm_limit=100';
+      const params = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all';
+      const DELTA_PAGE_SIZE = 200;
+      const DELTA_MAX_PAGES = 10;
 
       async function fetchByQuery(query) {
-        const url = endpoint + '?sysparm_query=' + encodeURIComponent(query) + params;
-        const response = await snFetch(url);
-        const raw = await response.text();
-        if (!response.ok) {
-          const msg = raw ? ': ' + raw.slice(0, 180) : '';
-          throw new Error('delta_polling HTTP ' + response.status + msg);
+        const allRows = [];
+
+        for (let page = 0; page < DELTA_MAX_PAGES; page += 1) {
+          const offset = page * DELTA_PAGE_SIZE;
+          const paging = '&sysparm_limit=' + DELTA_PAGE_SIZE + '&sysparm_offset=' + offset;
+          const url = endpoint + '?sysparm_query=' + encodeURIComponent(query) + params + paging;
+          const response = await snFetch(url);
+          const raw = await response.text();
+          if (!response.ok) {
+            const msg = raw ? ': ' + raw.slice(0, 180) : '';
+            throw new Error('delta_polling HTTP ' + response.status + msg);
+          }
+          let data = {};
+          if (raw) {
+            try { data = JSON.parse(raw); }
+            catch (_) { throw new Error('delta_polling retornou JSON inválido (HTTP ' + response.status + ')'); }
+          }
+
+          const rows = data.result || [];
+          if (!rows.length) break;
+          allRows.push(...rows);
+
+          if (rows.length < DELTA_PAGE_SIZE) break;
         }
-        let data = {};
-        if (raw) {
-          try { data = JSON.parse(raw); }
-          catch (_) { throw new Error('delta_polling retornou JSON inválido (HTTP ' + response.status + ')'); }
-        }
-        return data.result || [];
+
+        return allRows;
       }
 
       try {
@@ -3665,16 +3703,25 @@ document.addEventListener('DOMContentLoaded',()=>{
           });
         };
 
-        // Otimização: A query por grupo captura todas as atualizações relevantes.
-        // Removido o loop por ID individual para poupar dezenas de chamadas de rede e melhorar a velocidade.
+        // Query base: mantém movimentação geral dos cards (mudança de fila/analista/estado).
         addCases(await fetchByQuery(baseQuery));
+
+        // Smart mode: quando filtro por analista estiver ativo, consulta adicional focada no analista
+        // para reforçar responsividade sem perder eventos gerais.
+        for (const analystId of extraAnalystIds) {
+          const analystQuery = baseQuery + '^assigned_to=' + analystId;
+          addCases(await fetchByQuery(analystQuery));
+        }
+
         const cases = out;
 
         if (cases.length > 0) {
           console.log('[DeltaPolling] ' + cases.length + ' casos alterados.');
           cases.forEach(c => {
-            console.log(`[DeltaPolling] Processando ${c.number?.display_value}: Prio Value=${c.priority?.value}, State=${c.state?.value}`);
-            const cards = targetDoc.querySelectorAll('.card[data-sysid="' + (c.sys_id.value || c.sys_id) + '"]');
+            console.log('[DeltaPolling] Processando ' + (c.number?.display_value || '') + ': Prio Value=' + (c.priority?.value || '') + ', State=' + (c.state?.value || ''));
+            const sid = c?.sys_id?.value || c?.sys_id || '';
+            if (!sid) return;
+            const cards = targetDoc.querySelectorAll('.card[data-sysid="' + sid + '"]');
             if (cards.length > 0) {
               if (isTerminalState(c?.state?.value)) {
                 cards.forEach(card => {
@@ -3691,7 +3738,7 @@ document.addEventListener('DOMContentLoaded',()=>{
                 if (isResolvedToday(c)) updateResolvedTodayUI(c);
                 return;
               }
-              console.log('[DeltaPolling] Novo caso detectado: ' + c.number.display_value);
+              console.log('[DeltaPolling] Novo caso detectado: ' + (c?.number?.display_value || 'sem número'));
               insertNewCaseCard(c);
             }
           });
@@ -3777,6 +3824,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       const assId = data?.assigned_to?.value || '';
       const stateLabel = data?.state?.display_value || 'N/A';
       const isAwaiting = ['18','32','5','29','30'].includes(data?.state?.value || '');
+      const isInternal = data?.u_internal_cases?.value === 'true' || data?.u_internal_cases?.value === true;
+      const uTypeLabel = data?.u_type?.display_value || '';
       const priorityLabel = data?.priority?.display_value || 'N/A';
       const prioVal = parseInt(data?.priority?.value || '5', 10);
       const impactVal = data?.impact?.value || '—';
@@ -3800,12 +3849,14 @@ document.addEventListener('DOMContentLoaded',()=>{
           '<a class="card-num" href="' + caseUrl + '" target="_blank">' + escapeHtml(number) + ' ↗</a>' +
           '<span class="card-prio-badge card-prio-' + prioVal + '">' + escapeHtml(priorityLabel) + '</span>' +
           (isAwaiting ? '<span class="badge-await">⏳ ' + escapeHtml(stateLabel) + '</span>' : '') +
+          (isInternal ? '<span class="badge-internal">🔒 Internal</span>' : '') +
           '<button class="card-reassign-btn" title="Reatribuir" data-sysid="' + escapeHtml(sysId) + '" data-gid="' + escapeHtml(gid) + '" data-assigned="' + escapeHtml(assName) + '" onclick="openReassignBtn(event,this)">👤 ✎</button>' +
         '</div>' +
         '<p class="card-desc">' + escapeHtml(desc || '—') + '</p>' +
         '<div class="sla-bar-wrap"><span class="sla-bar-name" style="color:#0969DA">Atualizado agora</span></div>' +
         '<div class="card-tags">' +
           '<span class="tag tag-state">' + escapeHtml(stateLabel) + '</span>' +
+          (uTypeLabel ? '<span class="tag tag-type">' + escapeHtml(uTypeLabel) + '</span>' : '') +
           '<span class="tag tag-iu">I:' + escapeHtml(impactVal) + ' · U:' + escapeHtml(urgencyVal) + '</span>' +
         '</div>' +
         '<div class="card-footer">' +
@@ -3823,7 +3874,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     function insertNewCaseCard(data) {
       if (isTerminalState(data?.state?.value)) return;
       const gid = data?.assignment_group?.value || '';
-      const targetDoc = outWin.document;
+      const targetDoc = document;
       
       // 1. Kanban Board
       if (queueMatchesFila(gid, currentFila)) {
@@ -3836,6 +3887,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             if (empty) empty.remove();
             const card = buildCardElement(data, lane);
             targetBody.prepend(card);
+            initCardDragAndDrop();
             updateLaneCounters(board);
           }
         }
@@ -3852,6 +3904,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             if (empty) empty.remove();
             const card = buildCardElement(data, lane);
             targetBody.prepend(card);
+            initCardDragAndDrop();
             updateLaneCounters(board);
           }
         }
@@ -3898,6 +3951,22 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
       } else if (badge) badge.remove();
 
+      const isInternal = data?.u_internal_cases?.value === 'true' || data?.u_internal_cases?.value === true;
+      const top = card.querySelector('.card-top');
+      const reassignBtn = top?.querySelector('.card-reassign-btn') || null;
+      let internalBadge = top?.querySelector('.badge-internal') || null;
+      if (isInternal) {
+        if (!internalBadge && top) {
+          internalBadge = document.createElement('span');
+          internalBadge.className = 'badge-internal';
+          internalBadge.textContent = '🔒 Internal';
+          if (reassignBtn) top.insertBefore(internalBadge, reassignBtn);
+          else top.appendChild(internalBadge);
+        }
+      } else if (internalBadge) {
+        internalBadge.remove();
+      }
+
       const desc = card.querySelector('.card-desc');
       if (desc) desc.textContent = (data.short_description?.display_value || '').substring(0, 60);
 
@@ -3906,8 +3975,20 @@ document.addEventListener('DOMContentLoaded',()=>{
         const sTag = tags.querySelector('.tag-state');
         if (sTag) sTag.textContent = data.state.display_value;
 
-        const tTag = tags.querySelector('.tag-type');
-        if (tTag) tTag.textContent = data.u_type?.display_value || '';
+        const typeVal = data.u_type?.display_value || '';
+        let tTag = tags.querySelector('.tag-type');
+        if (typeVal) {
+          if (!tTag) {
+            tTag = document.createElement('span');
+            tTag.className = 'tag tag-type';
+            const iuTagRef = tags.querySelector('.tag-iu');
+            if (iuTagRef) tags.insertBefore(tTag, iuTagRef);
+            else tags.appendChild(tTag);
+          }
+          tTag.textContent = typeVal;
+        } else if (tTag) {
+          tTag.remove();
+        }
 
         const iuTag = tags.querySelector('.tag-iu');
         if (iuTag) iuTag.textContent = 'I:' + (data.impact?.value||'—') + ' · U:' + (data.urgency?.value||'—');
@@ -4101,10 +4182,12 @@ document.addEventListener('DOMContentLoaded',()=>{
     .catch(e=>console.error('_emsOpsRender:',e));
   };
 
-  const outWin = window.open('','_blank');
-  if (outWin) {
-    outWin.document.write('<html><body style="background:#F6F8FA;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:system-ui"><div style="text-align:center;color:#57606A"><div style="font-size:40px;margin-bottom:12px">🖥</div><div style="font-size:16px;font-weight:600;color:#24292F">EMS Ops Dashboard</div><div style="font-size:13px;margin-top:6px">Carregando dados...</div></div></body></html>');
+  outWin = window.open('', '_blank');
+  if (!outWin) {
+    throw new Error('Não foi possível abrir a nova aba do dashboard. Habilite pop-ups para o ServiceNow e tente novamente.');
   }
+
+  outWin.document.write('<html><body style="background:#F6F8FA;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:system-ui"><div style="text-align:center;color:#57606A"><div style="font-size:40px;margin-bottom:12px">🖥</div><div style="font-size:16px;font-weight:600;color:#24292F">EMS Ops Dashboard</div><div style="font-size:13px;margin-top:6px">Carregando dados...</div></div></body></html>');
 
   // Stagger agg calls to reduce server load (performance improvement)
   Promise.all([
