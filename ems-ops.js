@@ -13,6 +13,11 @@ window.getSnToken = function() {
   return token;
 };
 
+// Centralized state for Resolved Today to prevent double counting and ensure real-time accuracy
+// Initialized globally to ensure availability for delta polling
+window._resolvedTodaySeen = window._resolvedTodaySeen || new Set();
+window._resolvedTodaySeenDate = window._resolvedTodaySeenDate || '';
+
 // ── Main injected function ────────────────────────────────────────────────
 window.runEMSOps = function(userMes) {
 
@@ -23,10 +28,6 @@ window.runEMSOps = function(userMes) {
     'Accept': 'application/json',
     'X-UserToken': token
   };
-
-  // Centralized state for Resolved Today to prevent double counting and ensure real-time accuracy
-  window._resolvedTodaySeen = window._resolvedTodaySeen || new Set();
-  window._resolvedTodaySeenDate = window._resolvedTodaySeenDate || '';
 
   const G_IDS     = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
   const GROUP_MEMBERS = {
@@ -1457,7 +1458,7 @@ window._MANAGER_CACHE={};
 window._MSH_NOC_GID=undefined;
 window._REPORTS_FETCH_CACHE={ttlMs:30000,entries:{},inflight:{}};
 window._ACCOUNT_PRODUCTS_CACHE={ttlMs:120000,entries:{}};
-    window._UI_SETTINGS={pollingMs:120000,compact:false,defaultSort:'none'};
+    window._UI_SETTINGS={pollingMs:4000,compact:false,defaultSort:'none'};
 try{
   const saved=JSON.parse(localStorage.getItem('ems_ops_ui_settings')||'{}');
   window._UI_SETTINGS={...window._UI_SETTINGS,...saved};
@@ -1482,19 +1483,19 @@ function openSettingsModal(){
   ov.innerHTML='<div class="settings-md">'+
     '<div class="settings-h"><div class="settings-ttl">⚙️ Configurações do Painel</div><button type="button" onclick="closeSettingsModal()" class="refresh-btn">✕</button></div>'+
     '<div class="settings-grid">'+
-      '<label for="set-polling">Intervalo do polling em tempo real</label>'+
-      '<select id="set-polling"><option value="15000">15s</option><option value="30000">30s</option><option value="60000">60s</option><option value="120000">120s</option></select>'+
+      '<label for="set-polling">Intervalo do polling (tempo real)</label>'+
+      '<select id="set-polling"><option value="4000">4s</option><option value="15000">15s</option><option value="30000">30s</option><option value="60000">60s</option><option value="120000">120s</option></select>'+
       '<label for="set-compact">Modo compacto (menos espaçamento)</label><input id="set-compact" type="checkbox">'+
       '<label for="set-sort">Ordenação padrão</label><select id="set-sort"><option value="none">Padrão</option><option value="sla">SLA</option></select>'+
     '</div>'+
     '<div class="settings-actions"><button type="button" class="refresh-btn" onclick="closeSettingsModal()">Cancelar</button><button type="button" class="refresh-btn" id="set-save-btn">Salvar</button></div>'+
   '</div>';
   document.body.appendChild(ov);
-  ov.querySelector('#set-polling').value=String(s.pollingMs||30000);
+  ov.querySelector('#set-polling').value=String(s.pollingMs||4000);
   ov.querySelector('#set-compact').checked=!!s.compact;
   ov.querySelector('#set-sort').value=s.defaultSort||'none';
   ov.querySelector('#set-save-btn').onclick=()=>{
-    window._UI_SETTINGS.pollingMs=parseInt(ov.querySelector('#set-polling').value,10)||30000;
+    window._UI_SETTINGS.pollingMs=parseInt(ov.querySelector('#set-polling').value,10)||4000;
     window._UI_SETTINGS.compact=!!ov.querySelector('#set-compact').checked;
     window._UI_SETTINGS.defaultSort=ov.querySelector('#set-sort').value||'none';
     localStorage.setItem('ems_ops_ui_settings',JSON.stringify(window._UI_SETTINGS));
@@ -2285,8 +2286,8 @@ function startPolling(){
   stopPolling();
   window.__deltaPollingActive = true;
 
-  // Layer 1: KPIs (60s) — 3 lightweight aggregate calls
-  _pollL1 = setInterval(()=>pollKPIs(), 60000);
+  // Layer 1: KPIs (4s) — 3 lightweight aggregate calls
+  _pollL1 = setInterval(()=>pollKPIs(), 4000);
 
   // Layer 2: Reports/Scores (3min) — staggered
   _pollL2 = setInterval(()=>{
@@ -3620,7 +3621,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (window.__deltaPollingTimerId) { clearInterval(window.__deltaPollingTimerId); window.__deltaPollingTimerId = null; }
     window.__deltaPollingActive = true;
 
-    let POLLING_INTERVAL = window._UI_SETTINGS?.pollingMs || 30000;
+    let POLLING_INTERVAL = window._UI_SETTINGS?.pollingMs || 4000;
     // Start sync from a very recent point since we already seeded the "seen" set
     let lastSyncTime = new Date(Date.now() - 60000).toISOString().split('.')[0].replace('T', ' ');
     let isFetching = false;
@@ -4192,7 +4193,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
     };
     window.__setDeltaPollingInterval = function(ms){
-      POLLING_INTERVAL = Math.max(15000, parseInt(ms,10)||30000);
+      POLLING_INTERVAL = Math.max(4000, parseInt(ms,10)||4000);
       if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
       window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
     };
