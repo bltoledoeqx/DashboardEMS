@@ -111,6 +111,33 @@ window.runEMSOps = function(userMes) {
   };
   const fsla   = q => fetch(`${BASE}/api/now/table/task_sla?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${SLA_F}&sysparm_display_value=all&sysparm_limit=500`,{headers}).then(r=>parseJsonSafe(r,'task_sla')).then(d=>d.result||[]);
   const bsla   = (ids,f) => !ids.length ? Promise.resolve([]) : Promise.all(chunk(ids).map(b=>fsla(`taskIN${b.join(',')}^${f}`))).then(r=>r.flat());
+  const EVENT_TASK_FIELDS = 'sys_id,number,short_description,description,state,priority,impact,urgency,assigned_to,assignment_group,u_operational_scope,u_operating_country,u_event_number';
+  const fetchEventTasks = async (h=headers) => {
+    const eventQuery = 'assignment_group.name=EMS L1 OpsCenter AMER^stateIN1,2';
+    const listUrl = `${BASE}/api/now/table/u_event_task?sysparm_query=${encodeURIComponent(eventQuery)}&sysparm_fields=${EVENT_TASK_FIELDS}&sysparm_display_value=all&sysparm_limit=300`;
+    const listResp = await fetch(listUrl, { headers: h, credentials: 'same-origin' });
+    const listData = await parseJsonSafe(listResp, 'u_event_task');
+    const rows = listData.result || [];
+    if (!rows.length) return [];
+    return Promise.all(rows.map(async row => {
+      const eventNumber = row.u_event_number?.value;
+      if (!eventNumber) return { ...row, _eventType: 'N/A', _account: 'N/A' };
+      try {
+        const eventResp = await fetch(`${BASE}/api/now/table/u_event_management/${eventNumber}?sysparm_display_value=all`, {
+          headers: h,
+          credentials: 'same-origin'
+        });
+        const eventData = await parseJsonSafe(eventResp, `u_event_management/${eventNumber}`);
+        return {
+          ...row,
+          _eventType: eventData.result?.u_event_type?.display_value || 'N/A',
+          _account: eventData.result?.u_account?.display_value || 'N/A'
+        };
+      } catch (_) {
+        return { ...row, _eventType: 'N/A', _account: 'N/A' };
+      }
+    }));
+  };
 
   const mesRange = m => {
     const ms = String(m).padStart(2,'0');
@@ -119,7 +146,7 @@ window.runEMSOps = function(userMes) {
   };
 
   // ── Build and render ───────────────────────────────────────────────────
-  const render = (ativos, postMortem, slaA, slaP, m, resolvedToday, aggData) => {
+  const render = (ativos, postMortem, slaA, slaP, m, resolvedToday, aggData, eventTasks=[]) => {
     const now       = Date.now();
     const fmtH      = h => h===null ? '—' : `${parseFloat(h).toFixed(1)}h`;
     const hFrom     = d => { const x=new Date(d); return isNaN(x.getTime())?null:(now-x)/3600000; };
@@ -276,6 +303,9 @@ window.runEMSOps = function(userMes) {
     };
     const ativosMap = createGroupMap();
     const backlogMap = createGroupMap();
+    const createEventLaneMap = () => ({ critical: [], high: [], medium: [], normal: [], orphan: [] });
+    const monitoringMap = createEventLaneMap();
+    const backupMap = createEventLaneMap();
 
     let totalBreach = 0;
     let totalRisk = 0;
@@ -294,6 +324,43 @@ window.runEMSOps = function(userMes) {
       if (c.sl.st === 'risk') totalRisk += 1;
       if (c.noAss) totalOrphan += 1;
       if (c.isAw) totalAwait += 1;
+    });
+
+    const eventLaneByPriority = p => {
+      if (p === 1) return 'critical';
+      if (p === 2) return 'high';
+      if (p === 3) return 'medium';
+      return 'normal';
+    };
+    const normalizeEventType = v => (v || '').trim().toLowerCase();
+    const eventCards = (eventTasks || []).map(e => {
+      const rawDV = (e.priority?.display_value || '').trim();
+      const rawV = e.priority?.value || '4';
+      const match = rawDV.match(/^\d/);
+      const prio = parseInt(match ? match[0] : rawV, 10) || 4;
+      const noAss = !e.assigned_to?.value;
+      const lane = noAss ? 'orphan' : eventLaneByPriority(prio);
+      return {
+        sysId: e.sys_id?.value || '',
+        number: e.number?.display_value || '',
+        desc: (e.short_description?.display_value || e.description?.display_value || '—').substring(0, 90),
+        state: e.state?.display_value || 'N/A',
+        priority: e.priority?.display_value || 'N/A',
+        prio,
+        assigned: e.assigned_to?.display_value || '',
+        assignedId: e.assigned_to?.value || '',
+        noAss,
+        impactVal: e.impact?.value || '',
+        urgencyVal: e.urgency?.value || '',
+        account: e._account || 'N/A',
+        eventType: e._eventType || 'N/A',
+        lane
+      };
+    });
+    eventCards.forEach(card => {
+      const type = normalizeEventType(card.eventType);
+      if (type === 'monitoring event') monitoringMap[card.lane].push(card);
+      if (type === 'backup event') backupMap[card.lane].push(card);
     });
 
     const lanesMap = ativosMap; // kept for KPI compat
@@ -355,13 +422,33 @@ window.runEMSOps = function(userMes) {
         </div>
       </div>`;
 
-    const renderLane = (laneKey,label,color,icon,items) => `
+    const renderEventCard = c => `
+      <div class="card card-${c.lane}" data-sysid="${c.sysId}" data-assignedid="${c.assignedId||''}" data-assignedname="${c.assigned||''}" data-impact="${c.impactVal||''}" data-urgency="${c.urgencyVal||''}">
+        <div class="card-top">
+          <span class="card-num">${c.number}</span>
+          <span class="card-prio-badge card-prio-${c.prio}">${c.priority}</span>
+        </div>
+        <p class="card-desc">${c.desc||'—'}</p>
+        <div class="card-tags">
+          <span class="tag tag-state">${c.state}</span>
+          <span class="tag tag-type">${c.eventType}</span>
+        </div>
+        <div class="card-footer">
+          <span class="card-assigned ${c.noAss?'unassigned':''}">
+            <span class="card-avatar">${c.noAss?'!':initials(c.assigned)}</span>
+            <span>${c.noAss?'Sem responsável':c.assigned}</span>
+          </span>
+          <span class="card-time">${c.account}</span>
+        </div>
+      </div>`;
+
+    const renderLane = (laneKey,label,color,icon,items,cardRenderer=renderCard) => `
       <div class="lane" data-lane="${laneKey}">
         <div class="lane-hdr" style="border-top:3px solid ${color}">
           <div class="lane-title"><span class="lane-dot" style="background:${color}"></span>${icon} ${label}</div>
           <span class="lane-count" style="color:${color}">${items.length}</span>
         </div>
-        <div class="lane-body">${items.length?items.map(renderCard).join(''):'<div class="lane-empty">Sem chamados</div>'}</div>
+        <div class="lane-body">${items.length?items.map(cardRenderer).join(''):'<div class="lane-empty">Sem chamados</div>'}</div>
       </div>`;
 
     // Resolved Today lane
@@ -436,6 +523,15 @@ window.runEMSOps = function(userMes) {
           ${showRT ? renderResolvedToday(key) : ''}
         </div>`;
     };
+
+    const renderEventBoard = lmap => `
+      <div class="board-inner">
+        ${renderLane('critical', 'Crítico', '#CF222E','🔴',lmap.critical, renderEventCard)}
+        ${renderLane('high', 'Alto Risco', '#BF8700','🟠',lmap.high, renderEventCard)}
+        ${renderLane('medium', 'Atenção', '#0550AE','🔵',lmap.medium, renderEventCard)}
+        ${renderLane('normal', 'Normal', '#1A7F37','🟢',lmap.normal, renderEventCard)}
+        ${renderLane('orphan', 'Órfãos', '#57606A','⚫',lmap.orphan, renderEventCard)}
+      </div>`;
 
     const slaBarPM = p => {
       if (p.sl.pct===null) return '<span class="muted-val">—</span>';
@@ -1031,6 +1127,8 @@ tr:hover td{background:#F6F8FA;}
 
 <div class="side-nav">
   <button class="side-btn active" onclick="activateSide(this);showPage('kanban')"><span class="side-ico">🏠</span><span>Home</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('event-monitoring')"><span class="side-ico">📡</span><span>Event Monitoring</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('backup-monitoring')"><span class="side-ico">💾</span><span>Backup Monitoring</span></button>
   <button class="side-btn" onclick="activateSide(this);showPage('backlog')"><span class="side-ico">📦</span><span>Backlog</span></button>
   <button class="side-btn" onclick="activateSide(this);showPage('postmortem')"><span class="side-ico">🔎</span><span>Post</span></button>
   <button class="side-btn" onclick="activateSide(this);showPage('reports')"><span class="side-ico">📊</span><span>Reports</span></button>
@@ -1301,6 +1399,24 @@ tr:hover td{background:#F6F8FA;}
         ${renderBoard('all', backlogMap, false)}
       </div>
     </div>
+  </div>
+</div>
+
+<div class="page" id="page-event-monitoring">
+  <div class="board-toolbar" style="padding:8px 20px;justify-content:space-between;">
+    <div style="font-size:13px;color:var(--text2);font-weight:600;">📡 Monitoring Event</div>
+  </div>
+  <div class="board-wrap" id="board-wrap-event-monitoring">
+    ${renderEventBoard(monitoringMap)}
+  </div>
+</div>
+
+<div class="page" id="page-backup-monitoring">
+  <div class="board-toolbar" style="padding:8px 20px;justify-content:space-between;">
+    <div style="font-size:13px;color:var(--text2);font-weight:600;">💾 Backup Event</div>
+  </div>
+  <div class="board-wrap" id="board-wrap-backup-monitoring">
+    ${renderEventBoard(backupMap)}
   </div>
 </div>
 
@@ -1847,7 +1963,7 @@ function showPage(id,el){
   if(page) page.classList.add('active');
   if(el) el.classList.add('active');
   else {
-    const tabMap={kanban:0,backlog:1,postmortem:2,reports:3};
+    const tabMap={kanban:0,'event-monitoring':1,'backup-monitoring':2,backlog:3,postmortem:4,reports:5};
     const idx=tabMap[id];
     const tab=document.querySelectorAll('.tab')[idx];
     if(tab) tab.classList.add('active');
@@ -4313,21 +4429,21 @@ document.addEventListener('DOMContentLoaded',()=>{
     const rodrigoEx2=['1a8b95014fc1af00f3d33d828110c7cf','1d2a4cd84f347788c58b8e1f0210c767','38483f9fdbb7b0d0545dee0c139619ab','46b501304fea0700f5e08e1f0210c770','5a1ed5054fc1af00f3d33d828110c7ce'].map(id=>`^assigned_to!=${id}`).join('');
     const aggF2=gid=>`assigned_toANYTHING^u_typeIN0,1^u_operating_country=BR^stateIN1,10,21,8,2^u_internal_cases=false${rodrigoEx2}^assignment_group=${gid}`;
     const fa2=gid=>fetch(`${snBase}/api/now/stats/sn_customerservice_case?sysparm_query=${encodeURIComponent(aggF2(gid))}&sysparm_group_by=assigned_to,u_type&sysparm_count=true&sysparm_display_value=all&sysparm_limit=200`,{headers:h2}).then(r=>r.json()).then(d=>({gid,rows:d.result||[]}));
-    Promise.all([fcases(qA2),fcasesAllGroups(qP2),fcases(qRT2),
+    Promise.all([fcases(qA2),fcasesAllGroups(qP2),fcases(qRT2), fetchEventTasks(h2),
       fa2('1c7c9057db6771d0832ead8ed396197a'),fa2('ff72689247ee1e143cbfe07a216d4357'),fa2('673c2170476422503cbfe07a216d430f')
     ])
-    .then(([a,p,rt2,ag1,ag2,ag3])=>{
+    .then(([a,p,rt2,eventTasks2,ag1,ag2,ag3])=>{
       const ia=a.map(c=>c.sys_id?.value).filter(Boolean);
       const ip=p.map(c=>c.sys_id?.value).filter(Boolean);
-      return Promise.all([Promise.resolve(a),Promise.resolve(p),Promise.resolve(rt2),Promise.resolve(ag1),Promise.resolve(ag2),Promise.resolve(ag3),
+      return Promise.all([Promise.resolve(a),Promise.resolve(p),Promise.resolve(rt2),Promise.resolve(eventTasks2),Promise.resolve(ag1),Promise.resolve(ag2),Promise.resolve(ag3),
         bsla(ia,'sla.nameLIKEEMS-OLA-AMER^sla.nameLIKEResolve'),
         bsla(ip,'sla.nameLIKEEMS-OLA-AMER^sla.nameLIKEResolve'),
         bsla(ia,'sla.nameLIKEResolution^sla.nameNOTLIKEResponse'),
         bsla(ip,'sla.nameLIKEResolution^sla.nameNOTLIKEResponse'),
       ]);
     })
-    .then(([a,p,rt2,ag1,ag2,ag3,eA,eP,xA,xP])=>{
-      const html = render(a,p,[...xA,...eA],[...xP,...eP],m2,rt2,{l1:ag1,l2:ag2,event:ag3});
+    .then(([a,p,rt2,eventTasks2,ag1,ag2,ag3,eA,eP,xA,xP])=>{
+      const html = render(a,p,[...xA,...eA],[...xP,...eP],m2,rt2,{l1:ag1,l2:ag2,event:ag3},eventTasks2);
       if(targetWin&&!targetWin.closed){targetWin.document.open();targetWin.document.write(html);targetWin.document.close();}
     })
     .catch(e=>console.error('_emsOpsRender:',e));
@@ -4342,16 +4458,16 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   // Stagger agg calls to reduce server load (performance improvement)
   Promise.all([
-    fcases(qA), fcasesAllGroups(qP), fcases(qRT),
+    fcases(qA), fcasesAllGroups(qP), fcases(qRT), fetchEventTasks(),
     fagg(G_ID_MAP_FETCH.l1),
     new Promise(r=>setTimeout(()=>fagg(G_ID_MAP_FETCH.l2).then(r),300)),
     new Promise(r=>setTimeout(()=>fagg(G_ID_MAP_FETCH.event).then(r),600)),
   ])
-  .then(([ativos, postMortem, resolvedToday, aggL1, aggL2, aggEvent]) => {
+  .then(([ativos, postMortem, resolvedToday, eventTasks, aggL1, aggL2, aggEvent]) => {
     const ia = ativos.map(c=>c.sys_id?.value).filter(Boolean);
     const ip = postMortem.map(c=>c.sys_id?.value).filter(Boolean);
     return Promise.all([
-      Promise.resolve(ativos), Promise.resolve(postMortem), Promise.resolve(resolvedToday),
+      Promise.resolve(ativos), Promise.resolve(postMortem), Promise.resolve(resolvedToday), Promise.resolve(eventTasks),
       Promise.resolve(aggL1), Promise.resolve(aggL2), Promise.resolve(aggEvent),
       bsla(ia,'sla.nameLIKEEMS-OLA-AMER^sla.nameLIKEResolve'),
       bsla(ip,'sla.nameLIKEEMS-OLA-AMER^sla.nameLIKEResolve'),
@@ -4359,8 +4475,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       bsla(ip,'sla.nameLIKEResolution^sla.nameNOTLIKEResponse'),
     ]);
   })
-  .then(([ativos, postMortem, resolvedToday, aggL1, aggL2, aggEvent, emsA, emsP, eqixA, eqixP]) => {
-    const html = render(ativos, postMortem, [...eqixA,...emsA], [...eqixP,...emsP], mes, resolvedToday, {l1:aggL1,l2:aggL2,event:aggEvent});
+  .then(([ativos, postMortem, resolvedToday, eventTasks, aggL1, aggL2, aggEvent, emsA, emsP, eqixA, eqixP]) => {
+    const html = render(ativos, postMortem, [...eqixA,...emsA], [...eqixP,...emsP], mes, resolvedToday, {l1:aggL1,l2:aggL2,event:aggEvent}, eventTasks);
     if (outWin && !outWin.closed) { outWin.document.open(); outWin.document.write(html); outWin.document.close(); }
     else { const b=new Blob([html],{type:'text/html'}); window.open(URL.createObjectURL(b),'_blank'); }
   })
