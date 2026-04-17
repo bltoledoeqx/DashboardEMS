@@ -30,7 +30,17 @@ window.runEMSOps = function(userMes) {
   };
 
   const G_IDS     = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
-  const GROUP_MEMBERS = window.EMS_GROUP_MEMBERS || {};
+  const GROUP_MEMBERS = {
+    '1c7c9057db6771d0832ead8ed396197a': [
+      {name:'Alain Lamothe',id:'42cb28908758edd4e41640cd0ebb3546'},{name:'Alexandre Maia',id:'1c1805e9db194950a7f8a334ca9619ec'},{name:'Ahmad Saeed',id:'479e82f0475b8e14b4baa8b5536d4350'},{name:'Andre Muller',id:'42c027c4dba89c10034e6e25ca96196c'},{name:'Andre Sodre',id:'41a509fc4faa0700f5e08e1f0210c73a'},{name:'Andreza Alvares',id:'3665a617dbde60143e6ee2d2ca9619b1'},{name:'Asghar Shamloo',id:'96bfea151b120158a0ab62ca234bcb89'},{name:'Barbara Serain',id:'f3da570847c172d03cbfe07a216d437d'},{name:'Bruna Artioli',id:'46380b503304f6d497e2fba45d5c7bc3'},{name:'Bruno Toledo',id:'eb71bc95dbfbac10fb5d09ccd3961971'},{name:'Bruno Vicente',id:'05a509fc4faa0700f5e08e1f0210c751'},{name:'Cainan Silveira',id:'1a5cdc969317a2506fa8fc0b6aba1003'},{name:'Carlos Nogueira',id:'51a509fc4faa0700f5e08e1f0210c766'},{name:'Carolina Giamassi',id:'7eb85df693d47194ef0af8e74dba103c'},{name:'Danilo Marques',id:'4d4689344fea0700f5e08e1f0210c74c'},{name:'Davi Santos',id:'58f8ba0bdba15550b715aa1d13961964'},{name:'David Neil',id:'eda1c45fdbaec050b9711a8c1396191d'},{name:'Diego Montes',id:'ab04bdf283068e90c149bb447daad3fe'},{name:'Diogo Caldeira',id:'c416817b1b31b410a0ab62ca234bcb0f'},{name:'Fabricio Carvalho',id:'727715dc4f14f744c58b8e1f0210c7fd'},{name:'Felipe Drumond',id:'d9a509fc4faa0700f5e08e1f0210c7b8'},{name:'Felipe Soares',id:'99a509fc4faa0700f5e08e1f0210c7b7'},{name:'Fernando Lima',id:'b3f54d704fea0700f5e08e1f0210c7bb'},{name:'Fernando Meissner',id:'239e2d57db391d50a7f8a334ca9619cd'},{name:'Fábio Brasil',id:'6c643fd44f3efbc8c58b8e1f0210c708'},{name:'Gabriel Cruz',id:'92bdf2a41b79f410a0ab62ca234bcb6c'},{name:'Gabriel Sorroche',id:'0f6c36374767ee901065fa57436d4391'},{name:'Giulia Lopes',id:'b82ff9a8836072d4c149bb447daad390'},{name:'Guilherme Mello',id:'494d8dc44f2f3780f3d33d828110c791'},{name:'Hugo Luna',id:'5335673747eba598c2fd45e8036d4360'},{name:'Jefferson Abreu',id:'5ab87e13875029105ea58628dabb3538'},{name:'Joana Enes',id:'2cac81cd87792d10c48cb845dabb35b1'},{name:'João Miranda',id:'83f109f3dbff8d90fb5d09ccd3961908'},{name:'João Victor Silva',id:'2cf8ba0bdba15550b715aa1d139619c3'},{name:'Julio Araujo',id:'3dcb06418785b514c48cb845dabb35b9'},{name:'Kauê Furtado',id:'c6380b503304f6d497e2fba45d5c7bc7'},{name:'Kevin Ma',id:'8c99bade1b231c54bb580e966e4bcb28'},{name:'Leticia Veiga',id:'46a318b88720bdd45ea58628dabb35e8'},{name:'Lia da Silva',id:'9e9aa79883068a1cc149bb447daad348'},{name:'Lorena Alves',id:'c8657f998326c258c149bb447daad363'},{name:'Luan Salviano',id:'b72e3a8e97fa31180c103486f053af65'},{name:'Lucas Henrique Rocha',id:'4a380b503304f6d497e2fba45d5c7be8'},{name:'Lucas Oliveira Silva',id:'c8e1d213973239980c103486f053af5b'},{name:'Luiz Hernandes',id:'a57afa104f0d2b00f3d33d828110c770'},{name:'Michael Manna',id:'c1993ede1b231c54bb580e966e4bcbe6'},{name:'Michael Rodrigues',id:'0aa549fc4faa0700f5e08e1f0210c7d2'},{name:'Paloma Moreira',id:'525c9c969317a2506fa8fc0b6aba10f4'},{name:'Paulo Henrique Augusto',id:'6c290269db121910a7f8a334ca9619ad'},{name:'Paulo Leal',id:'e92d179e47c22d90c2fd45e8036d43d1'},{name:'Pedro Henrique Bernoldi',id:'41c6e49f97c626149b5a7efe2153af46'},{name:'Raymond Birch',id:'6bc8721a1b231c54bb580e966e4bcb59'},{name:'Rayanne Nascimento',id:'1569409347c1ba103cbfe07a216d4340'},{name:'Renato Neves',id:'97981e64db8c4d14b715aa1d13961963'},{name:'Robert Fischer',id:'8eb501304fea0700f5e08e1f0210c763'},{name:'Roland Szczesny',id:'303afe161b631c54bb580e966e4bcbb2'},{name:'Ruan Mello',id:'e569409347c1ba103cbfe07a216d4378'},{name:'Sergio Procópio',id:'82b501304fea0700f5e08e1f0210c782'},{name:'Syed Sultan Nazar',id:'82b9fe121b631c54bb580e966e4bcbd3'},{name:'Thaina Dias',id:'050542f2c3f8e610c7341f53e40131ab'},{name:'Vernon Ko',id:'b669b29e1b231c54bb580e966e4bcbb5'},{name:'Vinicius Silva',id:'e846c4091b9571101424c8451a4bcb16'}
+    ],
+    '673c2170476422503cbfe07a216d430f': [
+      {name:'Ana Clara Azevedo',id:'358d2145872795545ea58628dabb35f7'},{name:'Barbara Serain',id:'f3da570847c172d03cbfe07a216d437d'},{name:'Cainan Silveira',id:'1a5cdc969317a2506fa8fc0b6aba1003'},{name:'Daniel Raposo',id:'86b8ba13875029105ea58628dabb35ae'},{name:'Felipe Drumond',id:'d9a509fc4faa0700f5e08e1f0210c7b8'},{name:'Felipe Soares',id:'99a509fc4faa0700f5e08e1f0210c7b7'},{name:'Fernando Lima',id:'b3f54d704fea0700f5e08e1f0210c7bb'},{name:'Gabriel Cruz',id:'92bdf2a41b79f410a0ab62ca234bcb6c'},{name:'Guilherme Mello',id:'494d8dc44f2f3780f3d33d828110c791'},{name:'Juliana Caldeira',id:'02543c1cc3be6ed0c7341f53e40131e4'},{name:'Leticia Veiga',id:'46a318b88720bdd45ea58628dabb35e8'},{name:'Luiz Hernandes',id:'a57afa104f0d2b00f3d33d828110c770'},{name:'Paulo Leal',id:'e92d179e47c22d90c2fd45e8036d43d1'},{name:'Pedro Henrique Bernoldi',id:'41c6e49f97c626149b5a7efe2153af46'},{name:'Renato Neves',id:'97981e64db8c4d14b715aa1d13961963'},{name:'Sergio Procópio',id:'82b501304fea0700f5e08e1f0210c782'}
+    ],
+    'ff72689247ee1e143cbfe07a216d4357': [
+      {name:'Abdool Halleem',id:'56393a1e1b231c54bb580e966e4bcbd3'},{name:'Adriano Brigario',id:'fca5c5fc4faa0700f5e08e1f0210c7ff'},{name:'Ahmad Saeed',id:'479e82f0475b8e14b4baa8b5536d4350'},{name:'Alain Lamothe',id:'42cb28908758edd4e41640cd0ebb3546'},{name:'Alexandre Oliveira',id:'87deeb4e1338734426d55d122244b09c'},{name:'Alexander Victorino',id:'eee2842293c74a1018e8bf2a6aba1079'},{name:'Andreza Alvares',id:'3665a617dbde60143e6ee2d2ca9619b1'},{name:'Asghar Shamloo',id:'96bfea151b120158a0ab62ca234bcb89'},{name:'Augusto Almeida Galvao',id:'e6e525ad4f447fc0c58b8e1f0210c74e'},{name:'Bruna Artioli',id:'46380b503304f6d497e2fba45d5c7bc3'},{name:'Brunno Figueiredo',id:'8da509fc4faa0700f5e08e1f0210c749'},{name:'Cainan Silveira',id:'1a5cdc969317a2506fa8fc0b6aba1003'},{name:'Carolina Sequeira',id:'da9aa79883068a1cc149bb447daad345'},{name:'Cleiton Torres',id:'bbbfd92193587ad0771238797bba1018'},{name:'Daniel Philot',id:'d5a509fc4faa0700f5e08e1f0210c776'},{name:'Diego Leite',id:'d5a509fc4faa0700f5e08e1f0210c783'},{name:'Diogo Caldeira',id:'c416817b1b31b410a0ab62ca234bcb0f'},{name:'Eduardo de Abreu',id:'d5a509fc4faa0700f5e08e1f0210c794'},{name:'Fabio Rodrigues',id:'55a509fc4faa0700f5e08e1f0210c7b0'},{name:'Fabricio Carvalho',id:'727715dc4f14f744c58b8e1f0210c7fd'},{name:'Fábio Brasil',id:'6c643fd44f3efbc8c58b8e1f0210c708'},{name:'Gabriel Sorroche',id:'0f6c36374767ee901065fa57436d4391'},{name:'Giulia Lopes',id:'b82ff9a8836072d4c149bb447daad390'},{name:'Gleidson Rocha',id:'a5a509fc4faa0700f5e08e1f0210c7ea'},{name:'Guilherme de Souza',id:'a7f9fa33dbc99150545dee0c139619ee'},{name:'Henrique Almeida',id:'47bbc00887cf9554dfdd64a09bbb354c'},{name:'Janei Araujo',id:'17debbaf13fb67c826d55d122244b0d6'},{name:'Jefferson Souza',id:'2da549fc4faa0700f5e08e1f0210c70b'},{name:'Joana Enes',id:'2cac81cd87792d10c48cb845dabb35b1'},{name:'Jone Colmenero',id:'39a549fc4faa0700f5e08e1f0210c72d'},{name:'Jorge Andrade',id:'625385aa1b61dc5c5deb4199bd4bcbb5'},{name:'José Couto',id:'bb6b8debdbaa8cd47aab710439961965'},{name:'Jose Neto',id:'f5a549fc4faa0700f5e08e1f0210c736'},{name:'Kauê Furtado',id:'c6380b503304f6d497e2fba45d5c7bc7'},{name:'Kevin Ma',id:'8c99bade1b231c54bb580e966e4bcb28'},{name:'Laylla Rangel',id:'f1a549fc4faa0700f5e08e1f0210c757'},{name:'Leonardo Trigo',id:'d647da78c3f3fdd893144f05990131c3'},{name:'Lia da Silva',id:'9e9aa79883068a1cc149bb447daad348'},{name:'Lorena Alves',id:'c8657f998326c258c149bb447daad363'},{name:'Lucas Henrique Rocha',id:'4a380b503304f6d497e2fba45d5c7be8'},{name:'Lucas Oliveira Silva',id:'c8e1d213973239980c103486f053af5b'},{name:'Luiz Hernandes',id:'a57afa104f0d2b00f3d33d828110c770'},{name:'Marco Rosina',id:'92b87e13875029105ea58628dabb3551'},{name:'Michael Manna',id:'c1993ede1b231c54bb580e966e4bcbe6'},{name:'Osvaldo Delfino',id:'46a549fc4faa0700f5e08e1f0210c7e7'},{name:'Paloma Moreira',id:'525c9c969317a2506fa8fc0b6aba10f4'},{name:'Pedro Henrique Bernoldi',id:'41c6e49f97c626149b5a7efe2153af46'},{name:'Priscila Santos',id:'3994cc71dba10d14b715aa1d13961988'},{name:'Raymond Birch',id:'6bc8721a1b231c54bb580e966e4bcb59'},{name:'Rayanne Nascimento',id:'1569409347c1ba103cbfe07a216d4340'},{name:'Roland Szczesny',id:'303afe161b631c54bb580e966e4bcbb2'},{name:'Ruan Mello',id:'e569409347c1ba103cbfe07a216d4378'},{name:'Sidinei Oliveira',id:'bbf54d704fea0700f5e08e1f0210c776'},{name:'Syed Sultan Nazar',id:'82b9fe121b631c54bb580e966e4bcbd3'},{name:'Thaina Dias',id:'050542f2c3f8e610c7341f53e40131ab'},{name:'Thercio Costa',id:'f86d0a84db58b850fb5d09ccd39619c4'},{name:'Tiago Garcia',id:'48657f998326c258c149bb447daad3cd'},{name:'Valmir de Oliveira',id:'40e1cfd04f6cbfc4c58b8e1f0210c76b'},{name:'Vernon Ko',id:'b669b29e1b231c54bb580e966e4bcbb5'},{name:'Vinicius Africo',id:'2c0890354f053b40c58b8e1f0210c74b'},{name:'Vinicius Machado',id:'9eb501304fea0700f5e08e1f0210c7b3'},{name:'Wagner Farias',id:'bd214939dbc3c5d0fb5d09ccd39619dd'},{name:'Wellington Batista',id:'d6b501304fea0700f5e08e1f0210c7c0'},{name:'Ygor Soares',id:'524d6e361ba8d154a62b20622a4bcb5c'}
+    ]
+  };
   const G_NAMES   = { '1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER', '673c2170476422503cbfe07a216d430f':'Event Management BR', 'ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER' };
   const G_KEYS    = { '1c7c9057db6771d0832ead8ed396197a':'l1', '673c2170476422503cbfe07a216d430f':'event', 'ff72689247ee1e143cbfe07a216d4357':'l2' };
   const AWAIT_ST  = new Set(['18','32','5','29','30']);
@@ -2921,84 +2931,11 @@ function openCaseModal(sysId, number, cardEl, recordTable='sn_customerservice_ca
   if(window.__suppressCardModalUntil && Date.now()<window.__suppressCardModalUntil) return;
   const tableName = recordTable || 'sn_customerservice_case';
   const isEventTask = tableName === 'u_event_task';
-  closeCaseModal();
   _modalSysId = sysId;
   if (_modalActiveCard) _modalActiveCard.classList.remove('modal-active');
   _modalActiveCard = cardEl;
   cardEl.classList.add('modal-active');
-
-  if (!isEventTask) {
-    const overlay = document.getElementById('case-modal-overlay');
-    const modal = document.getElementById('case-modal');
-    const numEl = document.getElementById('modal-num');
-    const linkEl = document.getElementById('modal-snow-link');
-    const titleEl = document.getElementById('modal-title');
-    const bodyEl = document.getElementById('modal-body');
-    const badgeEl = document.getElementById('modal-state-badge');
-
-    if (!overlay || !modal || !bodyEl) return;
-    overlay.style.display = 'block';
-    modal.style.transform = 'translate(-50%, -50%) scale(1)';
-
-    if (numEl) numEl.textContent = number || '';
-    if (linkEl) linkEl.href = '/sn_customerservice_case.do?sys_id=' + encodeURIComponent(sysId);
-    if (titleEl) titleEl.textContent = 'Carregando detalhes...';
-    if (badgeEl) badgeEl.textContent = 'Atualizando...';
-    bodyEl.innerHTML = '<div style="padding:18px 0;color:#57606A;font-size:13px;">⏳ Carregando dados do caso...</div>';
-
-    const h = {'Accept':'application/json','X-UserToken':_TOK};
-    fetch(_BASE + '/api/now/table/sn_customerservice_case/' + encodeURIComponent(sysId) + '?sysparm_fields=number,short_description,state,priority,impact,urgency,assigned_to,assignment_group,account,opened_at,cmdb_ci,u_type,sys_updated_on&sysparm_display_value=all', { headers: h })
-      .then(async r => {
-        const txt = await r.text();
-        if (!r.ok) throw new Error('HTTP ' + r.status + (txt ? ': ' + txt.slice(0, 120) : ''));
-        return txt ? JSON.parse(txt) : {};
-      })
-      .then(data => {
-        const c = data?.result || {};
-        if (!_modalSysId || _modalSysId !== sysId) return;
-
-        const num = c.number?.display_value || number || '';
-        const shortDesc = c.short_description?.display_value || '—';
-        const state = c.state?.display_value || '—';
-        const priority = c.priority?.display_value || '—';
-        const assigned = c.assigned_to?.display_value || 'Sem responsável';
-        const queue = c.assignment_group?.display_value || '—';
-        const account = c.account?.display_value || '—';
-        const ci = c.cmdb_ci?.display_value || '—';
-        const type = c.u_type?.display_value || '—';
-        const opened = c.opened_at?.display_value || c.opened_at?.value || '—';
-        const impact = c.impact?.display_value || c.impact?.value || '—';
-        const urgency = c.urgency?.display_value || c.urgency?.value || '—';
-        const updated = c.sys_updated_on?.display_value || c.sys_updated_on?.value || '—';
-
-        if (numEl) numEl.textContent = num;
-        if (titleEl) titleEl.textContent = shortDesc;
-        if (badgeEl) badgeEl.textContent = 'Status: ' + state + ' · Prioridade: ' + priority + ' · Updated: ' + updated;
-
-        bodyEl.innerHTML =
-          '<div class="modal-section-title">Resumo</div>' +
-          '<div class="modal-detail-grid">' +
-            detailItem('Fila', emsEscapeHtml(queue)) +
-            detailItem('Assigned to', emsEscapeHtml(assigned)) +
-            detailItem('Account', emsEscapeHtml(account)) +
-            detailItem('CMDB CI', emsEscapeHtml(ci)) +
-            detailItem('Tipo', emsEscapeHtml(type)) +
-            detailItem('Aberto em', emsEscapeHtml(opened)) +
-            detailItem('Impact', emsEscapeHtml(impact)) +
-            detailItem('Urgency', emsEscapeHtml(urgency)) +
-          '</div>' +
-          '<div class="modal-section-title">Descrição</div>' +
-          '<div class="modal-desc">' + emsEscapeHtml(shortDesc) + '</div>';
-      })
-      .catch(err => {
-        if (!_modalSysId || _modalSysId !== sysId) return;
-        if (titleEl) titleEl.textContent = 'Falha ao carregar';
-        if (badgeEl) badgeEl.textContent = 'Erro na API';
-        bodyEl.innerHTML = '<div style="padding:18px 0;color:#CF222E;font-size:13px;">❌ Não foi possível carregar os detalhes do caso.<br>' + emsEscapeHtml(err.message || 'Erro inesperado') + '</div>';
-      });
-    return;
-  }
-
+  closeCaseModal();
   const url = isEventTask
     ? '/u_event_task.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_nostack=true'
     : '/sn_customerservice_case.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_view=case&sysparm_nostack=true&sysparm_query=no_related_lists=true';
@@ -3657,7 +3594,7 @@ function modalReassign() {
 // ── Board Search ────────────────────────────────────────────────────────────
 function boardSearch(q) {
   const term = q.trim().toLowerCase();
-  const boards = ['board-wrap','board-wrap-backlog-tab','board-wrap-event-monitoring','board-wrap-backup-monitoring'];
+  const boards = ['board-wrap','board-wrap-backlog'];
   boards.forEach(bid => {
     const bw = document.getElementById(bid); if (!bw) return;
     bw.querySelectorAll('.card').forEach(card => {
@@ -3958,9 +3895,6 @@ document.addEventListener('DOMContentLoaded',()=>{
       });
     }
 
-    const EVENT_MGMT_CACHE_TTL = 5 * 60 * 1000;
-    window.__eventMgmtCache = window.__eventMgmtCache || {};
-
     async function fetchDeltas() {
       if (!window.__deltaPollingActive) return;
       if (window.closed) return;
@@ -4040,29 +3974,21 @@ document.addEventListener('DOMContentLoaded',()=>{
 
       async function enrichDeltaEvents(rows) {
         if (!rows.length) return [];
-        const nowTs = Date.now();
         return Promise.all(rows.map(async row => {
           const taskType = row?.u_event_type?.display_value || row?.u_event_type?.value || '';
           if (taskType) return { ...row, _eventType: taskType, _account: row?._account || 'N/A' };
 
           const eventNumber = row?.u_event_number?.value;
           if (!eventNumber) return { ...row, _eventType: 'N/A', _account: 'N/A' };
-          const cached = window.__eventMgmtCache[eventNumber];
-          if (cached && (nowTs - cached.ts) < EVENT_MGMT_CACHE_TTL) {
-            return { ...row, _eventType: cached.eventType, _account: cached.account };
-          }
           try {
             const response = await snFetch(_BASE + '/api/now/table/u_event_management/' + encodeURIComponent(eventNumber) + '?sysparm_display_value=all');
             const body = await response.text();
             if (!response.ok) return { ...row, _eventType: 'N/A', _account: 'N/A' };
             const data = body ? JSON.parse(body) : {};
-            const eventType = data.result?.u_event_type?.display_value || 'N/A';
-            const account = data.result?.u_account?.display_value || 'N/A';
-            window.__eventMgmtCache[eventNumber] = { ts: Date.now(), eventType, account };
             return {
               ...row,
-              _eventType: eventType,
-              _account: account
+              _eventType: data.result?.u_event_type?.display_value || 'N/A',
+              _account: data.result?.u_account?.display_value || 'N/A'
             };
           } catch (_) {
             return { ...row, _eventType: 'N/A', _account: 'N/A' };
@@ -4613,24 +4539,17 @@ document.addEventListener('DOMContentLoaded',()=>{
       if (boardWrap) updateLaneCounters(boardWrap.querySelector('.board-inner'));
     }
 
-    const scheduleDeltaTick = (delayMs) => {
-      if (window.__deltaPollingTimerId) clearTimeout(window.__deltaPollingTimerId);
-      window.__deltaPollingTimerId = setTimeout(async () => {
-        try { await fetchDeltas(); }
-        finally {
-          if (window.__deltaPollingActive) scheduleDeltaTick(POLLING_INTERVAL);
-        }
-      }, Math.max(400, delayMs || POLLING_INTERVAL));
-    };
-    scheduleDeltaTick(350);
+    window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
 
     // Expose restart hook so startPolling() can revive delta polling after tab re-focus
     window.__restartDeltaPolling = function() {
-      scheduleDeltaTick(150);
+      if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
+      window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
     };
     window.__setDeltaPollingInterval = function(ms){
       POLLING_INTERVAL = Math.max(4000, parseInt(ms,10)||4000);
-      scheduleDeltaTick(150);
+      if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
+      window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
     };
   })();
 	</script>
