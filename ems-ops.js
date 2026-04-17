@@ -3676,8 +3676,8 @@ function filtOpts(i){
 function applyCol(ci){const ch=Array.from(document.querySelectorAll('#ddopts input:checked')).map(i=>i.value);_fil[ci]=ch.length?new Set(ch):new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 function clrCol(ci){_fil[ci]=new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden) stopPolling();
-  else startPolling();
+  if(document.hidden) return;
+  if(!window.__deltaPollingActive || !window.__deltaPollingTimerId) startPolling();
 });
 document.addEventListener('DOMContentLoaded',()=>{
   const accHdr=document.getElementById('acc-hdr-analyst');
@@ -3772,7 +3772,16 @@ document.addEventListener('DOMContentLoaded',()=>{
     
     const _G_IDS = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
     const _FIELDS = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
+    const _EVENT_FIELDS = 'sys_id,number,short_description,description,state,priority,impact,urgency,assigned_to,assignment_group,u_operational_scope,u_operating_country,u_event_number,u_event_type,sys_updated_on';
     const isTerminalState = st => ['3','6','7','24','25','33','35'].includes(String(st||''));
+    const isEventInactiveState = st => !['1','2'].includes(String(st || ''));
+    const normalizeEventType = value => String(value || '').trim().toLowerCase();
+    const eventTypeToBoardKey = value => {
+      const normalized = normalizeEventType(value);
+      if (normalized === 'monitoring event') return 'monitoring';
+      if (normalized === 'backup event') return 'backup';
+      return '';
+    };
     const getTodayDateLocal = () => {
       const now = new Date();
       const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -3914,12 +3923,14 @@ document.addEventListener('DOMContentLoaded',()=>{
       const activeAnalystId = document.getElementById('analyst-sel')?.value || '';
       const activeBacklogAnalystId = currentBacklogAnalyst || document.getElementById('backlog-analyst-sel')?.value || '';
       const extraAnalystIds = [...new Set([activeAnalystId, activeBacklogAnalystId].filter(Boolean))];
-      const endpoint = _BASE + '/api/now/table/sn_customerservice_case';
-      const params = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all';
+      const caseEndpoint = _BASE + '/api/now/table/sn_customerservice_case';
+      const caseParams = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all';
+      const eventEndpoint = _BASE + '/api/now/table/u_event_task';
+      const eventParams = '&sysparm_fields=' + _EVENT_FIELDS + '&sysparm_display_value=all';
       const DELTA_PAGE_SIZE = 200;
       const DELTA_MAX_PAGES = 10;
 
-      async function fetchByQuery(query) {
+      async function fetchByQuery(endpoint, params, query) {
         const allRows = [];
 
         for (let page = 0; page < DELTA_MAX_PAGES; page += 1) {
@@ -3948,6 +3959,30 @@ document.addEventListener('DOMContentLoaded',()=>{
         return allRows;
       }
 
+      async function enrichDeltaEvents(rows) {
+        if (!rows.length) return [];
+        return Promise.all(rows.map(async row => {
+          const taskType = row?.u_event_type?.display_value || row?.u_event_type?.value || '';
+          if (taskType) return { ...row, _eventType: taskType, _account: row?._account || 'N/A' };
+
+          const eventNumber = row?.u_event_number?.value;
+          if (!eventNumber) return { ...row, _eventType: 'N/A', _account: 'N/A' };
+          try {
+            const response = await snFetch(_BASE + '/api/now/table/u_event_management/' + encodeURIComponent(eventNumber) + '?sysparm_display_value=all');
+            const body = await response.text();
+            if (!response.ok) return { ...row, _eventType: 'N/A', _account: 'N/A' };
+            const data = body ? JSON.parse(body) : {};
+            return {
+              ...row,
+              _eventType: data.result?.u_event_type?.display_value || 'N/A',
+              _account: data.result?.u_account?.display_value || 'N/A'
+            };
+          } catch (_) {
+            return { ...row, _eventType: 'N/A', _account: 'N/A' };
+          }
+        }));
+      }
+
       try {
         const out = [];
         const seen = new Set();
@@ -3961,16 +3996,19 @@ document.addEventListener('DOMContentLoaded',()=>{
         };
 
         // Query base: mantém movimentação geral dos cards (mudança de fila/analista/estado).
-        addCases(await fetchByQuery(baseQuery));
+        addCases(await fetchByQuery(caseEndpoint, caseParams, baseQuery));
 
         // Smart mode: quando filtro por analista estiver ativo, consulta adicional focada no analista
         // para reforçar responsividade sem perder eventos gerais.
         for (const analystId of extraAnalystIds) {
           const analystQuery = baseQuery + '^assigned_to=' + analystId;
-          addCases(await fetchByQuery(analystQuery));
+          addCases(await fetchByQuery(caseEndpoint, caseParams, analystQuery));
         }
 
         const cases = out;
+        const eventQuery = 'assignment_group.name=EMS L1 OpsCenter AMER^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
+        const deltaEventsRaw = await fetchByQuery(eventEndpoint, eventParams, eventQuery);
+        const deltaEvents = await enrichDeltaEvents(deltaEventsRaw);
 
         if (cases.length > 0) {
           cases.forEach(c => {
@@ -3996,6 +4034,9 @@ document.addEventListener('DOMContentLoaded',()=>{
               insertNewCaseCard(c, evaluateCardVisibility);
             }
           });
+        }
+        if (deltaEvents.length > 0) {
+          deltaEvents.forEach(ev => upsertEventCard(ev));
         }
         // Dynamic Sync Time: look back at least the polling interval plus a small buffer
         lastSyncTime = new Date(Date.now() - (POLLING_INTERVAL + 5000)).toISOString().split('.')[0].replace('T', ' ');
@@ -4127,6 +4168,163 @@ document.addEventListener('DOMContentLoaded',()=>{
 
       setTimeout(() => card.classList.remove('card-new'), 900);
       return card;
+    }
+
+    function resolveEventLane(data) {
+      const hasAssigned = !!data?.assigned_to?.value;
+      if (!hasAssigned) return 'orphan';
+      const rawDV = (data?.priority?.display_value || '').trim();
+      const match = rawDV.match(/^\d/);
+      const prio = match ? parseInt(match[0], 10) : parseInt(data?.priority?.value || '4', 10);
+      if (prio === 1) return 'critical';
+      if (prio === 2) return 'high';
+      if (prio === 3) return 'medium';
+      return 'normal';
+    }
+
+    function getEventBoardWrap(boardKey) {
+      if (boardKey === 'monitoring') return document.getElementById('board-wrap-event-monitoring');
+      if (boardKey === 'backup') return document.getElementById('board-wrap-backup-monitoring');
+      return null;
+    }
+
+    function buildEventCardElement(data, lane, boardKey) {
+      const number = data?.number?.display_value || '';
+      const sysId = data?.sys_id?.value || data?.sys_id || '';
+      const assigned = data?.assigned_to?.display_value || '';
+      const assignedId = data?.assigned_to?.value || '';
+      const stateLabel = data?.state?.display_value || 'N/A';
+      const priorityLabel = data?.priority?.display_value || 'N/A';
+      const prioVal = parseInt(data?.priority?.value || '4', 10);
+      const desc = (data?.short_description?.display_value || data?.description?.display_value || '—').substring(0, 90);
+      const eventType = data?._eventType || data?.u_event_type?.display_value || 'N/A';
+      const account = data?._account || 'N/A';
+      const impact = data?.impact?.value || '';
+      const urgency = data?.urgency?.value || '';
+
+      const card = document.createElement('div');
+      card.className = 'card card-' + lane + ' card-new';
+      card.dataset.sysid = sysId;
+      card.dataset.assignedid = assignedId;
+      card.dataset.assignedname = assigned;
+      card.dataset.impact = impact;
+      card.dataset.urgency = urgency;
+      card.dataset.account = account;
+      card.dataset.eventtype = eventType;
+      card.dataset.state = stateLabel;
+      card.dataset.priority = priorityLabel;
+      card.dataset.eventboard = boardKey;
+      card.onclick = () => openCaseModal(sysId, number, card, 'u_event_task');
+
+      card.innerHTML =
+        '<div class="card-top">' +
+          '<span class="card-num">' + escapeHtml(number) + '</span>' +
+          '<span class="card-prio-badge card-prio-' + prioVal + '">' + escapeHtml(priorityLabel) + '</span>' +
+        '</div>' +
+        '<p class="card-desc">' + escapeHtml(desc || '—') + '</p>' +
+        '<div class="card-tags">' +
+          '<span class="tag tag-state">' + escapeHtml(stateLabel) + '</span>' +
+          '<span class="tag tag-type">' + escapeHtml(eventType) + '</span>' +
+        '</div>' +
+        '<div class="card-footer">' +
+          '<span class="card-assigned' + (assigned ? '' : ' unassigned') + '">' +
+            '<span class="card-avatar">' + (assigned ? assigned.split(/\s+/).slice(0,2).map(p=>p.charAt(0).toUpperCase()).join('') : '!') + '</span>' +
+            '<span>' + (assigned ? escapeHtml(assigned) : 'Sem responsável') + '</span>' +
+          '</span>' +
+          '<span class="card-time">' + escapeHtml(account) + '</span>' +
+        '</div>';
+
+      setTimeout(() => card.classList.remove('card-new'), 900);
+      return card;
+    }
+
+    function updateEventCard(card, data, boardKey) {
+      const lane = resolveEventLane(data);
+      const newBoard = getEventBoardWrap(boardKey);
+      const oldBoard = card.closest('.board-wrap');
+      if (!newBoard) {
+        if (oldBoard) {
+          card.remove();
+          updateLaneCounters(oldBoard.querySelector('.board-inner'));
+        }
+        return;
+      }
+
+      card.dataset.assignedid = data?.assigned_to?.value || '';
+      card.dataset.assignedname = data?.assigned_to?.display_value || '';
+      card.dataset.account = data?._account || 'N/A';
+      card.dataset.eventtype = data?._eventType || data?.u_event_type?.display_value || 'N/A';
+      card.dataset.state = data?.state?.display_value || 'N/A';
+      card.dataset.priority = data?.priority?.display_value || 'N/A';
+      card.dataset.eventboard = boardKey;
+
+      const prioVal = parseInt(data?.priority?.value || '4', 10);
+      const badge = card.querySelector('.card-prio-badge');
+      if (badge) {
+        badge.className = 'card-prio-badge card-prio-' + prioVal;
+        badge.textContent = data?.priority?.display_value || 'N/A';
+      }
+      const desc = card.querySelector('.card-desc');
+      if (desc) desc.textContent = (data?.short_description?.display_value || data?.description?.display_value || '—').substring(0, 90);
+      const stateTag = card.querySelector('.tag-state');
+      if (stateTag) stateTag.textContent = data?.state?.display_value || 'N/A';
+      const typeTag = card.querySelector('.tag-type');
+      if (typeTag) typeTag.textContent = data?._eventType || data?.u_event_type?.display_value || 'N/A';
+      const assignedLbl = card.querySelector('.card-assigned span:last-child');
+      if (assignedLbl) assignedLbl.textContent = data?.assigned_to?.display_value || 'Sem responsável';
+      const avatar = card.querySelector('.card-avatar');
+      if (avatar) {
+        const name = data?.assigned_to?.display_value || '';
+        avatar.textContent = name ? name.split(/\s+/).slice(0,2).map(p=>p.charAt(0).toUpperCase()).join('') : '!';
+      }
+      const accountLbl = card.querySelector('.card-time');
+      if (accountLbl) accountLbl.textContent = data?._account || 'N/A';
+
+      if (oldBoard !== newBoard) {
+        const target = newBoard.querySelector('.lane[data-lane="' + lane + '"] .lane-body');
+        if (target) target.prepend(card);
+      }
+      LANE_CLASSES.forEach(cls => card.classList.remove(cls));
+      card.classList.add('card-' + lane);
+      moveCardToLane(card, lane);
+      pulseCard(card, true);
+
+      if (oldBoard) updateLaneCounters(oldBoard.querySelector('.board-inner'));
+      updateLaneCounters(newBoard.querySelector('.board-inner'));
+    }
+
+    function upsertEventCard(data) {
+      const sid = data?.sys_id?.value || data?.sys_id || '';
+      if (!sid) return;
+
+      const boardKey = eventTypeToBoardKey(data?._eventType || data?.u_event_type?.display_value || data?.u_event_type?.value || '');
+      const existingCards = document.querySelectorAll(
+        '#board-wrap-event-monitoring .card[data-sysid="' + sid + '"], #board-wrap-backup-monitoring .card[data-sysid="' + sid + '"]'
+      );
+
+      if (isEventInactiveState(data?.state?.value) || !boardKey) {
+        existingCards.forEach(card => {
+          const board = card.closest('.board-wrap');
+          card.remove();
+          if (board) updateLaneCounters(board.querySelector('.board-inner'));
+        });
+        return;
+      }
+
+      if (existingCards.length) {
+        existingCards.forEach(card => updateEventCard(card, data, boardKey));
+        return;
+      }
+
+      const board = getEventBoardWrap(boardKey);
+      if (!board) return;
+      const lane = resolveEventLane(data);
+      const targetBody = board.querySelector('.lane[data-lane="' + lane + '"] .lane-body');
+      if (!targetBody) return;
+      const empty = targetBody.querySelector('.lane-empty');
+      if (empty) empty.remove();
+      targetBody.prepend(buildEventCardElement(data, lane, boardKey));
+      updateLaneCounters(board.querySelector('.board-inner'));
     }
 
     function insertNewCaseCard(data, visibilityCallback) {
