@@ -22,12 +22,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function runInPage(tabId, month) {
     const configUrl = chrome.runtime.getURL('config.js');
+    const emsGroupsUrl = chrome.runtime.getURL('ems-groups.js');
     const emsOpsUrl = chrome.runtime.getURL('ems-ops.js');
 
     const [{ result }] = await chrome.scripting.executeScript({
       target: { tabId },
       world: 'MAIN',
-      func: async (cfgUrl, opsUrl, userMonth) => {
+      func: async (cfgUrl, groupsUrl, opsUrl, userMonth) => {
         const loadScriptFromText = async (url, globalName, forceReload = false) => {
           if (!forceReload && globalName && typeof window[globalName] === 'function') {
             return;
@@ -52,6 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
           await loadScriptFromText(cfgUrl);
+          await loadScriptFromText(groupsUrl);
           await loadScriptFromText(opsUrl, 'runEMSOps', true);
 
           if (typeof window.runEMSOps !== 'function') {
@@ -75,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return { error: `Erro ao executar runEMSOps: ${e.message}` };
         }
       },
-      args: [configUrl, emsOpsUrl, month]
+      args: [configUrl, emsGroupsUrl, emsOpsUrl, month]
     });
 
     if (result?.error) {
