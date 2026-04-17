@@ -2931,84 +2931,11 @@ function openCaseModal(sysId, number, cardEl, recordTable='sn_customerservice_ca
   if(window.__suppressCardModalUntil && Date.now()<window.__suppressCardModalUntil) return;
   const tableName = recordTable || 'sn_customerservice_case';
   const isEventTask = tableName === 'u_event_task';
-  closeCaseModal();
   _modalSysId = sysId;
   if (_modalActiveCard) _modalActiveCard.classList.remove('modal-active');
   _modalActiveCard = cardEl;
   cardEl.classList.add('modal-active');
-
-  if (!isEventTask) {
-    const overlay = document.getElementById('case-modal-overlay');
-    const modal = document.getElementById('case-modal');
-    const numEl = document.getElementById('modal-num');
-    const linkEl = document.getElementById('modal-snow-link');
-    const titleEl = document.getElementById('modal-title');
-    const bodyEl = document.getElementById('modal-body');
-    const badgeEl = document.getElementById('modal-state-badge');
-
-    if (!overlay || !modal || !bodyEl) return;
-    overlay.style.display = 'block';
-    modal.style.transform = 'translate(-50%, -50%) scale(1)';
-
-    if (numEl) numEl.textContent = number || '';
-    if (linkEl) linkEl.href = '/sn_customerservice_case.do?sys_id=' + encodeURIComponent(sysId);
-    if (titleEl) titleEl.textContent = 'Carregando detalhes...';
-    if (badgeEl) badgeEl.textContent = 'Atualizando...';
-    bodyEl.innerHTML = '<div style="padding:18px 0;color:#57606A;font-size:13px;">⏳ Carregando dados do caso...</div>';
-
-    const h = {'Accept':'application/json','X-UserToken':_TOK};
-    fetch(_BASE + '/api/now/table/sn_customerservice_case/' + encodeURIComponent(sysId) + '?sysparm_fields=number,short_description,state,priority,impact,urgency,assigned_to,assignment_group,account,opened_at,cmdb_ci,u_type,sys_updated_on&sysparm_display_value=all', { headers: h })
-      .then(async r => {
-        const txt = await r.text();
-        if (!r.ok) throw new Error('HTTP ' + r.status + (txt ? ': ' + txt.slice(0, 120) : ''));
-        return txt ? JSON.parse(txt) : {};
-      })
-      .then(data => {
-        const c = data?.result || {};
-        if (!_modalSysId || _modalSysId !== sysId) return;
-
-        const num = c.number?.display_value || number || '';
-        const shortDesc = c.short_description?.display_value || '—';
-        const state = c.state?.display_value || '—';
-        const priority = c.priority?.display_value || '—';
-        const assigned = c.assigned_to?.display_value || 'Sem responsável';
-        const queue = c.assignment_group?.display_value || '—';
-        const account = c.account?.display_value || '—';
-        const ci = c.cmdb_ci?.display_value || '—';
-        const type = c.u_type?.display_value || '—';
-        const opened = c.opened_at?.display_value || c.opened_at?.value || '—';
-        const impact = c.impact?.display_value || c.impact?.value || '—';
-        const urgency = c.urgency?.display_value || c.urgency?.value || '—';
-        const updated = c.sys_updated_on?.display_value || c.sys_updated_on?.value || '—';
-
-        if (numEl) numEl.textContent = num;
-        if (titleEl) titleEl.textContent = shortDesc;
-        if (badgeEl) badgeEl.textContent = 'Status: ' + state + ' · Prioridade: ' + priority + ' · Updated: ' + updated;
-
-        bodyEl.innerHTML =
-          '<div class="modal-section-title">Resumo</div>' +
-          '<div class="modal-detail-grid">' +
-            detailItem('Fila', emsEscapeHtml(queue)) +
-            detailItem('Assigned to', emsEscapeHtml(assigned)) +
-            detailItem('Account', emsEscapeHtml(account)) +
-            detailItem('CMDB CI', emsEscapeHtml(ci)) +
-            detailItem('Tipo', emsEscapeHtml(type)) +
-            detailItem('Aberto em', emsEscapeHtml(opened)) +
-            detailItem('Impact', emsEscapeHtml(impact)) +
-            detailItem('Urgency', emsEscapeHtml(urgency)) +
-          '</div>' +
-          '<div class="modal-section-title">Descrição</div>' +
-          '<div class="modal-desc">' + emsEscapeHtml(shortDesc) + '</div>';
-      })
-      .catch(err => {
-        if (!_modalSysId || _modalSysId !== sysId) return;
-        if (titleEl) titleEl.textContent = 'Falha ao carregar';
-        if (badgeEl) badgeEl.textContent = 'Erro na API';
-        bodyEl.innerHTML = '<div style="padding:18px 0;color:#CF222E;font-size:13px;">❌ Não foi possível carregar os detalhes do caso.<br>' + emsEscapeHtml(err.message || 'Erro inesperado') + '</div>';
-      });
-    return;
-  }
-
+  closeCaseModal();
   const url = isEventTask
     ? '/u_event_task.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_nostack=true'
     : '/sn_customerservice_case.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_view=case&sysparm_nostack=true&sysparm_query=no_related_lists=true';
