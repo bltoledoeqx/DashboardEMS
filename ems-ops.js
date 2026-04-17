@@ -30,17 +30,7 @@ window.runEMSOps = function(userMes) {
   };
 
   const G_IDS     = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
-  const GROUP_MEMBERS = {
-    '1c7c9057db6771d0832ead8ed396197a': [
-      {name:'Alain Lamothe',id:'42cb28908758edd4e41640cd0ebb3546'},{name:'Alexandre Maia',id:'1c1805e9db194950a7f8a334ca9619ec'},{name:'Ahmad Saeed',id:'479e82f0475b8e14b4baa8b5536d4350'},{name:'Andre Muller',id:'42c027c4dba89c10034e6e25ca96196c'},{name:'Andre Sodre',id:'41a509fc4faa0700f5e08e1f0210c73a'},{name:'Andreza Alvares',id:'3665a617dbde60143e6ee2d2ca9619b1'},{name:'Asghar Shamloo',id:'96bfea151b120158a0ab62ca234bcb89'},{name:'Barbara Serain',id:'f3da570847c172d03cbfe07a216d437d'},{name:'Bruna Artioli',id:'46380b503304f6d497e2fba45d5c7bc3'},{name:'Bruno Toledo',id:'eb71bc95dbfbac10fb5d09ccd3961971'},{name:'Bruno Vicente',id:'05a509fc4faa0700f5e08e1f0210c751'},{name:'Cainan Silveira',id:'1a5cdc969317a2506fa8fc0b6aba1003'},{name:'Carlos Nogueira',id:'51a509fc4faa0700f5e08e1f0210c766'},{name:'Carolina Giamassi',id:'7eb85df693d47194ef0af8e74dba103c'},{name:'Danilo Marques',id:'4d4689344fea0700f5e08e1f0210c74c'},{name:'Davi Santos',id:'58f8ba0bdba15550b715aa1d13961964'},{name:'David Neil',id:'eda1c45fdbaec050b9711a8c1396191d'},{name:'Diego Montes',id:'ab04bdf283068e90c149bb447daad3fe'},{name:'Diogo Caldeira',id:'c416817b1b31b410a0ab62ca234bcb0f'},{name:'Fabricio Carvalho',id:'727715dc4f14f744c58b8e1f0210c7fd'},{name:'Felipe Drumond',id:'d9a509fc4faa0700f5e08e1f0210c7b8'},{name:'Felipe Soares',id:'99a509fc4faa0700f5e08e1f0210c7b7'},{name:'Fernando Lima',id:'b3f54d704fea0700f5e08e1f0210c7bb'},{name:'Fernando Meissner',id:'239e2d57db391d50a7f8a334ca9619cd'},{name:'Fábio Brasil',id:'6c643fd44f3efbc8c58b8e1f0210c708'},{name:'Gabriel Cruz',id:'92bdf2a41b79f410a0ab62ca234bcb6c'},{name:'Gabriel Sorroche',id:'0f6c36374767ee901065fa57436d4391'},{name:'Giulia Lopes',id:'b82ff9a8836072d4c149bb447daad390'},{name:'Guilherme Mello',id:'494d8dc44f2f3780f3d33d828110c791'},{name:'Hugo Luna',id:'5335673747eba598c2fd45e8036d4360'},{name:'Jefferson Abreu',id:'5ab87e13875029105ea58628dabb3538'},{name:'Joana Enes',id:'2cac81cd87792d10c48cb845dabb35b1'},{name:'João Miranda',id:'83f109f3dbff8d90fb5d09ccd3961908'},{name:'João Victor Silva',id:'2cf8ba0bdba15550b715aa1d139619c3'},{name:'Julio Araujo',id:'3dcb06418785b514c48cb845dabb35b9'},{name:'Kauê Furtado',id:'c6380b503304f6d497e2fba45d5c7bc7'},{name:'Kevin Ma',id:'8c99bade1b231c54bb580e966e4bcb28'},{name:'Leticia Veiga',id:'46a318b88720bdd45ea58628dabb35e8'},{name:'Lia da Silva',id:'9e9aa79883068a1cc149bb447daad348'},{name:'Lorena Alves',id:'c8657f998326c258c149bb447daad363'},{name:'Luan Salviano',id:'b72e3a8e97fa31180c103486f053af65'},{name:'Lucas Henrique Rocha',id:'4a380b503304f6d497e2fba45d5c7be8'},{name:'Lucas Oliveira Silva',id:'c8e1d213973239980c103486f053af5b'},{name:'Luiz Hernandes',id:'a57afa104f0d2b00f3d33d828110c770'},{name:'Michael Manna',id:'c1993ede1b231c54bb580e966e4bcbe6'},{name:'Michael Rodrigues',id:'0aa549fc4faa0700f5e08e1f0210c7d2'},{name:'Paloma Moreira',id:'525c9c969317a2506fa8fc0b6aba10f4'},{name:'Paulo Henrique Augusto',id:'6c290269db121910a7f8a334ca9619ad'},{name:'Paulo Leal',id:'e92d179e47c22d90c2fd45e8036d43d1'},{name:'Pedro Henrique Bernoldi',id:'41c6e49f97c626149b5a7efe2153af46'},{name:'Raymond Birch',id:'6bc8721a1b231c54bb580e966e4bcb59'},{name:'Rayanne Nascimento',id:'1569409347c1ba103cbfe07a216d4340'},{name:'Renato Neves',id:'97981e64db8c4d14b715aa1d13961963'},{name:'Robert Fischer',id:'8eb501304fea0700f5e08e1f0210c763'},{name:'Roland Szczesny',id:'303afe161b631c54bb580e966e4bcbb2'},{name:'Ruan Mello',id:'e569409347c1ba103cbfe07a216d4378'},{name:'Sergio Procópio',id:'82b501304fea0700f5e08e1f0210c782'},{name:'Syed Sultan Nazar',id:'82b9fe121b631c54bb580e966e4bcbd3'},{name:'Thaina Dias',id:'050542f2c3f8e610c7341f53e40131ab'},{name:'Vernon Ko',id:'b669b29e1b231c54bb580e966e4bcbb5'},{name:'Vinicius Silva',id:'e846c4091b9571101424c8451a4bcb16'}
-    ],
-    '673c2170476422503cbfe07a216d430f': [
-      {name:'Ana Clara Azevedo',id:'358d2145872795545ea58628dabb35f7'},{name:'Barbara Serain',id:'f3da570847c172d03cbfe07a216d437d'},{name:'Cainan Silveira',id:'1a5cdc969317a2506fa8fc0b6aba1003'},{name:'Daniel Raposo',id:'86b8ba13875029105ea58628dabb35ae'},{name:'Felipe Drumond',id:'d9a509fc4faa0700f5e08e1f0210c7b8'},{name:'Felipe Soares',id:'99a509fc4faa0700f5e08e1f0210c7b7'},{name:'Fernando Lima',id:'b3f54d704fea0700f5e08e1f0210c7bb'},{name:'Gabriel Cruz',id:'92bdf2a41b79f410a0ab62ca234bcb6c'},{name:'Guilherme Mello',id:'494d8dc44f2f3780f3d33d828110c791'},{name:'Juliana Caldeira',id:'02543c1cc3be6ed0c7341f53e40131e4'},{name:'Leticia Veiga',id:'46a318b88720bdd45ea58628dabb35e8'},{name:'Luiz Hernandes',id:'a57afa104f0d2b00f3d33d828110c770'},{name:'Paulo Leal',id:'e92d179e47c22d90c2fd45e8036d43d1'},{name:'Pedro Henrique Bernoldi',id:'41c6e49f97c626149b5a7efe2153af46'},{name:'Renato Neves',id:'97981e64db8c4d14b715aa1d13961963'},{name:'Sergio Procópio',id:'82b501304fea0700f5e08e1f0210c782'}
-    ],
-    'ff72689247ee1e143cbfe07a216d4357': [
-      {name:'Abdool Halleem',id:'56393a1e1b231c54bb580e966e4bcbd3'},{name:'Adriano Brigario',id:'fca5c5fc4faa0700f5e08e1f0210c7ff'},{name:'Ahmad Saeed',id:'479e82f0475b8e14b4baa8b5536d4350'},{name:'Alain Lamothe',id:'42cb28908758edd4e41640cd0ebb3546'},{name:'Alexandre Oliveira',id:'87deeb4e1338734426d55d122244b09c'},{name:'Alexander Victorino',id:'eee2842293c74a1018e8bf2a6aba1079'},{name:'Andreza Alvares',id:'3665a617dbde60143e6ee2d2ca9619b1'},{name:'Asghar Shamloo',id:'96bfea151b120158a0ab62ca234bcb89'},{name:'Augusto Almeida Galvao',id:'e6e525ad4f447fc0c58b8e1f0210c74e'},{name:'Bruna Artioli',id:'46380b503304f6d497e2fba45d5c7bc3'},{name:'Brunno Figueiredo',id:'8da509fc4faa0700f5e08e1f0210c749'},{name:'Cainan Silveira',id:'1a5cdc969317a2506fa8fc0b6aba1003'},{name:'Carolina Sequeira',id:'da9aa79883068a1cc149bb447daad345'},{name:'Cleiton Torres',id:'bbbfd92193587ad0771238797bba1018'},{name:'Daniel Philot',id:'d5a509fc4faa0700f5e08e1f0210c776'},{name:'Diego Leite',id:'d5a509fc4faa0700f5e08e1f0210c783'},{name:'Diogo Caldeira',id:'c416817b1b31b410a0ab62ca234bcb0f'},{name:'Eduardo de Abreu',id:'d5a509fc4faa0700f5e08e1f0210c794'},{name:'Fabio Rodrigues',id:'55a509fc4faa0700f5e08e1f0210c7b0'},{name:'Fabricio Carvalho',id:'727715dc4f14f744c58b8e1f0210c7fd'},{name:'Fábio Brasil',id:'6c643fd44f3efbc8c58b8e1f0210c708'},{name:'Gabriel Sorroche',id:'0f6c36374767ee901065fa57436d4391'},{name:'Giulia Lopes',id:'b82ff9a8836072d4c149bb447daad390'},{name:'Gleidson Rocha',id:'a5a509fc4faa0700f5e08e1f0210c7ea'},{name:'Guilherme de Souza',id:'a7f9fa33dbc99150545dee0c139619ee'},{name:'Henrique Almeida',id:'47bbc00887cf9554dfdd64a09bbb354c'},{name:'Janei Araujo',id:'17debbaf13fb67c826d55d122244b0d6'},{name:'Jefferson Souza',id:'2da549fc4faa0700f5e08e1f0210c70b'},{name:'Joana Enes',id:'2cac81cd87792d10c48cb845dabb35b1'},{name:'Jone Colmenero',id:'39a549fc4faa0700f5e08e1f0210c72d'},{name:'Jorge Andrade',id:'625385aa1b61dc5c5deb4199bd4bcbb5'},{name:'José Couto',id:'bb6b8debdbaa8cd47aab710439961965'},{name:'Jose Neto',id:'f5a549fc4faa0700f5e08e1f0210c736'},{name:'Kauê Furtado',id:'c6380b503304f6d497e2fba45d5c7bc7'},{name:'Kevin Ma',id:'8c99bade1b231c54bb580e966e4bcb28'},{name:'Laylla Rangel',id:'f1a549fc4faa0700f5e08e1f0210c757'},{name:'Leonardo Trigo',id:'d647da78c3f3fdd893144f05990131c3'},{name:'Lia da Silva',id:'9e9aa79883068a1cc149bb447daad348'},{name:'Lorena Alves',id:'c8657f998326c258c149bb447daad363'},{name:'Lucas Henrique Rocha',id:'4a380b503304f6d497e2fba45d5c7be8'},{name:'Lucas Oliveira Silva',id:'c8e1d213973239980c103486f053af5b'},{name:'Luiz Hernandes',id:'a57afa104f0d2b00f3d33d828110c770'},{name:'Marco Rosina',id:'92b87e13875029105ea58628dabb3551'},{name:'Michael Manna',id:'c1993ede1b231c54bb580e966e4bcbe6'},{name:'Osvaldo Delfino',id:'46a549fc4faa0700f5e08e1f0210c7e7'},{name:'Paloma Moreira',id:'525c9c969317a2506fa8fc0b6aba10f4'},{name:'Pedro Henrique Bernoldi',id:'41c6e49f97c626149b5a7efe2153af46'},{name:'Priscila Santos',id:'3994cc71dba10d14b715aa1d13961988'},{name:'Raymond Birch',id:'6bc8721a1b231c54bb580e966e4bcb59'},{name:'Rayanne Nascimento',id:'1569409347c1ba103cbfe07a216d4340'},{name:'Roland Szczesny',id:'303afe161b631c54bb580e966e4bcbb2'},{name:'Ruan Mello',id:'e569409347c1ba103cbfe07a216d4378'},{name:'Sidinei Oliveira',id:'bbf54d704fea0700f5e08e1f0210c776'},{name:'Syed Sultan Nazar',id:'82b9fe121b631c54bb580e966e4bcbd3'},{name:'Thaina Dias',id:'050542f2c3f8e610c7341f53e40131ab'},{name:'Thercio Costa',id:'f86d0a84db58b850fb5d09ccd39619c4'},{name:'Tiago Garcia',id:'48657f998326c258c149bb447daad3cd'},{name:'Valmir de Oliveira',id:'40e1cfd04f6cbfc4c58b8e1f0210c76b'},{name:'Vernon Ko',id:'b669b29e1b231c54bb580e966e4bcbb5'},{name:'Vinicius Africo',id:'2c0890354f053b40c58b8e1f0210c74b'},{name:'Vinicius Machado',id:'9eb501304fea0700f5e08e1f0210c7b3'},{name:'Wagner Farias',id:'bd214939dbc3c5d0fb5d09ccd39619dd'},{name:'Wellington Batista',id:'d6b501304fea0700f5e08e1f0210c7c0'},{name:'Ygor Soares',id:'524d6e361ba8d154a62b20622a4bcb5c'}
-    ]
-  };
+  const GROUP_MEMBERS = window.EMS_GROUP_MEMBERS || {};
   const G_NAMES   = { '1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER', '673c2170476422503cbfe07a216d430f':'Event Management BR', 'ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER' };
   const G_KEYS    = { '1c7c9057db6771d0832ead8ed396197a':'l1', '673c2170476422503cbfe07a216d430f':'event', 'ff72689247ee1e143cbfe07a216d4357':'l2' };
   const AWAIT_ST  = new Set(['18','32','5','29','30']);
@@ -111,6 +101,33 @@ window.runEMSOps = function(userMes) {
   };
   const fsla   = q => fetch(`${BASE}/api/now/table/task_sla?sysparm_query=${encodeURIComponent(q)}&sysparm_fields=${SLA_F}&sysparm_display_value=all&sysparm_limit=500`,{headers}).then(r=>parseJsonSafe(r,'task_sla')).then(d=>d.result||[]);
   const bsla   = (ids,f) => !ids.length ? Promise.resolve([]) : Promise.all(chunk(ids).map(b=>fsla(`taskIN${b.join(',')}^${f}`))).then(r=>r.flat());
+  const EVENT_TASK_FIELDS = 'sys_id,number,short_description,description,state,priority,impact,urgency,assigned_to,assignment_group,u_operational_scope,u_operating_country,u_event_number';
+  const fetchEventTasks = async (h=headers) => {
+    const eventQuery = 'assignment_group.name=EMS L1 OpsCenter AMER^stateIN1,2';
+    const listUrl = `${BASE}/api/now/table/u_event_task?sysparm_query=${encodeURIComponent(eventQuery)}&sysparm_fields=${EVENT_TASK_FIELDS}&sysparm_display_value=all&sysparm_limit=300`;
+    const listResp = await fetch(listUrl, { headers: h, credentials: 'same-origin' });
+    const listData = await parseJsonSafe(listResp, 'u_event_task');
+    const rows = listData.result || [];
+    if (!rows.length) return [];
+    return Promise.all(rows.map(async row => {
+      const eventNumber = row.u_event_number?.value;
+      if (!eventNumber) return { ...row, _eventType: 'N/A', _account: 'N/A' };
+      try {
+        const eventResp = await fetch(`${BASE}/api/now/table/u_event_management/${eventNumber}?sysparm_display_value=all`, {
+          headers: h,
+          credentials: 'same-origin'
+        });
+        const eventData = await parseJsonSafe(eventResp, `u_event_management/${eventNumber}`);
+        return {
+          ...row,
+          _eventType: eventData.result?.u_event_type?.display_value || 'N/A',
+          _account: eventData.result?.u_account?.display_value || 'N/A'
+        };
+      } catch (_) {
+        return { ...row, _eventType: 'N/A', _account: 'N/A' };
+      }
+    }));
+  };
 
   const mesRange = m => {
     const ms = String(m).padStart(2,'0');
@@ -119,7 +136,7 @@ window.runEMSOps = function(userMes) {
   };
 
   // ── Build and render ───────────────────────────────────────────────────
-  const render = (ativos, postMortem, slaA, slaP, m, resolvedToday, aggData) => {
+  const render = (ativos, postMortem, slaA, slaP, m, resolvedToday, aggData, eventTasks=[]) => {
     const now       = Date.now();
     const fmtH      = h => h===null ? '—' : `${parseFloat(h).toFixed(1)}h`;
     const hFrom     = d => { const x=new Date(d); return isNaN(x.getTime())?null:(now-x)/3600000; };
@@ -133,6 +150,7 @@ window.runEMSOps = function(userMes) {
       if (!txt) return 'SR';
       return txt.split(/\s+/).slice(0,2).map(p=>p.charAt(0).toUpperCase()).join('') || 'SR';
     };
+    const escAttr = v => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
     const caseUrl   = n => `${BASE}/sn_customerservice_case.do?sysparm_query=number=${n}`;
     const prioColor = p => (['','#CF222E','#BF8700','#0550AE','#1A7F37','#57606A'][p]||'#57606A');
     const mesNome   = MES_NAMES[m-1];
@@ -276,6 +294,9 @@ window.runEMSOps = function(userMes) {
     };
     const ativosMap = createGroupMap();
     const backlogMap = createGroupMap();
+    const createEventLaneMap = () => ({ critical: [], high: [], medium: [], normal: [], orphan: [] });
+    const monitoringMap = createEventLaneMap();
+    const backupMap = createEventLaneMap();
 
     let totalBreach = 0;
     let totalRisk = 0;
@@ -294,6 +315,43 @@ window.runEMSOps = function(userMes) {
       if (c.sl.st === 'risk') totalRisk += 1;
       if (c.noAss) totalOrphan += 1;
       if (c.isAw) totalAwait += 1;
+    });
+
+    const eventLaneByPriority = p => {
+      if (p === 1) return 'critical';
+      if (p === 2) return 'high';
+      if (p === 3) return 'medium';
+      return 'normal';
+    };
+    const normalizeEventType = v => (v || '').trim().toLowerCase();
+    const eventCards = (eventTasks || []).map(e => {
+      const rawDV = (e.priority?.display_value || '').trim();
+      const rawV = e.priority?.value || '4';
+      const match = rawDV.match(/^\d/);
+      const prio = parseInt(match ? match[0] : rawV, 10) || 4;
+      const noAss = !e.assigned_to?.value;
+      const lane = noAss ? 'orphan' : eventLaneByPriority(prio);
+      return {
+        sysId: e.sys_id?.value || '',
+        number: e.number?.display_value || '',
+        desc: (e.short_description?.display_value || e.description?.display_value || '—').substring(0, 90),
+        state: e.state?.display_value || 'N/A',
+        priority: e.priority?.display_value || 'N/A',
+        prio,
+        assigned: e.assigned_to?.display_value || '',
+        assignedId: e.assigned_to?.value || '',
+        noAss,
+        impactVal: e.impact?.value || '',
+        urgencyVal: e.urgency?.value || '',
+        account: e._account || 'N/A',
+        eventType: e._eventType || 'N/A',
+        lane
+      };
+    });
+    eventCards.forEach(card => {
+      const type = normalizeEventType(card.eventType);
+      if (type === 'monitoring event') monitoringMap[card.lane].push(card);
+      if (type === 'backup event') backupMap[card.lane].push(card);
     });
 
     const lanesMap = ativosMap; // kept for KPI compat
@@ -355,13 +413,33 @@ window.runEMSOps = function(userMes) {
         </div>
       </div>`;
 
-    const renderLane = (laneKey,label,color,icon,items) => `
+    const renderEventCard = c => `
+      <div class="card card-${c.lane}" data-sysid="${c.sysId}" data-assignedid="${c.assignedId||''}" data-assignedname="${c.assigned||''}" data-impact="${c.impactVal||''}" data-urgency="${c.urgencyVal||''}" data-account="${escAttr(c.account||'N/A')}" data-eventtype="${escAttr(c.eventType||'N/A')}" data-state="${escAttr(c.state||'N/A')}" data-priority="${escAttr(c.priority||'N/A')}" onclick="openCaseModal('${c.sysId}','${c.number}',this,'u_event_task')">
+        <div class="card-top">
+          <span class="card-num">${c.number}</span>
+          <span class="card-prio-badge card-prio-${c.prio}">${c.priority}</span>
+        </div>
+        <p class="card-desc">${c.desc||'—'}</p>
+        <div class="card-tags">
+          <span class="tag tag-state">${c.state}</span>
+          <span class="tag tag-type">${c.eventType}</span>
+        </div>
+        <div class="card-footer">
+          <span class="card-assigned ${c.noAss?'unassigned':''}">
+            <span class="card-avatar">${c.noAss?'!':initials(c.assigned)}</span>
+            <span>${c.noAss?'Sem responsável':c.assigned}</span>
+          </span>
+          <span class="card-time">${c.account}</span>
+        </div>
+      </div>`;
+
+    const renderLane = (laneKey,label,color,icon,items,cardRenderer=renderCard) => `
       <div class="lane" data-lane="${laneKey}">
         <div class="lane-hdr" style="border-top:3px solid ${color}">
           <div class="lane-title"><span class="lane-dot" style="background:${color}"></span>${icon} ${label}</div>
           <span class="lane-count" style="color:${color}">${items.length}</span>
         </div>
-        <div class="lane-body">${items.length?items.map(renderCard).join(''):'<div class="lane-empty">Sem chamados</div>'}</div>
+        <div class="lane-body">${items.length?items.map(cardRenderer).join(''):'<div class="lane-empty">Sem chamados</div>'}</div>
       </div>`;
 
     // Resolved Today lane
@@ -436,6 +514,15 @@ window.runEMSOps = function(userMes) {
           ${showRT ? renderResolvedToday(key) : ''}
         </div>`;
     };
+
+    const renderEventBoard = lmap => `
+      <div class="board-inner">
+        ${renderLane('critical', 'Crítico', '#CF222E','🔴',lmap.critical, renderEventCard)}
+        ${renderLane('high', 'Alto Risco', '#BF8700','🟠',lmap.high, renderEventCard)}
+        ${renderLane('medium', 'Atenção', '#0550AE','🔵',lmap.medium, renderEventCard)}
+        ${renderLane('normal', 'Normal', '#1A7F37','🟢',lmap.normal, renderEventCard)}
+        ${renderLane('orphan', 'Órfãos', '#57606A','⚫',lmap.orphan, renderEventCard)}
+      </div>`;
 
     const slaBarPM = p => {
       if (p.sl.pct===null) return '<span class="muted-val">—</span>';
@@ -586,6 +673,7 @@ window.runEMSOps = function(userMes) {
     return `<!DOCTYPE html><html lang="pt-BR"><head>
 <meta charset="UTF-8"><title>EMS Ops — ${mesNome} ${YEAR}</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <style>
 :root{
   --bg:#F6F8FA;--surface:#FFFFFF;--surface2:#F6F8FA;
@@ -599,10 +687,10 @@ window.runEMSOps = function(userMes) {
 body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;padding-left:56px;}
 a{text-decoration:none;}
 .side-nav{position:fixed;left:0;top:0;bottom:0;width:56px;background:#1f2937;border-right:1px solid #111827;z-index:var(--z-idx-side);display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;}
-.side-btn{width:42px;height:42px;border:none;border-radius:8px;background:transparent;color:#D1D5DB;cursor:pointer;font-size:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
+.side-btn{width:42px;height:42px;border:none;border-radius:8px;background:transparent;color:#D1D5DB;cursor:pointer;font-size:9px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;letter-spacing:.2px;}
 .side-btn:hover{background:#374151;color:#fff;}
 .side-btn.active{background:#2563EB;color:#fff;}
-.side-ico{font-size:14px;line-height:1;}
+.side-ico{font-size:15px;line-height:1;display:inline-flex;align-items:center;justify-content:center;}
 .header-icons{display:flex;align-items:center;gap:6px;margin-left:8px;}
 .top-icon-btn{width:28px;height:28px;border:1px solid var(--border);border-radius:50%;background:var(--surface);color:var(--muted);cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;}
 .top-icon-btn:hover{border-color:#0969DA;color:#0969DA;background:#EFF6FF;}
@@ -1030,10 +1118,12 @@ tr:hover td{background:#F6F8FA;}
 </div>
 
 <div class="side-nav">
-  <button class="side-btn active" onclick="activateSide(this);showPage('kanban')"><span class="side-ico">🏠</span><span>Home</span></button>
-  <button class="side-btn" onclick="activateSide(this);showPage('backlog')"><span class="side-ico">📦</span><span>Backlog</span></button>
-  <button class="side-btn" onclick="activateSide(this);showPage('postmortem')"><span class="side-ico">🔎</span><span>Post</span></button>
-  <button class="side-btn" onclick="activateSide(this);showPage('reports')"><span class="side-ico">📊</span><span>Reports</span></button>
+  <button class="side-btn active" onclick="activateSide(this);showPage('kanban')" title="Home"><i class="bi bi-house-door-fill side-ico"></i><span>Home</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('event-monitoring')" title="Event Monitoring"><i class="bi bi-broadcast-pin side-ico"></i><span>Event</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('backup-monitoring')" title="Backup Monitoring"><i class="bi bi-hdd-network side-ico"></i><span>Backup</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('backlog')" title="Backlog"><i class="bi bi-archive side-ico"></i><span>Backlog</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('postmortem')" title="Post"><i class="bi bi-journal-text side-ico"></i><span>Post</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('reports')" title="Reports"><i class="bi bi-bar-chart-line side-ico"></i><span>Reports</span></button>
 </div>
 
 <div class="tabs" style="display:none">
@@ -1301,6 +1391,24 @@ tr:hover td{background:#F6F8FA;}
         ${renderBoard('all', backlogMap, false)}
       </div>
     </div>
+  </div>
+</div>
+
+<div class="page" id="page-event-monitoring">
+  <div class="board-toolbar" style="padding:8px 20px;justify-content:space-between;">
+    <div style="font-size:13px;color:var(--text2);font-weight:600;">📡 Monitoring Event</div>
+  </div>
+  <div class="board-wrap" id="board-wrap-event-monitoring">
+    ${renderEventBoard(monitoringMap)}
+  </div>
+</div>
+
+<div class="page" id="page-backup-monitoring">
+  <div class="board-toolbar" style="padding:8px 20px;justify-content:space-between;">
+    <div style="font-size:13px;color:var(--text2);font-weight:600;">💾 Backup Event</div>
+  </div>
+  <div class="board-wrap" id="board-wrap-backup-monitoring">
+    ${renderEventBoard(backupMap)}
   </div>
 </div>
 
@@ -1847,7 +1955,7 @@ function showPage(id,el){
   if(page) page.classList.add('active');
   if(el) el.classList.add('active');
   else {
-    const tabMap={kanban:0,backlog:1,postmortem:2,reports:3};
+    const tabMap={kanban:0,'event-monitoring':1,'backup-monitoring':2,backlog:3,postmortem:4,reports:5};
     const idx=tabMap[id];
     const tab=document.querySelectorAll('.tab')[idx];
     if(tab) tab.classList.add('active');
@@ -2809,14 +2917,91 @@ function renderContactInfo(contact, caseData) {
 function openCaseModalBtn(el) {
   openCaseModal(el.dataset.sysid||'', el.dataset.num||'', el);
 }
-function openCaseModal(sysId, number, cardEl) {
+function openCaseModal(sysId, number, cardEl, recordTable='sn_customerservice_case') {
   if(window.__suppressCardModalUntil && Date.now()<window.__suppressCardModalUntil) return;
+  const tableName = recordTable || 'sn_customerservice_case';
+  const isEventTask = tableName === 'u_event_task';
+  closeCaseModal();
   _modalSysId = sysId;
   if (_modalActiveCard) _modalActiveCard.classList.remove('modal-active');
   _modalActiveCard = cardEl;
   cardEl.classList.add('modal-active');
-  closeCaseModal();
-  const url = '/sn_customerservice_case.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_view=case&sysparm_nostack=true&sysparm_query=no_related_lists=true';
+
+  if (!isEventTask) {
+    const overlay = document.getElementById('case-modal-overlay');
+    const modal = document.getElementById('case-modal');
+    const numEl = document.getElementById('modal-num');
+    const linkEl = document.getElementById('modal-snow-link');
+    const titleEl = document.getElementById('modal-title');
+    const bodyEl = document.getElementById('modal-body');
+    const badgeEl = document.getElementById('modal-state-badge');
+
+    if (!overlay || !modal || !bodyEl) return;
+    overlay.style.display = 'block';
+    modal.style.transform = 'translate(-50%, -50%) scale(1)';
+
+    if (numEl) numEl.textContent = number || '';
+    if (linkEl) linkEl.href = '/sn_customerservice_case.do?sys_id=' + encodeURIComponent(sysId);
+    if (titleEl) titleEl.textContent = 'Carregando detalhes...';
+    if (badgeEl) badgeEl.textContent = 'Atualizando...';
+    bodyEl.innerHTML = '<div style="padding:18px 0;color:#57606A;font-size:13px;">⏳ Carregando dados do caso...</div>';
+
+    const h = {'Accept':'application/json','X-UserToken':_TOK};
+    fetch(_BASE + '/api/now/table/sn_customerservice_case/' + encodeURIComponent(sysId) + '?sysparm_fields=number,short_description,state,priority,impact,urgency,assigned_to,assignment_group,account,opened_at,cmdb_ci,u_type,sys_updated_on&sysparm_display_value=all', { headers: h })
+      .then(async r => {
+        const txt = await r.text();
+        if (!r.ok) throw new Error('HTTP ' + r.status + (txt ? ': ' + txt.slice(0, 120) : ''));
+        return txt ? JSON.parse(txt) : {};
+      })
+      .then(data => {
+        const c = data?.result || {};
+        if (!_modalSysId || _modalSysId !== sysId) return;
+
+        const num = c.number?.display_value || number || '';
+        const shortDesc = c.short_description?.display_value || '—';
+        const state = c.state?.display_value || '—';
+        const priority = c.priority?.display_value || '—';
+        const assigned = c.assigned_to?.display_value || 'Sem responsável';
+        const queue = c.assignment_group?.display_value || '—';
+        const account = c.account?.display_value || '—';
+        const ci = c.cmdb_ci?.display_value || '—';
+        const type = c.u_type?.display_value || '—';
+        const opened = c.opened_at?.display_value || c.opened_at?.value || '—';
+        const impact = c.impact?.display_value || c.impact?.value || '—';
+        const urgency = c.urgency?.display_value || c.urgency?.value || '—';
+        const updated = c.sys_updated_on?.display_value || c.sys_updated_on?.value || '—';
+
+        if (numEl) numEl.textContent = num;
+        if (titleEl) titleEl.textContent = shortDesc;
+        if (badgeEl) badgeEl.textContent = 'Status: ' + state + ' · Prioridade: ' + priority + ' · Updated: ' + updated;
+
+        bodyEl.innerHTML =
+          '<div class="modal-section-title">Resumo</div>' +
+          '<div class="modal-detail-grid">' +
+            detailItem('Fila', emsEscapeHtml(queue)) +
+            detailItem('Assigned to', emsEscapeHtml(assigned)) +
+            detailItem('Account', emsEscapeHtml(account)) +
+            detailItem('CMDB CI', emsEscapeHtml(ci)) +
+            detailItem('Tipo', emsEscapeHtml(type)) +
+            detailItem('Aberto em', emsEscapeHtml(opened)) +
+            detailItem('Impact', emsEscapeHtml(impact)) +
+            detailItem('Urgency', emsEscapeHtml(urgency)) +
+          '</div>' +
+          '<div class="modal-section-title">Descrição</div>' +
+          '<div class="modal-desc">' + emsEscapeHtml(shortDesc) + '</div>';
+      })
+      .catch(err => {
+        if (!_modalSysId || _modalSysId !== sysId) return;
+        if (titleEl) titleEl.textContent = 'Falha ao carregar';
+        if (badgeEl) badgeEl.textContent = 'Erro na API';
+        bodyEl.innerHTML = '<div style="padding:18px 0;color:#CF222E;font-size:13px;">❌ Não foi possível carregar os detalhes do caso.<br>' + emsEscapeHtml(err.message || 'Erro inesperado') + '</div>';
+      });
+    return;
+  }
+
+  const url = isEventTask
+    ? '/u_event_task.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_nostack=true'
+    : '/sn_customerservice_case.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_view=case&sysparm_nostack=true&sysparm_query=no_related_lists=true';
 
   const overlay = document.createElement('div');
   overlay.id = 'case-iframe-overlay';
@@ -2838,7 +3023,7 @@ function openCaseModal(sysId, number, cardEl) {
 
   const sidecar = document.createElement('div');
   sidecar.style.cssText = 'width:min(36vw,520px);min-width:320px;border-left:1px solid #D0D7DE;background:#fff;display:flex;flex-direction:column;';
-  sidecar.innerHTML = '<div style="padding:10px 12px;border-bottom:1px solid #D0D7DE;background:#F6F8FA;font-size:12px;font-weight:700;color:#1f2937;">CI Details <span id="case-sidecar-account" style="font-weight:500;color:#57606A;">—</span></div><div id="case-sidecar-list" style="padding:10px 12px;overflow:auto;flex:1;"></div>';
+  sidecar.innerHTML = '<div style="padding:10px 12px;border-bottom:1px solid #D0D7DE;background:#F6F8FA;font-size:12px;font-weight:700;color:#1f2937;">'+(isEventTask?'Event Details':'CI Details')+' <span id="case-sidecar-account" style="font-weight:500;color:#57606A;">—</span></div><div id="case-sidecar-list" style="padding:10px 12px;overflow:auto;flex:1;"></div>';
 
   // Captura referências diretas ANTES de qualquer operação assíncrona
   // para evitar race condition ao abrir múltiplos modais em sequência.
@@ -2855,6 +3040,29 @@ function openCaseModal(sysId, number, cardEl) {
 
   header.querySelector('#closeBtn').onclick = () => closeCaseModal();
   header.querySelector('#reloadBtn').onclick = () => { iframe.src = iframe.src; };
+
+  if (isEventTask) {
+    const assigned = cardEl?.dataset?.assignedname || 'Sem responsável';
+    const account = cardEl?.dataset?.account || 'N/A';
+    const eventType = cardEl?.dataset?.eventtype || 'N/A';
+    const state = cardEl?.dataset?.state || 'N/A';
+    const priority = cardEl?.dataset?.priority || 'N/A';
+    if (accLbl) accLbl.textContent = eventType;
+    if (listEl) {
+      listEl.innerHTML = '<div class="acc-sec">'+
+        '<div class="acc-sec-h">Resumo do evento</div>'+
+        '<div style="padding:10px;display:grid;grid-template-columns:1fr;gap:8px;font-size:12px;">'+
+          '<div><b>Número:</b> '+emsEscapeHtml(number || '—')+'</div>'+
+          '<div><b>Tipo:</b> '+emsEscapeHtml(eventType)+'</div>'+
+          '<div><b>Account:</b> '+emsEscapeHtml(account)+'</div>'+
+          '<div><b>Status:</b> '+emsEscapeHtml(state)+'</div>'+
+          '<div><b>Prioridade:</b> '+emsEscapeHtml(priority)+'</div>'+
+          '<div><b>Assigned to:</b> '+emsEscapeHtml(assigned)+'</div>'+
+        '</div>'+
+      '</div>';
+    }
+    return;
+  }
 
   const h = {'Accept':'application/json','X-UserToken':_TOK};
   fetch(_BASE+'/api/now/table/sn_customerservice_case/'+sysId+'?sysparm_fields=number,account,cmdb_ci&sysparm_display_value=all',{headers:h})
@@ -3449,7 +3657,7 @@ function modalReassign() {
 // ── Board Search ────────────────────────────────────────────────────────────
 function boardSearch(q) {
   const term = q.trim().toLowerCase();
-  const boards = ['board-wrap','board-wrap-backlog'];
+  const boards = ['board-wrap','board-wrap-backlog-tab','board-wrap-event-monitoring','board-wrap-backup-monitoring'];
   boards.forEach(bid => {
     const bw = document.getElementById(bid); if (!bw) return;
     bw.querySelectorAll('.card').forEach(card => {
@@ -3532,8 +3740,8 @@ function filtOpts(i){
 function applyCol(ci){const ch=Array.from(document.querySelectorAll('#ddopts input:checked')).map(i=>i.value);_fil[ci]=ch.length?new Set(ch):new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 function clrCol(ci){_fil[ci]=new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden) stopPolling();
-  else startPolling();
+  if(document.hidden) return;
+  if(!window.__deltaPollingActive || !window.__deltaPollingTimerId) startPolling();
 });
 document.addEventListener('DOMContentLoaded',()=>{
   const accHdr=document.getElementById('acc-hdr-analyst');
@@ -3628,7 +3836,28 @@ document.addEventListener('DOMContentLoaded',()=>{
     
     const _G_IDS = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
     const _FIELDS = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
-    const isTerminalState = st => ['3','6','7','24','25','33','35'].includes(String(st||''));
+    const _EVENT_FIELDS = 'sys_id,number,short_description,description,state,priority,impact,urgency,assigned_to,assignment_group,u_operational_scope,u_operating_country,u_event_number,u_event_type,sys_updated_on';
+    const isTerminalState = (stateValue, stateDisplay='') => {
+      const st = String(stateValue || '');
+      if (['3','6','7','8','9','10','24','25','33','35'].includes(st)) return true;
+      const txt = String(stateDisplay || '').toLowerCase();
+      return txt.includes('resolved') || txt.includes('closed') || txt.includes('cancel') || txt.includes('resolvido') || txt.includes('fechado') || txt.includes('encerrado');
+    };
+    const isEventInactiveState = (stateValue, stateDisplay='') => {
+      const st = String(stateValue || '');
+      if (!st) {
+        const txt = String(stateDisplay || '').toLowerCase();
+        return !(txt.includes('new') || txt.includes('work in progress') || txt.includes('novo') || txt.includes('progresso'));
+      }
+      return !['1','2'].includes(st);
+    };
+    const normalizeEventType = value => String(value || '').trim().toLowerCase();
+    const eventTypeToBoardKey = value => {
+      const normalized = normalizeEventType(value);
+      if (normalized === 'monitoring event') return 'monitoring';
+      if (normalized === 'backup event') return 'backup';
+      return '';
+    };
     const getTodayDateLocal = () => {
       const now = new Date();
       const mm = String(now.getMonth() + 1).padStart(2, '0');
@@ -3729,6 +3958,9 @@ document.addEventListener('DOMContentLoaded',()=>{
       });
     }
 
+    const EVENT_MGMT_CACHE_TTL = 5 * 60 * 1000;
+    window.__eventMgmtCache = window.__eventMgmtCache || {};
+
     async function fetchDeltas() {
       if (!window.__deltaPollingActive) return;
       if (window.closed) return;
@@ -3770,12 +4002,14 @@ document.addEventListener('DOMContentLoaded',()=>{
       const activeAnalystId = document.getElementById('analyst-sel')?.value || '';
       const activeBacklogAnalystId = currentBacklogAnalyst || document.getElementById('backlog-analyst-sel')?.value || '';
       const extraAnalystIds = [...new Set([activeAnalystId, activeBacklogAnalystId].filter(Boolean))];
-      const endpoint = _BASE + '/api/now/table/sn_customerservice_case';
-      const params = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all';
+      const caseEndpoint = _BASE + '/api/now/table/sn_customerservice_case';
+      const caseParams = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all';
+      const eventEndpoint = _BASE + '/api/now/table/u_event_task';
+      const eventParams = '&sysparm_fields=' + _EVENT_FIELDS + '&sysparm_display_value=all';
       const DELTA_PAGE_SIZE = 200;
       const DELTA_MAX_PAGES = 10;
 
-      async function fetchByQuery(query) {
+      async function fetchByQuery(endpoint, params, query) {
         const allRows = [];
 
         for (let page = 0; page < DELTA_MAX_PAGES; page += 1) {
@@ -3804,6 +4038,38 @@ document.addEventListener('DOMContentLoaded',()=>{
         return allRows;
       }
 
+      async function enrichDeltaEvents(rows) {
+        if (!rows.length) return [];
+        const nowTs = Date.now();
+        return Promise.all(rows.map(async row => {
+          const taskType = row?.u_event_type?.display_value || row?.u_event_type?.value || '';
+          if (taskType) return { ...row, _eventType: taskType, _account: row?._account || 'N/A' };
+
+          const eventNumber = row?.u_event_number?.value;
+          if (!eventNumber) return { ...row, _eventType: 'N/A', _account: 'N/A' };
+          const cached = window.__eventMgmtCache[eventNumber];
+          if (cached && (nowTs - cached.ts) < EVENT_MGMT_CACHE_TTL) {
+            return { ...row, _eventType: cached.eventType, _account: cached.account };
+          }
+          try {
+            const response = await snFetch(_BASE + '/api/now/table/u_event_management/' + encodeURIComponent(eventNumber) + '?sysparm_display_value=all');
+            const body = await response.text();
+            if (!response.ok) return { ...row, _eventType: 'N/A', _account: 'N/A' };
+            const data = body ? JSON.parse(body) : {};
+            const eventType = data.result?.u_event_type?.display_value || 'N/A';
+            const account = data.result?.u_account?.display_value || 'N/A';
+            window.__eventMgmtCache[eventNumber] = { ts: Date.now(), eventType, account };
+            return {
+              ...row,
+              _eventType: eventType,
+              _account: account
+            };
+          } catch (_) {
+            return { ...row, _eventType: 'N/A', _account: 'N/A' };
+          }
+        }));
+      }
+
       try {
         const out = [];
         const seen = new Set();
@@ -3817,16 +4083,19 @@ document.addEventListener('DOMContentLoaded',()=>{
         };
 
         // Query base: mantém movimentação geral dos cards (mudança de fila/analista/estado).
-        addCases(await fetchByQuery(baseQuery));
+        addCases(await fetchByQuery(caseEndpoint, caseParams, baseQuery));
 
         // Smart mode: quando filtro por analista estiver ativo, consulta adicional focada no analista
         // para reforçar responsividade sem perder eventos gerais.
         for (const analystId of extraAnalystIds) {
           const analystQuery = baseQuery + '^assigned_to=' + analystId;
-          addCases(await fetchByQuery(analystQuery));
+          addCases(await fetchByQuery(caseEndpoint, caseParams, analystQuery));
         }
 
         const cases = out;
+        const eventQuery = 'assignment_group.name=EMS L1 OpsCenter AMER^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
+        const deltaEventsRaw = await fetchByQuery(eventEndpoint, eventParams, eventQuery);
+        const deltaEvents = await enrichDeltaEvents(deltaEventsRaw);
 
         if (cases.length > 0) {
           cases.forEach(c => {
@@ -3834,7 +4103,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             if (!sid) return;
             const cards = targetDoc.querySelectorAll('.card[data-sysid="' + sid + '"]');
             if (cards.length > 0) {
-              if (isTerminalState(c?.state?.value)) {
+              if (isTerminalState(c?.state?.value, c?.state?.display_value)) {
                 cards.forEach(card => {
                   const board = card.closest('.board-inner');
                 if (isResolvedToday(c)) updateResolvedTodayUI(c);
@@ -3845,13 +4114,16 @@ document.addEventListener('DOMContentLoaded',()=>{
               }
               cards.forEach(card => updateCard(card, c, evaluateCardVisibility));
             } else {
-              if (isTerminalState(c?.state?.value)) {
+              if (isTerminalState(c?.state?.value, c?.state?.display_value)) {
                 if (isResolvedToday(c)) updateResolvedTodayUI(c);
                 return;
               }
               insertNewCaseCard(c, evaluateCardVisibility);
             }
           });
+        }
+        if (deltaEvents.length > 0) {
+          deltaEvents.forEach(ev => upsertEventCard(ev));
         }
         // Dynamic Sync Time: look back at least the polling interval plus a small buffer
         lastSyncTime = new Date(Date.now() - (POLLING_INTERVAL + 5000)).toISOString().split('.')[0].replace('T', ' ');
@@ -3985,8 +4257,165 @@ document.addEventListener('DOMContentLoaded',()=>{
       return card;
     }
 
+    function resolveEventLane(data) {
+      const hasAssigned = !!data?.assigned_to?.value;
+      if (!hasAssigned) return 'orphan';
+      const rawDV = (data?.priority?.display_value || '').trim();
+      const match = rawDV.match(/^\d/);
+      const prio = match ? parseInt(match[0], 10) : parseInt(data?.priority?.value || '4', 10);
+      if (prio === 1) return 'critical';
+      if (prio === 2) return 'high';
+      if (prio === 3) return 'medium';
+      return 'normal';
+    }
+
+    function getEventBoardWrap(boardKey) {
+      if (boardKey === 'monitoring') return document.getElementById('board-wrap-event-monitoring');
+      if (boardKey === 'backup') return document.getElementById('board-wrap-backup-monitoring');
+      return null;
+    }
+
+    function buildEventCardElement(data, lane, boardKey) {
+      const number = data?.number?.display_value || '';
+      const sysId = data?.sys_id?.value || data?.sys_id || '';
+      const assigned = data?.assigned_to?.display_value || '';
+      const assignedId = data?.assigned_to?.value || '';
+      const stateLabel = data?.state?.display_value || 'N/A';
+      const priorityLabel = data?.priority?.display_value || 'N/A';
+      const prioVal = parseInt(data?.priority?.value || '4', 10);
+      const desc = (data?.short_description?.display_value || data?.description?.display_value || '—').substring(0, 90);
+      const eventType = data?._eventType || data?.u_event_type?.display_value || 'N/A';
+      const account = data?._account || 'N/A';
+      const impact = data?.impact?.value || '';
+      const urgency = data?.urgency?.value || '';
+
+      const card = document.createElement('div');
+      card.className = 'card card-' + lane + ' card-new';
+      card.dataset.sysid = sysId;
+      card.dataset.assignedid = assignedId;
+      card.dataset.assignedname = assigned;
+      card.dataset.impact = impact;
+      card.dataset.urgency = urgency;
+      card.dataset.account = account;
+      card.dataset.eventtype = eventType;
+      card.dataset.state = stateLabel;
+      card.dataset.priority = priorityLabel;
+      card.dataset.eventboard = boardKey;
+      card.onclick = () => openCaseModal(sysId, number, card, 'u_event_task');
+
+      card.innerHTML =
+        '<div class="card-top">' +
+          '<span class="card-num">' + escapeHtml(number) + '</span>' +
+          '<span class="card-prio-badge card-prio-' + prioVal + '">' + escapeHtml(priorityLabel) + '</span>' +
+        '</div>' +
+        '<p class="card-desc">' + escapeHtml(desc || '—') + '</p>' +
+        '<div class="card-tags">' +
+          '<span class="tag tag-state">' + escapeHtml(stateLabel) + '</span>' +
+          '<span class="tag tag-type">' + escapeHtml(eventType) + '</span>' +
+        '</div>' +
+        '<div class="card-footer">' +
+          '<span class="card-assigned' + (assigned ? '' : ' unassigned') + '">' +
+            '<span class="card-avatar">' + (assigned ? assigned.split(/\s+/).slice(0,2).map(p=>p.charAt(0).toUpperCase()).join('') : '!') + '</span>' +
+            '<span>' + (assigned ? escapeHtml(assigned) : 'Sem responsável') + '</span>' +
+          '</span>' +
+          '<span class="card-time">' + escapeHtml(account) + '</span>' +
+        '</div>';
+
+      setTimeout(() => card.classList.remove('card-new'), 900);
+      return card;
+    }
+
+    function updateEventCard(card, data, boardKey) {
+      const lane = resolveEventLane(data);
+      const newBoard = getEventBoardWrap(boardKey);
+      const oldBoard = card.closest('.board-wrap');
+      if (!newBoard) {
+        if (oldBoard) {
+          card.remove();
+          updateLaneCounters(oldBoard.querySelector('.board-inner'));
+        }
+        return;
+      }
+
+      card.dataset.assignedid = data?.assigned_to?.value || '';
+      card.dataset.assignedname = data?.assigned_to?.display_value || '';
+      card.dataset.account = data?._account || 'N/A';
+      card.dataset.eventtype = data?._eventType || data?.u_event_type?.display_value || 'N/A';
+      card.dataset.state = data?.state?.display_value || 'N/A';
+      card.dataset.priority = data?.priority?.display_value || 'N/A';
+      card.dataset.eventboard = boardKey;
+
+      const prioVal = parseInt(data?.priority?.value || '4', 10);
+      const badge = card.querySelector('.card-prio-badge');
+      if (badge) {
+        badge.className = 'card-prio-badge card-prio-' + prioVal;
+        badge.textContent = data?.priority?.display_value || 'N/A';
+      }
+      const desc = card.querySelector('.card-desc');
+      if (desc) desc.textContent = (data?.short_description?.display_value || data?.description?.display_value || '—').substring(0, 90);
+      const stateTag = card.querySelector('.tag-state');
+      if (stateTag) stateTag.textContent = data?.state?.display_value || 'N/A';
+      const typeTag = card.querySelector('.tag-type');
+      if (typeTag) typeTag.textContent = data?._eventType || data?.u_event_type?.display_value || 'N/A';
+      const assignedLbl = card.querySelector('.card-assigned span:last-child');
+      if (assignedLbl) assignedLbl.textContent = data?.assigned_to?.display_value || 'Sem responsável';
+      const avatar = card.querySelector('.card-avatar');
+      if (avatar) {
+        const name = data?.assigned_to?.display_value || '';
+        avatar.textContent = name ? name.split(/\s+/).slice(0,2).map(p=>p.charAt(0).toUpperCase()).join('') : '!';
+      }
+      const accountLbl = card.querySelector('.card-time');
+      if (accountLbl) accountLbl.textContent = data?._account || 'N/A';
+
+      if (oldBoard !== newBoard) {
+        const target = newBoard.querySelector('.lane[data-lane="' + lane + '"] .lane-body');
+        if (target) target.prepend(card);
+      }
+      LANE_CLASSES.forEach(cls => card.classList.remove(cls));
+      card.classList.add('card-' + lane);
+      moveCardToLane(card, lane);
+      pulseCard(card, true);
+
+      if (oldBoard) updateLaneCounters(oldBoard.querySelector('.board-inner'));
+      updateLaneCounters(newBoard.querySelector('.board-inner'));
+    }
+
+    function upsertEventCard(data) {
+      const sid = data?.sys_id?.value || data?.sys_id || '';
+      if (!sid) return;
+
+      const boardKey = eventTypeToBoardKey(data?._eventType || data?.u_event_type?.display_value || data?.u_event_type?.value || '');
+      const existingCards = document.querySelectorAll(
+        '#board-wrap-event-monitoring .card[data-sysid="' + sid + '"], #board-wrap-backup-monitoring .card[data-sysid="' + sid + '"]'
+      );
+
+      if (isEventInactiveState(data?.state?.value, data?.state?.display_value) || !boardKey) {
+        existingCards.forEach(card => {
+          const board = card.closest('.board-wrap');
+          card.remove();
+          if (board) updateLaneCounters(board.querySelector('.board-inner'));
+        });
+        return;
+      }
+
+      if (existingCards.length) {
+        existingCards.forEach(card => updateEventCard(card, data, boardKey));
+        return;
+      }
+
+      const board = getEventBoardWrap(boardKey);
+      if (!board) return;
+      const lane = resolveEventLane(data);
+      const targetBody = board.querySelector('.lane[data-lane="' + lane + '"] .lane-body');
+      if (!targetBody) return;
+      const empty = targetBody.querySelector('.lane-empty');
+      if (empty) empty.remove();
+      targetBody.prepend(buildEventCardElement(data, lane, boardKey));
+      updateLaneCounters(board.querySelector('.board-inner'));
+    }
+
     function insertNewCaseCard(data, visibilityCallback) {
-      if (isTerminalState(data?.state?.value)) return;
+      if (isTerminalState(data?.state?.value, data?.state?.display_value)) return;
       const gid = data?.assignment_group?.value || '';
       const targetDoc = document;
 
@@ -4054,8 +4483,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       const newGroupId = data.assignment_group?.value || '';
       const managedGroups = _G_IDS.split(',');
       
-      // Otimização de Performance: Se o sys_updated_on for igual, não faz nada
-      if (card.dataset.lastUpdated === (data.sys_updated_on?.value || '')) return;
+      // Reprocessa sempre o delta recebido para evitar perder mudanças no mesmo segundo
       card.dataset.lastUpdated = data.sys_updated_on?.value || '';
       
       // Determine which board this card belongs to
@@ -4071,7 +4499,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
 
       // CRITICAL: Se o estado mudou para resolvido/fechado, REMOVE o card imediatamente
-      if (isTerminalState(data.state?.value)) {
+      if (isTerminalState(data.state?.value, data.state?.display_value)) {
         if (isResolvedToday(data)) updateResolvedTodayUI(data);
         card.remove();
         if (boardWrap) updateLaneCounters(boardWrap.querySelector('.board-inner'));
@@ -4185,17 +4613,24 @@ document.addEventListener('DOMContentLoaded',()=>{
       if (boardWrap) updateLaneCounters(boardWrap.querySelector('.board-inner'));
     }
 
-    window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
+    const scheduleDeltaTick = (delayMs) => {
+      if (window.__deltaPollingTimerId) clearTimeout(window.__deltaPollingTimerId);
+      window.__deltaPollingTimerId = setTimeout(async () => {
+        try { await fetchDeltas(); }
+        finally {
+          if (window.__deltaPollingActive) scheduleDeltaTick(POLLING_INTERVAL);
+        }
+      }, Math.max(400, delayMs || POLLING_INTERVAL));
+    };
+    scheduleDeltaTick(350);
 
     // Expose restart hook so startPolling() can revive delta polling after tab re-focus
     window.__restartDeltaPolling = function() {
-      if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
-      window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
+      scheduleDeltaTick(150);
     };
     window.__setDeltaPollingInterval = function(ms){
       POLLING_INTERVAL = Math.max(4000, parseInt(ms,10)||4000);
-      if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
-      window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
+      scheduleDeltaTick(150);
     };
   })();
 	</script>
@@ -4313,21 +4748,21 @@ document.addEventListener('DOMContentLoaded',()=>{
     const rodrigoEx2=['1a8b95014fc1af00f3d33d828110c7cf','1d2a4cd84f347788c58b8e1f0210c767','38483f9fdbb7b0d0545dee0c139619ab','46b501304fea0700f5e08e1f0210c770','5a1ed5054fc1af00f3d33d828110c7ce'].map(id=>`^assigned_to!=${id}`).join('');
     const aggF2=gid=>`assigned_toANYTHING^u_typeIN0,1^u_operating_country=BR^stateIN1,10,21,8,2^u_internal_cases=false${rodrigoEx2}^assignment_group=${gid}`;
     const fa2=gid=>fetch(`${snBase}/api/now/stats/sn_customerservice_case?sysparm_query=${encodeURIComponent(aggF2(gid))}&sysparm_group_by=assigned_to,u_type&sysparm_count=true&sysparm_display_value=all&sysparm_limit=200`,{headers:h2}).then(r=>r.json()).then(d=>({gid,rows:d.result||[]}));
-    Promise.all([fcases(qA2),fcasesAllGroups(qP2),fcases(qRT2),
+    Promise.all([fcases(qA2),fcasesAllGroups(qP2),fcases(qRT2), fetchEventTasks(h2),
       fa2('1c7c9057db6771d0832ead8ed396197a'),fa2('ff72689247ee1e143cbfe07a216d4357'),fa2('673c2170476422503cbfe07a216d430f')
     ])
-    .then(([a,p,rt2,ag1,ag2,ag3])=>{
+    .then(([a,p,rt2,eventTasks2,ag1,ag2,ag3])=>{
       const ia=a.map(c=>c.sys_id?.value).filter(Boolean);
       const ip=p.map(c=>c.sys_id?.value).filter(Boolean);
-      return Promise.all([Promise.resolve(a),Promise.resolve(p),Promise.resolve(rt2),Promise.resolve(ag1),Promise.resolve(ag2),Promise.resolve(ag3),
+      return Promise.all([Promise.resolve(a),Promise.resolve(p),Promise.resolve(rt2),Promise.resolve(eventTasks2),Promise.resolve(ag1),Promise.resolve(ag2),Promise.resolve(ag3),
         bsla(ia,'sla.nameLIKEEMS-OLA-AMER^sla.nameLIKEResolve'),
         bsla(ip,'sla.nameLIKEEMS-OLA-AMER^sla.nameLIKEResolve'),
         bsla(ia,'sla.nameLIKEResolution^sla.nameNOTLIKEResponse'),
         bsla(ip,'sla.nameLIKEResolution^sla.nameNOTLIKEResponse'),
       ]);
     })
-    .then(([a,p,rt2,ag1,ag2,ag3,eA,eP,xA,xP])=>{
-      const html = render(a,p,[...xA,...eA],[...xP,...eP],m2,rt2,{l1:ag1,l2:ag2,event:ag3});
+    .then(([a,p,rt2,eventTasks2,ag1,ag2,ag3,eA,eP,xA,xP])=>{
+      const html = render(a,p,[...xA,...eA],[...xP,...eP],m2,rt2,{l1:ag1,l2:ag2,event:ag3},eventTasks2);
       if(targetWin&&!targetWin.closed){targetWin.document.open();targetWin.document.write(html);targetWin.document.close();}
     })
     .catch(e=>console.error('_emsOpsRender:',e));
@@ -4342,16 +4777,16 @@ document.addEventListener('DOMContentLoaded',()=>{
 
   // Stagger agg calls to reduce server load (performance improvement)
   Promise.all([
-    fcases(qA), fcasesAllGroups(qP), fcases(qRT),
+    fcases(qA), fcasesAllGroups(qP), fcases(qRT), fetchEventTasks(),
     fagg(G_ID_MAP_FETCH.l1),
     new Promise(r=>setTimeout(()=>fagg(G_ID_MAP_FETCH.l2).then(r),300)),
     new Promise(r=>setTimeout(()=>fagg(G_ID_MAP_FETCH.event).then(r),600)),
   ])
-  .then(([ativos, postMortem, resolvedToday, aggL1, aggL2, aggEvent]) => {
+  .then(([ativos, postMortem, resolvedToday, eventTasks, aggL1, aggL2, aggEvent]) => {
     const ia = ativos.map(c=>c.sys_id?.value).filter(Boolean);
     const ip = postMortem.map(c=>c.sys_id?.value).filter(Boolean);
     return Promise.all([
-      Promise.resolve(ativos), Promise.resolve(postMortem), Promise.resolve(resolvedToday),
+      Promise.resolve(ativos), Promise.resolve(postMortem), Promise.resolve(resolvedToday), Promise.resolve(eventTasks),
       Promise.resolve(aggL1), Promise.resolve(aggL2), Promise.resolve(aggEvent),
       bsla(ia,'sla.nameLIKEEMS-OLA-AMER^sla.nameLIKEResolve'),
       bsla(ip,'sla.nameLIKEEMS-OLA-AMER^sla.nameLIKEResolve'),
@@ -4359,8 +4794,8 @@ document.addEventListener('DOMContentLoaded',()=>{
       bsla(ip,'sla.nameLIKEResolution^sla.nameNOTLIKEResponse'),
     ]);
   })
-  .then(([ativos, postMortem, resolvedToday, aggL1, aggL2, aggEvent, emsA, emsP, eqixA, eqixP]) => {
-    const html = render(ativos, postMortem, [...eqixA,...emsA], [...eqixP,...emsP], mes, resolvedToday, {l1:aggL1,l2:aggL2,event:aggEvent});
+  .then(([ativos, postMortem, resolvedToday, eventTasks, aggL1, aggL2, aggEvent, emsA, emsP, eqixA, eqixP]) => {
+    const html = render(ativos, postMortem, [...eqixA,...emsA], [...eqixP,...emsP], mes, resolvedToday, {l1:aggL1,l2:aggL2,event:aggEvent}, eventTasks);
     if (outWin && !outWin.closed) { outWin.document.open(); outWin.document.write(html); outWin.document.close(); }
     else { const b=new Blob([html],{type:'text/html'}); window.open(URL.createObjectURL(b),'_blank'); }
   })

@@ -46,7 +46,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["config.js", "ems-ops.js"],
+      "resources": ["config.js", "ems-groups.js", "ems-ops.js"],
       "matches": ["https://*.service-now.com/*"]
     }
   ]
