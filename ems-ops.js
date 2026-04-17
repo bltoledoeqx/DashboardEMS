@@ -160,6 +160,7 @@ window.runEMSOps = function(userMes) {
       if (!txt) return 'SR';
       return txt.split(/\s+/).slice(0,2).map(p=>p.charAt(0).toUpperCase()).join('') || 'SR';
     };
+    const escAttr = v => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
     const caseUrl   = n => `${BASE}/sn_customerservice_case.do?sysparm_query=number=${n}`;
     const prioColor = p => (['','#CF222E','#BF8700','#0550AE','#1A7F37','#57606A'][p]||'#57606A');
     const mesNome   = MES_NAMES[m-1];
@@ -423,7 +424,7 @@ window.runEMSOps = function(userMes) {
       </div>`;
 
     const renderEventCard = c => `
-      <div class="card card-${c.lane}" data-sysid="${c.sysId}" data-assignedid="${c.assignedId||''}" data-assignedname="${c.assigned||''}" data-impact="${c.impactVal||''}" data-urgency="${c.urgencyVal||''}">
+      <div class="card card-${c.lane}" data-sysid="${c.sysId}" data-assignedid="${c.assignedId||''}" data-assignedname="${c.assigned||''}" data-impact="${c.impactVal||''}" data-urgency="${c.urgencyVal||''}" data-account="${escAttr(c.account||'N/A')}" data-eventtype="${escAttr(c.eventType||'N/A')}" data-state="${escAttr(c.state||'N/A')}" data-priority="${escAttr(c.priority||'N/A')}" onclick="openCaseModal('${c.sysId}','${c.number}',this,'u_event_task')">
         <div class="card-top">
           <span class="card-num">${c.number}</span>
           <span class="card-prio-badge card-prio-${c.prio}">${c.priority}</span>
@@ -2925,14 +2926,18 @@ function renderContactInfo(contact, caseData) {
 function openCaseModalBtn(el) {
   openCaseModal(el.dataset.sysid||'', el.dataset.num||'', el);
 }
-function openCaseModal(sysId, number, cardEl) {
+function openCaseModal(sysId, number, cardEl, recordTable='sn_customerservice_case') {
   if(window.__suppressCardModalUntil && Date.now()<window.__suppressCardModalUntil) return;
+  const tableName = recordTable || 'sn_customerservice_case';
+  const isEventTask = tableName === 'u_event_task';
   _modalSysId = sysId;
   if (_modalActiveCard) _modalActiveCard.classList.remove('modal-active');
   _modalActiveCard = cardEl;
   cardEl.classList.add('modal-active');
   closeCaseModal();
-  const url = '/sn_customerservice_case.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_view=case&sysparm_nostack=true&sysparm_query=no_related_lists=true';
+  const url = isEventTask
+    ? '/u_event_task.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_nostack=true'
+    : '/sn_customerservice_case.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_view=case&sysparm_nostack=true&sysparm_query=no_related_lists=true';
 
   const overlay = document.createElement('div');
   overlay.id = 'case-iframe-overlay';
@@ -2954,7 +2959,7 @@ function openCaseModal(sysId, number, cardEl) {
 
   const sidecar = document.createElement('div');
   sidecar.style.cssText = 'width:min(36vw,520px);min-width:320px;border-left:1px solid #D0D7DE;background:#fff;display:flex;flex-direction:column;';
-  sidecar.innerHTML = '<div style="padding:10px 12px;border-bottom:1px solid #D0D7DE;background:#F6F8FA;font-size:12px;font-weight:700;color:#1f2937;">CI Details <span id="case-sidecar-account" style="font-weight:500;color:#57606A;">—</span></div><div id="case-sidecar-list" style="padding:10px 12px;overflow:auto;flex:1;"></div>';
+  sidecar.innerHTML = '<div style="padding:10px 12px;border-bottom:1px solid #D0D7DE;background:#F6F8FA;font-size:12px;font-weight:700;color:#1f2937;">'+(isEventTask?'Event Details':'CI Details')+' <span id="case-sidecar-account" style="font-weight:500;color:#57606A;">—</span></div><div id="case-sidecar-list" style="padding:10px 12px;overflow:auto;flex:1;"></div>';
 
   // Captura referências diretas ANTES de qualquer operação assíncrona
   // para evitar race condition ao abrir múltiplos modais em sequência.
@@ -2971,6 +2976,29 @@ function openCaseModal(sysId, number, cardEl) {
 
   header.querySelector('#closeBtn').onclick = () => closeCaseModal();
   header.querySelector('#reloadBtn').onclick = () => { iframe.src = iframe.src; };
+
+  if (isEventTask) {
+    const assigned = cardEl?.dataset?.assignedname || 'Sem responsável';
+    const account = cardEl?.dataset?.account || 'N/A';
+    const eventType = cardEl?.dataset?.eventtype || 'N/A';
+    const state = cardEl?.dataset?.state || 'N/A';
+    const priority = cardEl?.dataset?.priority || 'N/A';
+    if (accLbl) accLbl.textContent = eventType;
+    if (listEl) {
+      listEl.innerHTML = '<div class="acc-sec">'+
+        '<div class="acc-sec-h">Resumo do evento</div>'+
+        '<div style="padding:10px;display:grid;grid-template-columns:1fr;gap:8px;font-size:12px;">'+
+          '<div><b>Número:</b> '+emsEscapeHtml(number || '—')+'</div>'+
+          '<div><b>Tipo:</b> '+emsEscapeHtml(eventType)+'</div>'+
+          '<div><b>Account:</b> '+emsEscapeHtml(account)+'</div>'+
+          '<div><b>Status:</b> '+emsEscapeHtml(state)+'</div>'+
+          '<div><b>Prioridade:</b> '+emsEscapeHtml(priority)+'</div>'+
+          '<div><b>Assigned to:</b> '+emsEscapeHtml(assigned)+'</div>'+
+        '</div>'+
+      '</div>';
+    }
+    return;
+  }
 
   const h = {'Accept':'application/json','X-UserToken':_TOK};
   fetch(_BASE+'/api/now/table/sn_customerservice_case/'+sysId+'?sysparm_fields=number,account,cmdb_ci&sysparm_display_value=all',{headers:h})
