@@ -683,6 +683,7 @@ window.runEMSOps = function(userMes) {
     return `<!DOCTYPE html><html lang="pt-BR"><head>
 <meta charset="UTF-8"><title>EMS Ops — ${mesNome} ${YEAR}</title>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <style>
 :root{
   --bg:#F6F8FA;--surface:#FFFFFF;--surface2:#F6F8FA;
@@ -696,10 +697,10 @@ window.runEMSOps = function(userMes) {
 body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;padding-left:56px;}
 a{text-decoration:none;}
 .side-nav{position:fixed;left:0;top:0;bottom:0;width:56px;background:#1f2937;border-right:1px solid #111827;z-index:var(--z-idx-side);display:flex;flex-direction:column;align-items:center;padding-top:10px;gap:6px;}
-.side-btn{width:42px;height:42px;border:none;border-radius:8px;background:transparent;color:#D1D5DB;cursor:pointer;font-size:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;}
+.side-btn{width:42px;height:42px;border:none;border-radius:8px;background:transparent;color:#D1D5DB;cursor:pointer;font-size:9px;font-weight:600;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;letter-spacing:.2px;}
 .side-btn:hover{background:#374151;color:#fff;}
 .side-btn.active{background:#2563EB;color:#fff;}
-.side-ico{font-size:14px;line-height:1;}
+.side-ico{font-size:15px;line-height:1;display:inline-flex;align-items:center;justify-content:center;}
 .header-icons{display:flex;align-items:center;gap:6px;margin-left:8px;}
 .top-icon-btn{width:28px;height:28px;border:1px solid var(--border);border-radius:50%;background:var(--surface);color:var(--muted);cursor:pointer;font-size:13px;display:inline-flex;align-items:center;justify-content:center;}
 .top-icon-btn:hover{border-color:#0969DA;color:#0969DA;background:#EFF6FF;}
@@ -1127,12 +1128,12 @@ tr:hover td{background:#F6F8FA;}
 </div>
 
 <div class="side-nav">
-  <button class="side-btn active" onclick="activateSide(this);showPage('kanban')"><span class="side-ico">🏠</span><span>Home</span></button>
-  <button class="side-btn" onclick="activateSide(this);showPage('event-monitoring')"><span class="side-ico">📡</span><span>Event Monitoring</span></button>
-  <button class="side-btn" onclick="activateSide(this);showPage('backup-monitoring')"><span class="side-ico">💾</span><span>Backup Monitoring</span></button>
-  <button class="side-btn" onclick="activateSide(this);showPage('backlog')"><span class="side-ico">📦</span><span>Backlog</span></button>
-  <button class="side-btn" onclick="activateSide(this);showPage('postmortem')"><span class="side-ico">🔎</span><span>Post</span></button>
-  <button class="side-btn" onclick="activateSide(this);showPage('reports')"><span class="side-ico">📊</span><span>Reports</span></button>
+  <button class="side-btn active" onclick="activateSide(this);showPage('kanban')" title="Home"><i class="bi bi-house-door-fill side-ico"></i><span>Home</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('event-monitoring')" title="Event Monitoring"><i class="bi bi-broadcast-pin side-ico"></i><span>Event</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('backup-monitoring')" title="Backup Monitoring"><i class="bi bi-hdd-network side-ico"></i><span>Backup</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('backlog')" title="Backlog"><i class="bi bi-archive side-ico"></i><span>Backlog</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('postmortem')" title="Post"><i class="bi bi-journal-text side-ico"></i><span>Post</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('reports')" title="Reports"><i class="bi bi-bar-chart-line side-ico"></i><span>Reports</span></button>
 </div>
 
 <div class="tabs" style="display:none">
