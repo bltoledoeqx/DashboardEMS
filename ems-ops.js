@@ -3774,8 +3774,20 @@ document.addEventListener('DOMContentLoaded',()=>{
     const _G_IDS = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
     const _FIELDS = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
     const _EVENT_FIELDS = 'sys_id,number,short_description,description,state,priority,impact,urgency,assigned_to,assignment_group,u_operational_scope,u_operating_country,u_event_number,u_event_type,sys_updated_on';
-    const isTerminalState = st => ['3','6','7','24','25','33','35'].includes(String(st||''));
-    const isEventInactiveState = st => !['1','2'].includes(String(st || ''));
+    const isTerminalState = (stateValue, stateDisplay='') => {
+      const st = String(stateValue || '');
+      if (['3','6','7','8','9','10','24','25','33','35'].includes(st)) return true;
+      const txt = String(stateDisplay || '').toLowerCase();
+      return txt.includes('resolved') || txt.includes('closed') || txt.includes('cancel') || txt.includes('resolvido') || txt.includes('fechado') || txt.includes('encerrado');
+    };
+    const isEventInactiveState = (stateValue, stateDisplay='') => {
+      const st = String(stateValue || '');
+      if (!st) {
+        const txt = String(stateDisplay || '').toLowerCase();
+        return !(txt.includes('new') || txt.includes('work in progress') || txt.includes('novo') || txt.includes('progresso'));
+      }
+      return !['1','2'].includes(st);
+    };
     const normalizeEventType = value => String(value || '').trim().toLowerCase();
     const eventTypeToBoardKey = value => {
       const normalized = normalizeEventType(value);
@@ -4017,7 +4029,7 @@ document.addEventListener('DOMContentLoaded',()=>{
             if (!sid) return;
             const cards = targetDoc.querySelectorAll('.card[data-sysid="' + sid + '"]');
             if (cards.length > 0) {
-              if (isTerminalState(c?.state?.value)) {
+              if (isTerminalState(c?.state?.value, c?.state?.display_value)) {
                 cards.forEach(card => {
                   const board = card.closest('.board-inner');
                 if (isResolvedToday(c)) updateResolvedTodayUI(c);
@@ -4028,7 +4040,7 @@ document.addEventListener('DOMContentLoaded',()=>{
               }
               cards.forEach(card => updateCard(card, c, evaluateCardVisibility));
             } else {
-              if (isTerminalState(c?.state?.value)) {
+              if (isTerminalState(c?.state?.value, c?.state?.display_value)) {
                 if (isResolvedToday(c)) updateResolvedTodayUI(c);
                 return;
               }
@@ -4303,7 +4315,7 @@ document.addEventListener('DOMContentLoaded',()=>{
         '#board-wrap-event-monitoring .card[data-sysid="' + sid + '"], #board-wrap-backup-monitoring .card[data-sysid="' + sid + '"]'
       );
 
-      if (isEventInactiveState(data?.state?.value) || !boardKey) {
+      if (isEventInactiveState(data?.state?.value, data?.state?.display_value) || !boardKey) {
         existingCards.forEach(card => {
           const board = card.closest('.board-wrap');
           card.remove();
@@ -4329,7 +4341,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
 
     function insertNewCaseCard(data, visibilityCallback) {
-      if (isTerminalState(data?.state?.value)) return;
+      if (isTerminalState(data?.state?.value, data?.state?.display_value)) return;
       const gid = data?.assignment_group?.value || '';
       const targetDoc = document;
 
@@ -4397,8 +4409,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       const newGroupId = data.assignment_group?.value || '';
       const managedGroups = _G_IDS.split(',');
       
-      // Otimização de Performance: Se o sys_updated_on for igual, não faz nada
-      if (card.dataset.lastUpdated === (data.sys_updated_on?.value || '')) return;
+      // Reprocessa sempre o delta recebido para evitar perder mudanças no mesmo segundo
       card.dataset.lastUpdated = data.sys_updated_on?.value || '';
       
       // Determine which board this card belongs to
@@ -4414,7 +4425,7 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
 
       // CRITICAL: Se o estado mudou para resolvido/fechado, REMOVE o card imediatamente
-      if (isTerminalState(data.state?.value)) {
+      if (isTerminalState(data.state?.value, data.state?.display_value)) {
         if (isResolvedToday(data)) updateResolvedTodayUI(data);
         card.remove();
         if (boardWrap) updateLaneCounters(boardWrap.querySelector('.board-inner'));
