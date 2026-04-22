@@ -13,6 +13,45 @@ window.getSnToken = function() {
   return token;
 };
 
+
+// ── Shared group-members loader (global scope) ────────────────────────────
+const EMS_GROUP_IDS = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
+const EMS_GMEMBERS_CACHE_KEY = 'ems_gmembers_v1';
+const EMS_GMEMBERS_TTL_MS = 30 * 60 * 1000;
+
+window.fetchGroupMembers = window.fetchGroupMembers || async function(gid, tok) {
+  const url = window.location.origin +
+    '/api/now/table/sys_user_grmember' +
+    '?sysparm_query=' + encodeURIComponent('group=' + gid + '^user.active=true') +
+    '&sysparm_fields=user&sysparm_display_value=all&sysparm_limit=500';
+  const r = await fetch(url, { headers: { 'Accept': 'application/json', 'X-UserToken': tok } });
+  if (!r.ok) return [];
+  const d = await r.json();
+  return (d.result || [])
+    .map(row => ({ id: row.user?.value || '', name: row.user?.display_value || '' }))
+    .filter(m => m.id && m.name);
+};
+
+window.loadAllGroupMembers = window.loadAllGroupMembers || async function(tok) {
+  try {
+    const cached = sessionStorage.getItem(EMS_GMEMBERS_CACHE_KEY);
+    if (cached) {
+      const { ts, data } = JSON.parse(cached);
+      if (Date.now() - ts < EMS_GMEMBERS_TTL_MS) return data;
+    }
+  } catch (_) {}
+
+  const gids = EMS_GROUP_IDS.split(',');
+  const entries = await Promise.all(gids.map(async gid => {
+    const members = await window.fetchGroupMembers(gid, tok).catch(() => []);
+    return [gid, members];
+  }));
+  const data = Object.fromEntries(entries);
+
+  try { sessionStorage.setItem(EMS_GMEMBERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch (_) {}
+  return data;
+};
+
 // Centralized state for Resolved Today to prevent double counting and ensure real-time accuracy
 // Initialized globally to ensure availability for delta polling
 window._resolvedTodaySeen = window._resolvedTodaySeen || new Set();
