@@ -2096,6 +2096,7 @@ function switchFila(key){
   }));
   const bAtivos=document.getElementById('board-wrap');
   if(bAtivos)bAtivos.innerHTML=ativosBoards[safeKey]||'';
+  window._boardJustReplaced = true;
   initCardDragAndDrop();
   const ba=document.getElementById('section-badge-ativos');
   if(ba){const c=(ativosBoards[safeKey]||'').match(/data-count="(\d+)"/g)||[];const tot=c.reduce((s,m)=>s+parseInt(m.replace(/\D/g,'')),0);ba.textContent=tot+' cases · <20 dias';}
@@ -2110,6 +2111,13 @@ function switchFila(key){
   document.getElementById('analyst-board-content').innerHTML='';
   renderFilterChips();
   if(_slaSortOn) applySlaSort();
+  if (typeof window.__deltaResetSync === 'function') window.__deltaResetSync();
+  // Debounce: aguarda 150ms antes de reiniciar o polling para nao disparar
+  // enquanto o ciclo anterior ainda esta em andamento (isFetching=true).
+  if (window._switchFilaDebounce) clearTimeout(window._switchFilaDebounce);
+  window._switchFilaDebounce = setTimeout(function() {
+    if (typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
+  }, 150);
 }
 
 function updateReportsByFila(){
@@ -2724,11 +2732,9 @@ function showToast(msg,type='success'){
 function switchAnalyst(userId){
   const asel=document.getElementById('analyst-sel');
   if(asel&&asel.value!==userId) asel.value=userId||'';
-  // Filter existing boards by analyst instead of rendering separate section
   const analystContent=document.getElementById('analyst-board-content');
   if(analystContent) analystContent.innerHTML='';
-
-  // Filter all cards in both boards
+  if (window._boardJustReplaced) { window._boardJustReplaced = false; renderFilterChips(); return; }
   const boards=['board-wrap', 'board-wrap-backlog-tab'];
   const gid=window._GID_MAP?.[currentFila]||'';
   const managerId=document.getElementById('manager-sel')?.value||'';
@@ -2952,11 +2958,25 @@ function openCaseModal(sysId, number, cardEl, recordTable='sn_customerservice_ca
   header.innerHTML = '<div style="flex:1"></div><img src="https://i.postimg.cc/NFB5VZyG/equinix-logo-icon-169199-resized.png" style="height:26px;display:block;"><div style="flex:1;display:flex;justify-content:flex-end;gap:12px;"><button id="reloadBtn" style="background:transparent;border:none;color:#fff;cursor:pointer;opacity:0.8;">🔄</button><button id="closeBtn" style="background:transparent;border:none;color:#fff;cursor:pointer;font-size:16px;">✕</button></div>';
 
   const bodyWrap = document.createElement('div');
-  bodyWrap.style.cssText = 'flex:1;display:flex;min-height:0;';
+  bodyWrap.style.cssText = 'flex:1;display:flex;min-height:0;position:relative;';
 
   const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'flex:1;border:none;width:100%;opacity:0;transition:opacity .25s;';
+  // Show skeleton while iframe loads, then fade in
+  const iframeSkeleton = document.createElement('div');
+  iframeSkeleton.style.cssText = 'position:absolute;inset:0;background:#f6f8fa;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;font-family:sans-serif;font-size:13px;color:#57606A;';
+  iframeSkeleton.innerHTML = '<div style="width:32px;height:32px;border:3px solid #D0D7DE;border-top-color:#0969DA;border-radius:50%;animation:emsModalSpin .7s linear infinite;"></div><span>Abrindo chamado...</span>';
+  if (!document.getElementById('emsModalSpinStyle')) {
+    const st = document.createElement('style');
+    st.id = 'emsModalSpinStyle';
+    st.textContent = '@keyframes emsModalSpin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(st);
+  }
+  iframe.onload = function() {
+    iframe.style.opacity = '1';
+    iframeSkeleton.style.display = 'none';
+  };
   iframe.src = url;
-  iframe.style.cssText = 'flex:1;border:none;width:100%;';
 
   const sidecar = document.createElement('div');
   sidecar.style.cssText = 'width:min(36vw,520px);min-width:320px;border-left:1px solid #D0D7DE;background:#fff;display:flex;flex-direction:column;';
@@ -2968,6 +2988,7 @@ function openCaseModal(sysId, number, cardEl, recordTable='sn_customerservice_ca
   const accLbl  = sidecar.querySelector('#case-sidecar-account');
   const listEl  = sidecar.querySelector('#case-sidecar-list');
 
+  bodyWrap.appendChild(iframeSkeleton);
   bodyWrap.appendChild(iframe);
   bodyWrap.appendChild(sidecar);
   modal.appendChild(header);
@@ -3677,8 +3698,13 @@ function filtOpts(i){
 function applyCol(ci){const ch=Array.from(document.querySelectorAll('#ddopts input:checked')).map(i=>i.value);_fil[ci]=ch.length?new Set(ch):new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 function clrCol(ci){_fil[ci]=new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden) return;
+  if(document.hidden){
+    if(window.__deltaPollingTimerId){ clearInterval(window.__deltaPollingTimerId); window.__deltaPollingTimerId=null; }
+    return;
+  }
+  if(typeof window.__deltaResetSync === 'function') window.__deltaResetSync();
   if(!window.__deltaPollingActive || !window.__deltaPollingTimerId) startPolling();
+  else if(typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
 });
 document.addEventListener('DOMContentLoaded',()=>{
   const accHdr=document.getElementById('acc-hdr-analyst');
@@ -3766,10 +3792,17 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (window.__deltaPollingTimerId) { clearInterval(window.__deltaPollingTimerId); window.__deltaPollingTimerId = null; }
     window.__deltaPollingActive = true;
 
-    let POLLING_INTERVAL = window._UI_SETTINGS?.pollingMs || 4000;
+    let POLLING_INTERVAL = window._UI_SETTINGS?.pollingMs || 10000;
     // Start sync from a very recent point since we already seeded the "seen" set
     let lastSyncTime = new Date(Date.now() - 60000).toISOString().split('.')[0].replace('T', ' ');
     let isFetching = false;
+
+    // Hook externo: switchFila chama isto ao trocar de fila para buscar dados
+    // recentes imediatamente. Zera isFetching para garantir execucao no proximo ciclo.
+    window.__deltaResetSync = function() {
+      lastSyncTime = new Date(Date.now() - 65000).toISOString().split('.')[0].replace('T', ' ');
+      isFetching = false;
+    };
     
     const _G_IDS = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
     const _FIELDS = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
@@ -3911,7 +3944,12 @@ document.addEventListener('DOMContentLoaded',()=>{
 
       const fetchStartTime = new Date(Date.now() - 2000).toISOString().split('.')[0].replace('T', ' '); // Overlap de 2s para segurança
 
-      const baseQuery = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
+      // Escopa a query para a fila ativa. Fila especifica reduz carga vs. buscar os 3 grupos.
+      const _activeGid = (typeof currentFila !== 'undefined' && currentFila && currentFila !== 'all')
+        ? (window._GID_MAP?.[currentFila] || _G_IDS)
+        : _G_IDS;
+      const _groupClause = _activeGid.includes(',') ? 'assignment_groupIN' + _activeGid : 'assignment_group=' + _activeGid;
+      const baseQuery = _groupClause + '^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
       // Define evaluateCardVisibility here so it has access to current filter states
       const evaluateCardVisibility = (card, data) => {
         const bWrap = card.closest('.board-wrap');
@@ -4053,6 +4091,11 @@ document.addEventListener('DOMContentLoaded',()=>{
         }
         // Dynamic Sync Time: look back at least the polling interval plus a small buffer
         lastSyncTime = new Date(Date.now() - (POLLING_INTERVAL + 5000)).toISOString().split('.')[0].replace('T', ' ');
+        // DnD rebind: single call per batch instead of per card insertion
+        if (window._dndDirty && typeof initCardDragAndDrop === 'function') {
+          initCardDragAndDrop();
+          window._dndDirty = false;
+        }
       } catch (err) { console.error('[DeltaPolling] Erro:', err); }
       finally { isFetching = false; }
     }
@@ -4360,14 +4403,13 @@ document.addEventListener('DOMContentLoaded',()=>{
             if (empty) empty.remove();
             const card = buildCardElement(data, lane);
             targetBody.prepend(card);
-            initCardDragAndDrop();
-            // Check visibility immediately after building the card
+            window._dndDirty = true;
             if (visibilityCallback && !visibilityCallback(card, data)) {
-              card.remove(); // If not visible, remove it
+              card.remove();
             } else {
-              card.style.display = ''; // Ensure it's visible if it was inserted
+              card.style.display = '';
             }
-            updateLaneCounters(board); // Update counters after potential removal
+            updateLaneCounters(board);
           }
         }
       }
@@ -4383,14 +4425,13 @@ document.addEventListener('DOMContentLoaded',()=>{
             if (empty) empty.remove();
             const card = buildCardElement(data, lane);
             targetBody.prepend(card);
-            initCardDragAndDrop();
-            // Check visibility immediately after building the card
+            window._dndDirty = true;
             if (visibilityCallback && !visibilityCallback(card, data)) {
-              card.remove(); // If not visible, remove it
+              card.remove();
             } else {
-              card.style.display = ''; // Ensure it's visible if it was inserted
+              card.style.display = '';
             }
-            updateLaneCounters(board); // Update counters after potential removal
+            updateLaneCounters(board);
           }
         }
       }
@@ -4543,11 +4584,13 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     // Expose restart hook so startPolling() can revive delta polling after tab re-focus
     window.__restartDeltaPolling = function() {
+      isFetching = false;
       if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
       window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
     };
     window.__setDeltaPollingInterval = function(ms){
       POLLING_INTERVAL = Math.max(4000, parseInt(ms,10)||4000);
+      isFetching = false;
       if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
       window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
     };
