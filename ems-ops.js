@@ -30,18 +30,44 @@ window.runEMSOps = function(userMes) {
   };
 
   const G_IDS     = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
-  const GROUP_MEMBERS = {
-    '1c7c9057db6771d0832ead8ed396197a': [
-      {name:'Alain Lamothe',id:'42cb28908758edd4e41640cd0ebb3546'},{name:'Alexandre Maia',id:'1c1805e9db194950a7f8a334ca9619ec'},{name:'Ahmad Saeed',id:'479e82f0475b8e14b4baa8b5536d4350'},{name:'Andre Muller',id:'42c027c4dba89c10034e6e25ca96196c'},{name:'Andre Sodre',id:'41a509fc4faa0700f5e08e1f0210c73a'},{name:'Andreza Alvares',id:'3665a617dbde60143e6ee2d2ca9619b1'},{name:'Asghar Shamloo',id:'96bfea151b120158a0ab62ca234bcb89'},{name:'Barbara Serain',id:'f3da570847c172d03cbfe07a216d437d'},{name:'Bruna Artioli',id:'46380b503304f6d497e2fba45d5c7bc3'},{name:'Bruno Toledo',id:'eb71bc95dbfbac10fb5d09ccd3961971'},{name:'Bruno Vicente',id:'05a509fc4faa0700f5e08e1f0210c751'},{name:'Cainan Silveira',id:'1a5cdc969317a2506fa8fc0b6aba1003'},{name:'Carlos Nogueira',id:'51a509fc4faa0700f5e08e1f0210c766'},{name:'Carolina Giamassi',id:'7eb85df693d47194ef0af8e74dba103c'},{name:'Danilo Marques',id:'4d4689344fea0700f5e08e1f0210c74c'},{name:'Davi Santos',id:'58f8ba0bdba15550b715aa1d13961964'},{name:'David Neil',id:'eda1c45fdbaec050b9711a8c1396191d'},{name:'Diego Montes',id:'ab04bdf283068e90c149bb447daad3fe'},{name:'Diogo Caldeira',id:'c416817b1b31b410a0ab62ca234bcb0f'},{name:'Fabricio Carvalho',id:'727715dc4f14f744c58b8e1f0210c7fd'},{name:'Felipe Drumond',id:'d9a509fc4faa0700f5e08e1f0210c7b8'},{name:'Felipe Soares',id:'99a509fc4faa0700f5e08e1f0210c7b7'},{name:'Fernando Lima',id:'b3f54d704fea0700f5e08e1f0210c7bb'},{name:'Fernando Meissner',id:'239e2d57db391d50a7f8a334ca9619cd'},{name:'Fábio Brasil',id:'6c643fd44f3efbc8c58b8e1f0210c708'},{name:'Gabriel Cruz',id:'92bdf2a41b79f410a0ab62ca234bcb6c'},{name:'Gabriel Sorroche',id:'0f6c36374767ee901065fa57436d4391'},{name:'Giulia Lopes',id:'b82ff9a8836072d4c149bb447daad390'},{name:'Guilherme Mello',id:'494d8dc44f2f3780f3d33d828110c791'},{name:'Hugo Luna',id:'5335673747eba598c2fd45e8036d4360'},{name:'Jefferson Abreu',id:'5ab87e13875029105ea58628dabb3538'},{name:'Joana Enes',id:'2cac81cd87792d10c48cb845dabb35b1'},{name:'João Miranda',id:'83f109f3dbff8d90fb5d09ccd3961908'},{name:'João Victor Silva',id:'2cf8ba0bdba15550b715aa1d139619c3'},{name:'Julio Araujo',id:'3dcb06418785b514c48cb845dabb35b9'},{name:'Kauê Furtado',id:'c6380b503304f6d497e2fba45d5c7bc7'},{name:'Kevin Ma',id:'8c99bade1b231c54bb580e966e4bcb28'},{name:'Leticia Veiga',id:'46a318b88720bdd45ea58628dabb35e8'},{name:'Lia da Silva',id:'9e9aa79883068a1cc149bb447daad348'},{name:'Lorena Alves',id:'c8657f998326c258c149bb447daad363'},{name:'Luan Salviano',id:'b72e3a8e97fa31180c103486f053af65'},{name:'Lucas Henrique Rocha',id:'4a380b503304f6d497e2fba45d5c7be8'},{name:'Lucas Oliveira Silva',id:'c8e1d213973239980c103486f053af5b'},{name:'Luiz Hernandes',id:'a57afa104f0d2b00f3d33d828110c770'},{name:'Michael Manna',id:'c1993ede1b231c54bb580e966e4bcbe6'},{name:'Michael Rodrigues',id:'0aa549fc4faa0700f5e08e1f0210c7d2'},{name:'Paloma Moreira',id:'525c9c969317a2506fa8fc0b6aba10f4'},{name:'Paulo Henrique Augusto',id:'6c290269db121910a7f8a334ca9619ad'},{name:'Paulo Leal',id:'e92d179e47c22d90c2fd45e8036d43d1'},{name:'Pedro Henrique Bernoldi',id:'41c6e49f97c626149b5a7efe2153af46'},{name:'Raymond Birch',id:'6bc8721a1b231c54bb580e966e4bcb59'},{name:'Rayanne Nascimento',id:'1569409347c1ba103cbfe07a216d4340'},{name:'Renato Neves',id:'97981e64db8c4d14b715aa1d13961963'},{name:'Robert Fischer',id:'8eb501304fea0700f5e08e1f0210c763'},{name:'Roland Szczesny',id:'303afe161b631c54bb580e966e4bcbb2'},{name:'Ruan Mello',id:'e569409347c1ba103cbfe07a216d4378'},{name:'Sergio Procópio',id:'82b501304fea0700f5e08e1f0210c782'},{name:'Syed Sultan Nazar',id:'82b9fe121b631c54bb580e966e4bcbd3'},{name:'Thaina Dias',id:'050542f2c3f8e610c7341f53e40131ab'},{name:'Vernon Ko',id:'b669b29e1b231c54bb580e966e4bcbb5'},{name:'Vinicius Silva',id:'e846c4091b9571101424c8451a4bcb16'}
-    ],
-    '673c2170476422503cbfe07a216d430f': [
-      {name:'Ana Clara Azevedo',id:'358d2145872795545ea58628dabb35f7'},{name:'Barbara Serain',id:'f3da570847c172d03cbfe07a216d437d'},{name:'Cainan Silveira',id:'1a5cdc969317a2506fa8fc0b6aba1003'},{name:'Daniel Raposo',id:'86b8ba13875029105ea58628dabb35ae'},{name:'Felipe Drumond',id:'d9a509fc4faa0700f5e08e1f0210c7b8'},{name:'Felipe Soares',id:'99a509fc4faa0700f5e08e1f0210c7b7'},{name:'Fernando Lima',id:'b3f54d704fea0700f5e08e1f0210c7bb'},{name:'Gabriel Cruz',id:'92bdf2a41b79f410a0ab62ca234bcb6c'},{name:'Guilherme Mello',id:'494d8dc44f2f3780f3d33d828110c791'},{name:'Juliana Caldeira',id:'02543c1cc3be6ed0c7341f53e40131e4'},{name:'Leticia Veiga',id:'46a318b88720bdd45ea58628dabb35e8'},{name:'Luiz Hernandes',id:'a57afa104f0d2b00f3d33d828110c770'},{name:'Paulo Leal',id:'e92d179e47c22d90c2fd45e8036d43d1'},{name:'Pedro Henrique Bernoldi',id:'41c6e49f97c626149b5a7efe2153af46'},{name:'Renato Neves',id:'97981e64db8c4d14b715aa1d13961963'},{name:'Sergio Procópio',id:'82b501304fea0700f5e08e1f0210c782'}
-    ],
-    'ff72689247ee1e143cbfe07a216d4357': [
-      {name:'Abdool Halleem',id:'56393a1e1b231c54bb580e966e4bcbd3'},{name:'Adriano Brigario',id:'fca5c5fc4faa0700f5e08e1f0210c7ff'},{name:'Ahmad Saeed',id:'479e82f0475b8e14b4baa8b5536d4350'},{name:'Alain Lamothe',id:'42cb28908758edd4e41640cd0ebb3546'},{name:'Alexandre Oliveira',id:'87deeb4e1338734426d55d122244b09c'},{name:'Alexander Victorino',id:'eee2842293c74a1018e8bf2a6aba1079'},{name:'Andreza Alvares',id:'3665a617dbde60143e6ee2d2ca9619b1'},{name:'Asghar Shamloo',id:'96bfea151b120158a0ab62ca234bcb89'},{name:'Augusto Almeida Galvao',id:'e6e525ad4f447fc0c58b8e1f0210c74e'},{name:'Bruna Artioli',id:'46380b503304f6d497e2fba45d5c7bc3'},{name:'Brunno Figueiredo',id:'8da509fc4faa0700f5e08e1f0210c749'},{name:'Cainan Silveira',id:'1a5cdc969317a2506fa8fc0b6aba1003'},{name:'Carolina Sequeira',id:'da9aa79883068a1cc149bb447daad345'},{name:'Cleiton Torres',id:'bbbfd92193587ad0771238797bba1018'},{name:'Daniel Philot',id:'d5a509fc4faa0700f5e08e1f0210c776'},{name:'Diego Leite',id:'d5a509fc4faa0700f5e08e1f0210c783'},{name:'Diogo Caldeira',id:'c416817b1b31b410a0ab62ca234bcb0f'},{name:'Eduardo de Abreu',id:'d5a509fc4faa0700f5e08e1f0210c794'},{name:'Fabio Rodrigues',id:'55a509fc4faa0700f5e08e1f0210c7b0'},{name:'Fabricio Carvalho',id:'727715dc4f14f744c58b8e1f0210c7fd'},{name:'Fábio Brasil',id:'6c643fd44f3efbc8c58b8e1f0210c708'},{name:'Gabriel Sorroche',id:'0f6c36374767ee901065fa57436d4391'},{name:'Giulia Lopes',id:'b82ff9a8836072d4c149bb447daad390'},{name:'Gleidson Rocha',id:'a5a509fc4faa0700f5e08e1f0210c7ea'},{name:'Guilherme de Souza',id:'a7f9fa33dbc99150545dee0c139619ee'},{name:'Henrique Almeida',id:'47bbc00887cf9554dfdd64a09bbb354c'},{name:'Janei Araujo',id:'17debbaf13fb67c826d55d122244b0d6'},{name:'Jefferson Souza',id:'2da549fc4faa0700f5e08e1f0210c70b'},{name:'Joana Enes',id:'2cac81cd87792d10c48cb845dabb35b1'},{name:'Jone Colmenero',id:'39a549fc4faa0700f5e08e1f0210c72d'},{name:'Jorge Andrade',id:'625385aa1b61dc5c5deb4199bd4bcbb5'},{name:'José Couto',id:'bb6b8debdbaa8cd47aab710439961965'},{name:'Jose Neto',id:'f5a549fc4faa0700f5e08e1f0210c736'},{name:'Kauê Furtado',id:'c6380b503304f6d497e2fba45d5c7bc7'},{name:'Kevin Ma',id:'8c99bade1b231c54bb580e966e4bcb28'},{name:'Laylla Rangel',id:'f1a549fc4faa0700f5e08e1f0210c757'},{name:'Leonardo Trigo',id:'d647da78c3f3fdd893144f05990131c3'},{name:'Lia da Silva',id:'9e9aa79883068a1cc149bb447daad348'},{name:'Lorena Alves',id:'c8657f998326c258c149bb447daad363'},{name:'Lucas Henrique Rocha',id:'4a380b503304f6d497e2fba45d5c7be8'},{name:'Lucas Oliveira Silva',id:'c8e1d213973239980c103486f053af5b'},{name:'Luiz Hernandes',id:'a57afa104f0d2b00f3d33d828110c770'},{name:'Marco Rosina',id:'92b87e13875029105ea58628dabb3551'},{name:'Michael Manna',id:'c1993ede1b231c54bb580e966e4bcbe6'},{name:'Osvaldo Delfino',id:'46a549fc4faa0700f5e08e1f0210c7e7'},{name:'Paloma Moreira',id:'525c9c969317a2506fa8fc0b6aba10f4'},{name:'Pedro Henrique Bernoldi',id:'41c6e49f97c626149b5a7efe2153af46'},{name:'Priscila Santos',id:'3994cc71dba10d14b715aa1d13961988'},{name:'Raymond Birch',id:'6bc8721a1b231c54bb580e966e4bcb59'},{name:'Rayanne Nascimento',id:'1569409347c1ba103cbfe07a216d4340'},{name:'Roland Szczesny',id:'303afe161b631c54bb580e966e4bcbb2'},{name:'Ruan Mello',id:'e569409347c1ba103cbfe07a216d4378'},{name:'Sidinei Oliveira',id:'bbf54d704fea0700f5e08e1f0210c776'},{name:'Syed Sultan Nazar',id:'82b9fe121b631c54bb580e966e4bcbd3'},{name:'Thaina Dias',id:'050542f2c3f8e610c7341f53e40131ab'},{name:'Thercio Costa',id:'f86d0a84db58b850fb5d09ccd39619c4'},{name:'Tiago Garcia',id:'48657f998326c258c149bb447daad3cd'},{name:'Valmir de Oliveira',id:'40e1cfd04f6cbfc4c58b8e1f0210c76b'},{name:'Vernon Ko',id:'b669b29e1b231c54bb580e966e4bcbb5'},{name:'Vinicius Africo',id:'2c0890354f053b40c58b8e1f0210c74b'},{name:'Vinicius Machado',id:'9eb501304fea0700f5e08e1f0210c7b3'},{name:'Wagner Farias',id:'bd214939dbc3c5d0fb5d09ccd39619dd'},{name:'Wellington Batista',id:'d6b501304fea0700f5e08e1f0210c7c0'},{name:'Ygor Soares',id:'524d6e361ba8d154a62b20622a4bcb5c'}
-    ]
-  };
-  const G_NAMES   = { '1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER', '673c2170476422503cbfe07a216d430f':'Event Management BR', 'ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER' };
+  // ── Group members: carregados da API por demanda, sem hardcode de nomes ──
+  // Apenas os GIDs de grupo permanecem no código (são IDs técnicos, não dados pessoais).
+  const _GMEMBERS_CACHE_KEY = 'ems_gmembers_v1';
+  const _GMEMBERS_TTL_MS   = 30 * 60 * 1000; // 30 min em sessionStorage
+
+  async function fetchGroupMembers(gid, tok) {
+    const url = window.location.origin +
+      '/api/now/table/sys_user_grmember' +
+      '?sysparm_query=' + encodeURIComponent('group=' + gid + '^user.active=true') +
+      '&sysparm_fields=user&sysparm_display_value=all&sysparm_limit=500';
+    const r = await fetch(url, { headers: { 'Accept': 'application/json', 'X-UserToken': tok } });
+    if (!r.ok) return [];
+    const d = await r.json();
+    return (d.result || [])
+      .map(row => ({ id: row.user?.value || '', name: row.user?.display_value || '' }))
+      .filter(m => m.id && m.name);
+  }
+
+  async function loadAllGroupMembers(tok) {
+    // Retorna do sessionStorage se ainda válido
+    try {
+      const cached = sessionStorage.getItem(_GMEMBERS_CACHE_KEY);
+      if (cached) {
+        const { ts, data } = JSON.parse(cached);
+        if (Date.now() - ts < _GMEMBERS_TTL_MS) return data;
+      }
+    } catch (_) {}
+
+    const gids = G_IDS.split(',');
+    const entries = await Promise.all(gids.map(async gid => {
+      const members = await fetchGroupMembers(gid, tok).catch(() => []);
+      return [gid, members];
+    }));
+    const data = Object.fromEntries(entries);
+
+    try { sessionStorage.setItem(_GMEMBERS_CACHE_KEY, JSON.stringify({ ts: Date.now(), data })); } catch (_) {}
+    return data;
+  }  const G_NAMES   = { '1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER', '673c2170476422503cbfe07a216d430f':'Event Management BR', 'ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER' };
   const G_KEYS    = { '1c7c9057db6771d0832ead8ed396197a':'l1', '673c2170476422503cbfe07a216d430f':'event', 'ff72689247ee1e143cbfe07a216d4357':'l2' };
   const AWAIT_ST  = new Set(['18','32','5','29','30']);
   const EXCL      = [3,6,7,24,25,33,35].map(v=>`^state!=${v}`).join('');
@@ -564,7 +590,7 @@ window.runEMSOps = function(userMes) {
     const pmByGroup = postList.reduce((a,p)=>{ a[p.group]=(a[p.group]||0)+1; return a; },{});
     const pmByType  = postList.reduce((a,p)=>{ a[p.uType]=(a[p.uType]||0)+1; return a; },{});
     const ts        = new Date().toLocaleString('pt-BR',{timeZone:TZ_BR});
-    const gmembersJson = JSON.stringify(GROUP_MEMBERS);
+    const gmembersJson = JSON.stringify(window._GMEMBERS || {});
 
     // ── Analytics: table by analyst + resolved today chart ─────────────
     const G_ID_MAP = {
@@ -1219,7 +1245,7 @@ tr:hover td{background:#F6F8FA;}
         <label for="analyst-sel">Analista</label>
         <select id="analyst-sel" onchange="switchAnalyst(this.value)">
           <option value="">— Todos —</option>
-          ${(GROUP_MEMBERS['1c7c9057db6771d0832ead8ed396197a']||[]).sort((a,b)=>a.name.localeCompare(b.name)).map(a=>`<option value="${a.id}">${a.name}</option>`).join('')}
+          <option disabled value="">Carregando...</option>
         </select>
         <button type="button" class="req-clear-btn" onclick="clearToolbarFilters();closeReqMenus();">Limpar filtros</button>
       </div>
@@ -1474,6 +1500,20 @@ tr:hover td{background:#F6F8FA;}
 <script>
 let _TOK = (window.opener && !window.opener.closed) ? (window.opener.g_ck || window.opener.top?.g_ck || window.opener.parent?.g_ck) : null;
 let _HEADERS_OBJ = { 'Accept': 'application/json', 'X-UserToken': _TOK };
+// Counters and limits needed by snFetch (defined here because snFetch runs in injected scope)
+let _consecutiveAuthFailures = 0;
+const MAX_AUTH_FAILURES = 3;
+function handleCriticalSessionError(msg) {
+  console.error('[Dashboard] Sessão crítica:', msg);
+  if (typeof stopPolling === 'function') stopPolling();
+  if (typeof showToast === 'function') showToast(msg, 'error');
+  if (window.opener && !window.opener.closed) {
+    window.opener.postMessage({ type: 'EMS_DASHBOARD_SESSION_EXPIRED' }, '*');
+    setTimeout(() => location.reload(), 3000);
+  } else {
+    setTimeout(() => location.reload(), 3000);
+  }
+}
 const _BASE='${BASE}',_IDS='${G_IDS}',_MES=${m};
 const _MN=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const _GN={'1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER','673c2170476422503cbfe07a216d430f':'Event Management BR','ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER'};
@@ -1570,13 +1610,13 @@ let currentBacklogAnalyst='';
 let currentReportsFila='all';
 let currentReportsManager='';
 let currentReportsAnalyst='';
-window._GMEMBERS=${gmembersJson};
+window._GMEMBERS=null; // Carregado via API no init — não hardcoded
 window._GID_MAP={'all':_IDS,'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
 window._MANAGER_CACHE={};
 window._MSH_NOC_GID=undefined;
 window._REPORTS_FETCH_CACHE={ttlMs:30000,entries:{},inflight:{}};
 window._ACCOUNT_PRODUCTS_CACHE={ttlMs:120000,entries:{}};
-    window._UI_SETTINGS={pollingMs:4000,compact:false,defaultSort:'none'};
+    window._UI_SETTINGS={pollingMs:10000,compact:false,defaultSort:'none'};
 try{
   const saved=JSON.parse(localStorage.getItem('ems_ops_ui_settings')||'{}');
   window._UI_SETTINGS={...window._UI_SETTINGS,...saved};
@@ -1602,7 +1642,7 @@ function openSettingsModal(){
     '<div class="settings-h"><div class="settings-ttl">⚙️ Configurações do Painel</div><button type="button" onclick="closeSettingsModal()" class="refresh-btn">✕</button></div>'+
     '<div class="settings-grid">'+
       '<label for="set-polling">Intervalo do polling (tempo real)</label>'+
-      '<select id="set-polling"><option value="4000">4s</option><option value="15000">15s</option><option value="30000">30s</option><option value="60000">60s</option><option value="120000">120s</option></select>'+
+      '<select id="set-polling"><option value="4000">4s</option><option value="10000">10s (padrão)</option><option value="15000">15s</option><option value="30000">30s</option><option value="60000">60s</option><option value="120000">2min</option></select>'+
       '<label for="set-compact">Modo compacto (menos espaçamento)</label><input id="set-compact" type="checkbox">'+
       '<label for="set-sort">Ordenação padrão</label><select id="set-sort"><option value="none">Padrão</option><option value="sla">SLA</option></select>'+
     '</div>'+
@@ -1656,6 +1696,10 @@ async function ensureMshNocGroupId(){
 async function ensureManagerData(gid){
   if(!gid) return {members:[],managers:[]};
   if(window._MANAGER_CACHE[gid]) return window._MANAGER_CACHE[gid];
+  // _GMEMBERS é carregado via API no init — fallback caso ainda não pronto
+  if(!window._GMEMBERS) {
+    try { window._GMEMBERS = await loadAllGroupMembers(_TOK); } catch(_) { window._GMEMBERS = {}; }
+  }
   let baseMembers=(window._GMEMBERS?.[gid]||[]).slice();
   if(!baseMembers.length&&gid.includes(',')){
     const byId={};
@@ -2110,6 +2154,11 @@ function switchFila(key){
   document.getElementById('analyst-board-content').innerHTML='';
   renderFilterChips();
   if(_slaSortOn) applySlaSort();
+
+  // Ao trocar de fila: reseta o sync time para carregar dados recentes da nova fila
+  // e reinicia o delta polling com a query correta para essa fila
+  if (typeof window.__deltaResetSyncTime === 'function') window.__deltaResetSyncTime();
+  if (typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
 }
 
 function updateReportsByFila(){
@@ -2396,47 +2445,54 @@ function fetchAccordionScores(){
 }
 function fetchSemTypeScore(){fetchAccordionScores();}
 
-// ── Layered Polling ──────────────────────────────────────────────────────────
-let _pollL1=null, _pollL2=null, _pollL3=null;
+// ── On-Demand Queue Polling ──────────────────────────────────────────────────
+// Modelo: cada fila tem seu próprio timer, ativado apenas quando está visível.
+// "Minha view" (assigned_to=me) é o padrão inicial — fila completa só carrega ao acessar.
+let _pollL1=null, _pollL2=null;
 let _lastActivesCount = -1;
+
+// Rastreia qual fila está ativa para o delta polling adaptar a query
+function getActiveQueueGid() {
+  const fila = currentFila || 'all';
+  if (fila === 'all') return _IDS; // todos os grupos
+  return window._GID_MAP?.[fila] || _IDS;
+}
+
+function buildQueueQuery(sinceTime) {
+  const gid = getActiveQueueGid();
+  const groupClause = gid.includes(',')
+    ? 'assignment_groupIN' + gid
+    : 'assignment_group=' + gid;
+  return groupClause + '^sys_updated_on>=' + sinceTime + '^ORDERBYDESCsys_updated_on';
+}
 
 function startPolling(){
   stopPolling();
   window.__deltaPollingActive = true;
 
-  // Layer 1: KPIs (4s) — 3 lightweight aggregate calls
+  // Layer 1: KPIs leves (4s)
   _pollL1 = setInterval(()=>pollKPIs(), 4000);
 
-  // Layer 2: Reports/Scores (3min) — staggered
+  // Layer 2: Reports/Scores (3min) — só atualiza se accordion aberto
   _pollL2 = setInterval(()=>{
     ['sem-type-score','last-interacted-score','support-attention-score','customer-satisfaction-score'].forEach(id=>{
       const e=document.getElementById(id); if(e) e.dataset.dirty='1';
     });
     ['resolved-month-score-l1','resolved-month-score-l2','resolved-month-score-event'].forEach(id=>{
-      const elR=document.getElementById(id);
-      if(elR) elR.dataset.dirty='1';
+      const elR=document.getElementById(id); if(elR) elR.dataset.dirty='1';
     });
-    // Only refresh if accordion is open
     const body=document.getElementById('acc-body-analyst');
     if(body&&body.style.display!=='none') fetchAccordionScores();
   }, 180000);
 
-  // Layer 3: Full board (10min) — disabled re-render, using delta polling instead
-  // _pollL3 = setInterval(()=>{
-  //   if(_lastActivesCount>=0){
-  //     pollKPIs(true);
-  //   }
-  // }, 600000);
-
-  // Delta polling: restart if already initialized (e.g. tab re-focus after hidden)
+  // Delta polling iniciado separadamente via IIFE no final do arquivo
   if (typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
 }
 
 function stopPolling(){
   if(_pollL1)clearInterval(_pollL1);
   if(_pollL2)clearInterval(_pollL2);
-  if(_pollL3)clearInterval(_pollL3);
-  _pollL1=_pollL2=_pollL3=null;
+  _pollL1=_pollL2=null;
   if(window.__deltaPollingTimerId){clearInterval(window.__deltaPollingTimerId);window.__deltaPollingTimerId=null;}
   window.__deltaPollingActive=false;
 }
@@ -3677,8 +3733,18 @@ function filtOpts(i){
 function applyCol(ci){const ch=Array.from(document.querySelectorAll('#ddopts input:checked')).map(i=>i.value);_fil[ci]=ch.length?new Set(ch):new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 function clrCol(ci){_fil[ci]=new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden) return;
-  if(!window.__deltaPollingActive || !window.__deltaPollingTimerId) startPolling();
+  if(document.hidden){
+    // Pausa o delta quando a aba perde foco — libera recursos do browser
+    if(window.__deltaPollingTimerId){ clearInterval(window.__deltaPollingTimerId); window.__deltaPollingTimerId=null; }
+    return;
+  }
+  // Ao retornar: reseta sync time para não perder eventos que ocorreram enquanto estava oculta
+  if(typeof window.__deltaResetSyncTime === 'function') window.__deltaResetSyncTime();
+  if(typeof window.__restartDeltaPolling === 'function'){
+    window.__restartDeltaPolling();
+  } else if(!window.__deltaPollingActive || !window.__deltaPollingTimerId){
+    startPolling();
+  }
 });
 document.addEventListener('DOMContentLoaded',()=>{
   const accHdr=document.getElementById('acc-hdr-analyst');
@@ -3697,12 +3763,33 @@ document.addEventListener('DOMContentLoaded',()=>{
   currentReportsFila=document.getElementById('rpt-fila-sel')?.value||'all';
   currentReportsManager=document.getElementById('rpt-manager-sel')?.value||'';
   currentReportsAnalyst=document.getElementById('rpt-analyst-sel')?.value||'';
-  populateManagerDropdown('manager-sel', currentFila).then(()=>{
-    const managerId=document.getElementById('manager-sel')?.value||'';
-    populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
-    syncBacklogAnalystDropdown();
-    renderFilterChips();
-  });
+  // Carrega membros dos grupos via API (sem hardcode de nomes no código)
+  // _GMEMBERS é preenchido antes de populateManagerDropdown para que
+  // ensureManagerData e o delta polling já tenham os dados no primeiro ciclo.
+  loadAllGroupMembers(_TOK)
+    .then(members => {
+      window._GMEMBERS = members;
+      return populateManagerDropdown('manager-sel', currentFila);
+    })
+    .then(()=>{
+      const managerId=document.getElementById('manager-sel')?.value||'';
+      populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
+      syncBacklogAnalystDropdown();
+      renderFilterChips();
+    })
+    .catch(err => {
+      console.error('[Init] Erro ao carregar membros dos grupos:', err);
+      // Tenta mesmo assim — ensureManagerData fará fallback individual
+      populateManagerDropdown('manager-sel', currentFila).then(()=>{
+        populateAnalystDropdown('analyst-sel', currentFila, '', '— Todos —');
+        syncBacklogAnalystDropdown();
+        renderFilterChips();
+      });
+    })
+    .finally(() => {
+      // Polling só inicia após _GMEMBERS estar disponível (ou ter falhado com fallback)
+      startPolling();
+    });
   document.querySelectorAll('th[data-col]').forEach(th=>{th.addEventListener('click',e=>{e.stopPropagation();openFil(th,parseInt(th.getAttribute('data-col')));});});
   pgInit();
   // Load analyst table — try immediately, then watch for content via MutationObserver
@@ -3743,8 +3830,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(queueWrap) queueWrap.style.display='none';
     if(filterWrap) filterWrap.style.display='none';
   });
-  // Start layered polling
-	  startPolling();
+  // Drag and drop
     initCardDragAndDrop();
 	});
 
@@ -3766,11 +3852,19 @@ document.addEventListener('DOMContentLoaded',()=>{
     if (window.__deltaPollingTimerId) { clearInterval(window.__deltaPollingTimerId); window.__deltaPollingTimerId = null; }
     window.__deltaPollingActive = true;
 
-    let POLLING_INTERVAL = window._UI_SETTINGS?.pollingMs || 4000;
+    let POLLING_INTERVAL = window._UI_SETTINGS?.pollingMs || 10000; // 10s padrão por fila ativa
     // Start sync from a very recent point since we already seeded the "seen" set
     let lastSyncTime = new Date(Date.now() - 60000).toISOString().split('.')[0].replace('T', ' ');
+    // Exposto para que switchFila possa resetar ao trocar de fila
+    window.__deltaResetSyncTime = () => {
+      lastSyncTime = new Date(Date.now() - 65000).toISOString().split('.')[0].replace('T', ' ');
+      isFetching = false;
+      isFetchingStartTime = 0;
+    };
     let isFetching = false;
-    
+    let isFetchingStartTime = 0;
+    const FETCH_STUCK_TIMEOUT_MS = 30000; // 30s: se isFetching não resolveu, considera travado
+
     const _G_IDS = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
     const _FIELDS = 'number,short_description,priority,state,impact,urgency,assigned_to,assignment_group,opened_at,u_escalation_type,u_type,sys_updated_on,resolved_at,closed_at,sys_id,account,category,u_close_code,u_internal_cases';
     const _EVENT_FIELDS = 'sys_id,number,short_description,description,state,priority,impact,urgency,assigned_to,assignment_group,u_operational_scope,u_operating_country,u_event_number,u_event_type,sys_updated_on';
@@ -3898,8 +3992,15 @@ document.addEventListener('DOMContentLoaded',()=>{
     async function fetchDeltas() {
       if (!window.__deltaPollingActive) return;
       if (window.closed) return;
-      if (isFetching) return;
+
+      // Watchdog: se isFetching ficou travado por mais de FETCH_STUCK_TIMEOUT_MS, libera
+      if (isFetching) {
+        if (Date.now() - isFetchingStartTime < FETCH_STUCK_TIMEOUT_MS) return;
+        console.warn('[DeltaPolling] isFetching travado detectado — forçando reset após ' + FETCH_STUCK_TIMEOUT_MS + 'ms');
+        isFetching = false;
+      }
       isFetching = true;
+      isFetchingStartTime = Date.now();
 
       const targetDoc = document;
       const isResolvedToday = c => {
@@ -3911,7 +4012,8 @@ document.addEventListener('DOMContentLoaded',()=>{
 
       const fetchStartTime = new Date(Date.now() - 2000).toISOString().split('.')[0].replace('T', ' '); // Overlap de 2s para segurança
 
-      const baseQuery = 'assignment_groupIN' + _G_IDS + '^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
+      // Query adaptada à fila ativa — só busca dados da fila que o usuário está vendo
+      const baseQuery = buildQueueQuery(lastSyncTime);
       // Define evaluateCardVisibility here so it has access to current filter states
       const evaluateCardVisibility = (card, data) => {
         const bWrap = card.closest('.board-wrap');
@@ -4541,15 +4643,52 @@ document.addEventListener('DOMContentLoaded',()=>{
 
     window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
 
+    // ── Watchdog externo ─────────────────────────────────────────────────
+    // Rastreia o último ciclo tentado para detectar parada silenciosa.
+    let _lastPollAttempt = Date.now();
+    const _origSetInterval = window.__deltaPollingTimerId;
+    clearInterval(window.__deltaPollingTimerId);
+
+    const _guardedFetchDeltas = async function() {
+      _lastPollAttempt = Date.now();
+      return fetchDeltas();
+    };
+
+    window.__deltaPollingTimerId = setInterval(_guardedFetchDeltas, POLLING_INTERVAL);
+
+    // Verifica a cada 3 ciclos se o polling está vivo.
+    // Reinicia se ficou mais de 4 ciclos sem atividade (cobre stopPolling() inesperado).
+    setInterval(() => {
+      const elapsed = Date.now() - _lastPollAttempt;
+      const maxSilence = POLLING_INTERVAL * 4;
+      if (elapsed > maxSilence) {
+        console.warn('[DeltaPolling] Watchdog: sem atividade há ' + Math.round(elapsed / 1000) + 's — reiniciando...');
+        window.__deltaPollingActive = true;
+        isFetching = false;
+        isFetchingStartTime = 0;
+        if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
+        window.__deltaPollingTimerId = setInterval(_guardedFetchDeltas, POLLING_INTERVAL);
+        _lastPollAttempt = Date.now();
+      }
+    }, POLLING_INTERVAL * 3);
+
     // Expose restart hook so startPolling() can revive delta polling after tab re-focus
     window.__restartDeltaPolling = function() {
+      window.__deltaPollingActive = true;
+      isFetching = false;
+      isFetchingStartTime = 0;
       if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
-      window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
+      window.__deltaPollingTimerId = setInterval(_guardedFetchDeltas, POLLING_INTERVAL);
+      _lastPollAttempt = Date.now();
     };
     window.__setDeltaPollingInterval = function(ms){
       POLLING_INTERVAL = Math.max(4000, parseInt(ms,10)||4000);
+      window.__deltaPollingActive = true;
+      isFetching = false;
+      isFetchingStartTime = 0;
       if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
-      window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
+      window.__deltaPollingTimerId = setInterval(_guardedFetchDeltas, POLLING_INTERVAL);
+      _lastPollAttempt = Date.now();
     };
   })();
 	</script>
