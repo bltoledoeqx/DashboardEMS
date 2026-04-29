@@ -2738,13 +2738,20 @@ function switchAnalyst(userId){
   const boards=['board-wrap', 'board-wrap-backlog-tab'];
   const gid=window._GID_MAP?.[currentFila]||'';
   const managerId=document.getElementById('manager-sel')?.value||'';
-  const managerAllowed=new Set(getMembersByManager(gid,managerId).map(m=>m.id));
+  const managerAllowed=(() => {
+    if(!managerId) return null;
+    const gids = String(gid||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const pool = gids.length
+      ? gids.flatMap(oneGid => getMembersByManager(oneGid,managerId))
+      : getMembersByManager(gid,managerId);
+    return new Set(pool.map(m=>m.id).filter(Boolean));
+  })();
   boards.forEach(bid=>{
     const bw=document.getElementById(bid); if(!bw)return;
     bw.querySelectorAll('.card').forEach(card=>{
       const cardAssignedId=card.dataset.assignedid||'';
       const passesAnalyst=!userId||cardAssignedId===userId;
-      const passesManager=!managerId||managerAllowed.has(cardAssignedId);
+      const passesManager=!managerId||(managerAllowed && managerAllowed.has(cardAssignedId));
       card.style.display=(passesAnalyst&&passesManager)?'':'none';
     });
     // Hide empty lanes
@@ -2935,13 +2942,13 @@ function openCaseModalBtn(el) {
 }
 function openCaseModal(sysId, number, cardEl, recordTable='sn_customerservice_case') {
   if(window.__suppressCardModalUntil && Date.now()<window.__suppressCardModalUntil) return;
+  closeCaseModal();
   const tableName = recordTable || 'sn_customerservice_case';
   const isEventTask = tableName === 'u_event_task';
   _modalSysId = sysId;
   if (_modalActiveCard) _modalActiveCard.classList.remove('modal-active');
-  _modalActiveCard = cardEl;
-  cardEl.classList.add('modal-active');
-  closeCaseModal();
+  _modalActiveCard = cardEl || null;
+  if (_modalActiveCard?.classList) _modalActiveCard.classList.add('modal-active');
   const url = isEventTask
     ? '/u_event_task.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_nostack=true'
     : '/sn_customerservice_case.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_view=case&sysparm_nostack=true&sysparm_query=no_related_lists=true';
@@ -3965,7 +3972,11 @@ document.addEventListener('DOMContentLoaded',()=>{
         let pA = !aId || cAssId === aId;
         let pM = true;
         if (mId && !isBl) {
-          const allowed = new Set(getMembersByManager(g, mId).map(m => m.id));
+          const gList = String(g || '').split(',').map(s => s.trim()).filter(Boolean);
+          const allowedMembers = gList.length
+            ? gList.flatMap(oneGid => getMembersByManager(oneGid, mId))
+            : getMembersByManager(g, mId);
+          const allowed = new Set(allowedMembers.map(m => m.id).filter(Boolean));
           pM = allowed.has(cAssId);
         }
         return (pA && pM);
