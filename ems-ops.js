@@ -1119,8 +1119,6 @@ tr:hover td{background:#F6F8FA;}
     <span class="h-count">${mesNome} ${YEAR} · Ativos: ${classified.length} (${ativosCount} ativos / ${backlogCount} backlog) · Post-mortem: ${postList.length}</span>
     <div class="header-icons">
       <button class="top-icon-btn" title="Buscar" onclick="topAction('search')">🔍</button>
-      <button class="top-icon-btn" title="Favoritos" onclick="topAction('fav')">✦</button>
-      <button class="top-icon-btn" title="Histórico" onclick="topAction('refresh')">↻</button>
       <button class="top-icon-btn" title="Notificações" onclick="topAction('alerts')">🔔</button>
       <button class="top-icon-btn" title="Configurações" onclick="topAction('settings')">⚙️</button>
     </div>
@@ -1129,8 +1127,8 @@ tr:hover td{background:#F6F8FA;}
 
 <div class="side-nav">
   <button class="side-btn active" onclick="activateSide(this);showPage('kanban')" title="Home"><i class="bi bi-house-door-fill side-ico"></i><span>Home</span></button>
-  <button class="side-btn" onclick="activateSide(this);showPage('event-monitoring')" title="Event Monitoring"><i class="bi bi-broadcast-pin side-ico"></i><span>Event</span></button>
-  <button class="side-btn" onclick="activateSide(this);showPage('backup-monitoring')" title="Backup Monitoring"><i class="bi bi-hdd-network side-ico"></i><span>Backup</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('event-monitoring')" title="Event Monitoring"><i class="bi bi-broadcast-pin side-ico"></i><span>MON CAN</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('backup-monitoring')" title="Backup Monitoring"><i class="bi bi-hdd-network side-ico"></i><span>BACK CAN</span></button>
   <button class="side-btn" onclick="activateSide(this);showPage('backlog')" title="Backlog"><i class="bi bi-archive side-ico"></i><span>Backlog</span></button>
   <button class="side-btn" onclick="activateSide(this);showPage('postmortem')" title="Post"><i class="bi bi-journal-text side-ico"></i><span>Post</span></button>
   <button class="side-btn" onclick="activateSide(this);showPage('reports')" title="Reports"><i class="bi bi-bar-chart-line side-ico"></i><span>Reports</span></button>
@@ -1201,10 +1199,10 @@ tr:hover td{background:#F6F8FA;}
 <!-- Reports Accordion -->
   <div class="requests-toolbar">
     <div class="requests-left">
-      <button class="req-all-btn" onclick="toggleQueueMenu(event)" id="req-all-btn">🛡️ Todos os casos ▾</button>
+      <button class="req-all-btn" onclick="toggleQueueMenu(event)" id="req-all-btn">🛡️ Assigned to me ▾</button>
       <div class="req-menu" id="req-queue-menu" style="display:none;">
-        <button type="button" onclick="switchFila('all');closeReqMenus();">Todos os casos</button>
-        <button type="button" onclick="switchFila('l1');closeReqMenus();">EMS OPS L1</button>
+        <button type="button" onclick="setHomeAssignedToMe();closeReqMenus();">Assigned to me</button>
+                <button type="button" onclick="switchFila('l1');closeReqMenus();">EMS OPS L1</button>
         <button type="button" onclick="switchFila('l2');closeReqMenus();">EMS OPS L2</button>
         <button type="button" onclick="switchFila('event');closeReqMenus();">EMS Event BR</button>
       </div>
@@ -1227,7 +1225,7 @@ tr:hover td{background:#F6F8FA;}
     </div>
     <div class="toolbar-sep"></div>
     <div class="toolbar-search-wrap">
-      <input id="board-search" type="text" placeholder="🔍 Buscar CS... ou Account..." oninput="boardSearch(this.value)" style="font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;width:220px;font-family:var(--sans);color:var(--text);">
+      <input id="board-search" type="text" placeholder="🔍 Buscar CS, Account ou Siebel Order Number..." oninput="boardSearch(this.value)" style="font-size:12px;padding:4px 10px;border:1px solid var(--border);border-radius:6px;width:220px;font-family:var(--sans);color:var(--text);">
       <button onclick="boardSearch('');document.getElementById('board-search').value='';" style="font-size:11px;padding:3px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface);color:var(--muted);cursor:pointer;margin-left:3px;">✕</button>
     </div>
     <div class="toolbar-sep"></div>
@@ -1565,6 +1563,21 @@ function refreshMyCases(){
 }
 
 let currentFila='all';
+let _lazyLoaded={postmortem:false,backlog:false,reports:false};
+function getCurrentUserSysId(){
+  try {
+    return window.opener?.g_user?.userID || window.opener?.NOW?.user?.userID || window.g_user?.userID || '';
+  } catch(_) { return ''; }
+}
+function setHomeAssignedToMe(){
+  const meId=getCurrentUserSysId();
+  const aSel=document.getElementById('analyst-sel');
+  if(aSel && meId){
+    const meOpt=Array.from(aSel.options).find(o=>o.value===meId);
+    if(meOpt) { aSel.value=meId; switchAnalyst(meId); }
+  }
+  updateRequestsLabel();
+}
 let currentBacklogFila='all';
 let currentBacklogAnalyst='';
 let currentReportsFila='all';
@@ -1576,7 +1589,7 @@ window._MANAGER_CACHE={};
 window._MSH_NOC_GID=undefined;
 window._REPORTS_FETCH_CACHE={ttlMs:30000,entries:{},inflight:{}};
 window._ACCOUNT_PRODUCTS_CACHE={ttlMs:120000,entries:{}};
-    window._UI_SETTINGS={pollingMs:4000,compact:false,defaultSort:'none'};
+    window._UI_SETTINGS={pollingMs:7000,compact:true,defaultSort:'none',zabbixHomeApi:'',zabbixMonApi:'',zabbixBackApi:'',zabbixHomeToken:'',zabbixMonToken:'',zabbixBackToken:''};
 try{
   const saved=JSON.parse(localStorage.getItem('ems_ops_ui_settings')||'{}');
   window._UI_SETTINGS={...window._UI_SETTINGS,...saved};
@@ -1602,19 +1615,37 @@ function openSettingsModal(){
     '<div class="settings-h"><div class="settings-ttl">⚙️ Configurações do Painel</div><button type="button" onclick="closeSettingsModal()" class="refresh-btn">✕</button></div>'+
     '<div class="settings-grid">'+
       '<label for="set-polling">Intervalo do polling (tempo real)</label>'+
-      '<select id="set-polling"><option value="4000">4s</option><option value="15000">15s</option><option value="30000">30s</option><option value="60000">60s</option><option value="120000">120s</option></select>'+
-      '<label for="set-compact">Modo compacto (menos espaçamento)</label><input id="set-compact" type="checkbox">'+
+      '<select id="set-polling"><option value="7000">7s</option><option value="15000">15s</option><option value="30000">30s</option><option value="60000">60s</option><option value="120000">120s</option></select>'+
+      '<label for="set-compact">Modo compacto (menos espaçamento)</label><input id="set-compact" type="checkbox" disabled>'+
+      '<label for="set-zbx-home">API Zabbix (Home)</label><input id="set-zbx-home" type="text" placeholder="https://.../api_jsonrpc.php">'+
+      '<label for="set-zbx-home-token">Token Zabbix (Home)</label><input id="set-zbx-home-token" type="password" placeholder="Token API">'+
+      '<label for="set-zbx-mon">API Zabbix (MON CAN)</label><input id="set-zbx-mon" type="text" placeholder="https://.../api_jsonrpc.php">'+
+      '<label for="set-zbx-mon-token">Token Zabbix (MON CAN)</label><input id="set-zbx-mon-token" type="password" placeholder="Token API">'+
+      '<label for="set-zbx-back">API Zabbix (BACK CAN)</label><input id="set-zbx-back" type="text" placeholder="https://.../api_jsonrpc.php">'+
+      '<label for="set-zbx-back-token">Token Zabbix (BACK CAN)</label><input id="set-zbx-back-token" type="password" placeholder="Token API">'+
       '<label for="set-sort">Ordenação padrão</label><select id="set-sort"><option value="none">Padrão</option><option value="sla">SLA</option></select>'+
     '</div>'+
     '<div class="settings-actions"><button type="button" class="refresh-btn" onclick="closeSettingsModal()">Cancelar</button><button type="button" class="refresh-btn" id="set-save-btn">Salvar</button></div>'+
   '</div>';
   document.body.appendChild(ov);
-  ov.querySelector('#set-polling').value=String(s.pollingMs||4000);
-  ov.querySelector('#set-compact').checked=!!s.compact;
+  ov.querySelector('#set-polling').value=String(s.pollingMs||7000);
+  ov.querySelector('#set-compact').checked=true;
+  if(ov.querySelector('#set-zbx-home')) ov.querySelector('#set-zbx-home').value=s.zabbixHomeApi||'';
+  if(ov.querySelector('#set-zbx-home-token')) ov.querySelector('#set-zbx-home-token').value=s.zabbixHomeToken||'';
+  if(ov.querySelector('#set-zbx-mon')) ov.querySelector('#set-zbx-mon').value=s.zabbixMonApi||'';
+  if(ov.querySelector('#set-zbx-mon-token')) ov.querySelector('#set-zbx-mon-token').value=s.zabbixMonToken||'';
+  if(ov.querySelector('#set-zbx-back')) ov.querySelector('#set-zbx-back').value=s.zabbixBackApi||'';
+  if(ov.querySelector('#set-zbx-back-token')) ov.querySelector('#set-zbx-back-token').value=s.zabbixBackToken||'';
   ov.querySelector('#set-sort').value=s.defaultSort||'none';
   ov.querySelector('#set-save-btn').onclick=()=>{
-    window._UI_SETTINGS.pollingMs=parseInt(ov.querySelector('#set-polling').value,10)||4000;
-    window._UI_SETTINGS.compact=!!ov.querySelector('#set-compact').checked;
+    window._UI_SETTINGS.pollingMs=parseInt(ov.querySelector('#set-polling').value,10)||7000;
+    window._UI_SETTINGS.compact=true;
+    window._UI_SETTINGS.zabbixHomeApi=ov.querySelector('#set-zbx-home')?.value?.trim()||'';
+    window._UI_SETTINGS.zabbixHomeToken=ov.querySelector('#set-zbx-home-token')?.value?.trim()||'';
+    window._UI_SETTINGS.zabbixMonApi=ov.querySelector('#set-zbx-mon')?.value?.trim()||'';
+    window._UI_SETTINGS.zabbixMonToken=ov.querySelector('#set-zbx-mon-token')?.value?.trim()||'';
+    window._UI_SETTINGS.zabbixBackApi=ov.querySelector('#set-zbx-back')?.value?.trim()||'';
+    window._UI_SETTINGS.zabbixBackToken=ov.querySelector('#set-zbx-back-token')?.value?.trim()||'';
     window._UI_SETTINGS.defaultSort=ov.querySelector('#set-sort').value||'none';
     localStorage.setItem('ems_ops_ui_settings',JSON.stringify(window._UI_SETTINGS));
     applyUiSettings();
@@ -1737,7 +1768,10 @@ function populateAnalystDropdown(selectId,key,managerId,placeholder){
   const members=getMembersByManager(gid,managerId).slice().sort((a,b)=>a.name.localeCompare(b.name,'pt'));
   const sig=gid+'|'+(managerId||'all')+'|'+members.length;
   if(sel.dataset.sig!==sig){
-    sel.innerHTML='<option value="">'+(placeholder||'— Todos —')+'</option>'+members.map(a=>'<option value="'+a.id+'">'+a.name+'</option>').join('');
+    const meId=getCurrentUserSysId();
+    const meMember=members.find(m=>m.id===meId);
+    const meOpt=(meId&&meMember)?'<option value="'+meId+'">Assigned to me · '+meMember.name+'</option>':'';
+    sel.innerHTML='<option value="">'+(placeholder||'— Todos —')+'</option>'+meOpt+members.map(a=>'<option value="'+a.id+'">'+a.name+'</option>').join('');
     sel.dataset.sig=sig;
   }
   if(prev&&Array.from(sel.options).some(o=>o.value===prev)) sel.value=prev;
@@ -1829,19 +1863,15 @@ function toggleSlaSort(){
 }
 
 function updateRequestsLabel(){
-  const labels={all:'Todos os casos',l1:'EMS OPS L1',l2:'EMS OPS L2',event:'EMS Event BR'};
+  const labels={all:'Assigned to me',l1:'EMS OPS L1',l2:'EMS OPS L2',event:'EMS Event BR'};
   const btn=document.getElementById('req-all-btn');
-  if(btn) btn.textContent='🛡️ '+(labels[currentFila]||'Todos os casos')+' ▾';
+  if(btn) btn.textContent='🛡️ '+(labels[currentFila]||'Assigned to me')+' ▾';
 }
 
 function topAction(kind){
   if(kind==='search'){
     const inp=document.getElementById('board-search');
     if(inp){inp.focus();inp.select?.();}
-    return;
-  }
-  if(kind==='refresh'){
-    refreshKanban();
     return;
   }
   if(kind==='settings'){
@@ -1851,9 +1881,6 @@ function topAction(kind){
   if(kind==='alerts'){
     showToast('🔔 Sem novas notificações');
     return;
-  }
-  if(kind==='fav'){
-    showToast('⭐ Favoritos em breve');
   }
 }
 
@@ -1959,6 +1986,7 @@ function applyAnalystTableFilter(){
 }
 
 function showPage(id,el){
+  window._CURRENT_PAGE = id || 'kanban';
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   const page=document.getElementById('page-'+id);
@@ -1970,12 +1998,18 @@ function showPage(id,el){
     const tab=document.querySelectorAll('.tab')[idx];
     if(tab) tab.classList.add('active');
   }
-  if(id==='postmortem') pgInit();
+  if(id==='postmortem'){
+    if(!_lazyLoaded.postmortem){ pgInit(); _lazyLoaded.postmortem=true; }
+  }
   if(id==='backlog'){
+    if(!_lazyLoaded.backlog){ switchFilaBacklog(currentBacklogFila||'all'); _lazyLoaded.backlog=true; }
     switchAnalystBacklog(currentBacklogAnalyst||document.getElementById('backlog-analyst-sel')?.value||'');
   }
   if(id==='reports'){
-    switchReportsFila(currentReportsFila||document.getElementById('rpt-fila-sel')?.value||'all');
+    if(!_lazyLoaded.reports){
+      switchReportsFila(currentReportsFila||document.getElementById('rpt-fila-sel')?.value||'all');
+      _lazyLoaded.reports=true;
+    }
   }
   if(id==='kanban'){
     // Re-init accordion in case it wasn't loaded yet
@@ -2019,7 +2053,7 @@ function applyImpactUrgencyFromLane(card,laneKey){
       showToast('✅ Impact/Urgency ajustado para '+laneKey);
       if(_modalSysId===sysId){
         const numEl=document.getElementById('modal-num');
-        if(numEl) setTimeout(()=>openCaseModal(sysId,numEl.textContent,_modalActiveCard||card),250);
+        if(numEl) requestModalRefresh(sysId, _modalActiveCard||card, 450);
       }
       return true;
     }
@@ -2632,7 +2666,7 @@ function doReassign(sysId,userId,userName,groupId,el){
       // Update modal if open
       if(_modalSysId===sysId){
         const numEl=document.getElementById('modal-num');
-        if(numEl) setTimeout(()=>openCaseModal(sysId,numEl.textContent,_modalActiveCard||document.createElement('div')),300);
+        if(numEl) requestModalRefresh(_modalSysId, _modalActiveCard||document.createElement('div'), 450);
       }
     } else { showToast('❌ Erro ao reatribuir','error'); }
   });
@@ -2701,7 +2735,7 @@ function saveImpactUrgency(sysId,impact,urgency){
       closeImpactUrgencyEditor();
       if(_modalSysId===sysId){
         const numEl=document.getElementById('modal-num');
-        if(numEl) setTimeout(()=>openCaseModal(sysId,numEl.textContent,_modalActiveCard||document.createElement('div')),250);
+        if(numEl) requestModalRefresh(_modalSysId, _modalActiveCard||document.createElement('div'), 450);
       }
     } else {
       showToast('❌ Erro ao atualizar Impact/Urgency','error');
@@ -2722,6 +2756,19 @@ async function patchCase(sysId,data){
 }
 
 // ── Toast notification ─────────────────────────────────────────────────────
+let _lastDeltaNotify={};
+function notifyAssignedToMe(title, body, key){
+  const now=Date.now();
+  if(key && _lastDeltaNotify[key] && (now-_lastDeltaNotify[key])<8000) return;
+  if(key) _lastDeltaNotify[key]=now;
+  try{
+    if('Notification' in window){
+      if(Notification.permission==='granted'){ new Notification(title,{body}); return; }
+      if(Notification.permission!=='denied'){ Notification.requestPermission(); }
+    }
+  }catch(_){}
+  showToast('🔔 '+title+' - '+body,'warn');
+}
 function showToast(msg,type='success'){
   const t=document.createElement('div');
   t.className='toast toast-'+type;
@@ -2908,6 +2955,19 @@ function pgGoTo(p){_pgPage=p;pgRender();document.getElementById('pm-pg-wrap')?.s
 // ── Case Modal ────────────────────────────────────────────────────────────
 let _modalSysId = null;
 let _modalActiveCard = null;
+let _modalRefreshTimer = null;
+function requestModalRefresh(sysId, fallbackCard, delayMs=350) {
+  if (_modalSysId !== sysId) return;
+  const modalEl = document.getElementById('case-iframe-overlay');
+  if (!modalEl) return;
+  if (_modalRefreshTimer) clearTimeout(_modalRefreshTimer);
+  _modalRefreshTimer = setTimeout(() => {
+    _modalRefreshTimer = null;
+    const numEl = document.getElementById('modal-num');
+    if (!numEl || _modalSysId !== sysId) return;
+    openCaseModal(sysId, numEl.textContent, _modalActiveCard || fallbackCard || document.createElement('div'));
+  }, Math.max(200, delayMs|0));
+}
 
 function emsEscapeHtml(v) {
   return String(v ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
@@ -3211,8 +3271,26 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
   // ── Zabbix: busca via postMessage → content.js → background.js (sem CORS) ──
   // Tentativa 1: consulta direta (mesma lógica validada no DevTools).
   // Tentativa 2 (fallback): ponte content/background.
-  const ZABBIX_URL = 'https://monbr1.equinix.com.br/api_jsonrpc.php';
-  const ZABBIX_TOKEN = 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b';
+  const resolveZabbixConfig = () => {
+    const s = window._UI_SETTINGS || {};
+    const page = window._CURRENT_PAGE || 'kanban';
+    if (page === 'event-monitoring') {
+      return {
+        url: s.zabbixMonApi || s.zabbixHomeApi || 'https://monbr1.equinix.com.br/api_jsonrpc.php',
+        token: s.zabbixMonToken || s.zabbixHomeToken || 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b'
+      };
+    }
+    if (page === 'backup-monitoring') {
+      return {
+        url: s.zabbixBackApi || s.zabbixHomeApi || 'https://monbr1.equinix.com.br/api_jsonrpc.php',
+        token: s.zabbixBackToken || s.zabbixHomeToken || 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b'
+      };
+    }
+    return {
+      url: s.zabbixHomeApi || 'https://monbr1.equinix.com.br/api_jsonrpc.php',
+      token: s.zabbixHomeToken || 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b'
+    };
+  };
   const ZABBIX_CHART_BASE_URL = 'https://monbr1.equinix.com.br/chart.php';
   const ZABBIX_DIRECT_TIMEOUT_MS = 7000;
 
@@ -3220,11 +3298,12 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), ZABBIX_DIRECT_TIMEOUT_MS);
     try {
-      const res = await fetch(ZABBIX_URL, {
+      const zbxCfg = resolveZabbixConfig();
+      const res = await fetch(zbxCfg.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + ZABBIX_TOKEN
+          'Authorization': 'Bearer ' + zbxCfg.token
         },
         body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 }),
         signal: ctl.signal
@@ -3667,7 +3746,7 @@ function saveModalImpactUrgency(){
       syncImpactUrgencyInUI(_modalSysId,impact,urgency);
       showToast('✅ Impact/Urgency salvo');
       const numEl=document.getElementById('modal-num');
-      if(numEl) setTimeout(()=>openCaseModal(_modalSysId,numEl.textContent,_modalActiveCard||document.createElement('div')),250);
+      if(numEl) requestModalRefresh(_modalSysId, _modalActiveCard||document.createElement('div'), 450);
     }else showToast('❌ Erro ao salvar Impact/Urgency','error');
   });
 }
@@ -3687,7 +3766,7 @@ function modalReassign() {
 // ── Board Search ────────────────────────────────────────────────────────────
 function boardSearch(q) {
   const term = q.trim().toLowerCase();
-  const boards = ['board-wrap','board-wrap-backlog'];
+  const boards = ['board-wrap','board-wrap-backlog-tab'];
   boards.forEach(bid => {
     const bw = document.getElementById(bid); if (!bw) return;
     bw.querySelectorAll('.card').forEach(card => {
@@ -3695,7 +3774,8 @@ function boardSearch(q) {
       const num  = (card.querySelector('.card-num')?.textContent||'').toLowerCase();
       const desc = (card.querySelector('.card-desc')?.textContent||'').toLowerCase();
       const assi = (card.querySelector('.card-assigned')?.textContent||'').toLowerCase();
-      card.style.display = (num.includes(term)||desc.includes(term)||assi.includes(term)) ? '' : 'none';
+      const siebel = ((card.dataset.siebel||'') + ' ' + (card.querySelector('.tag-siebel')?.textContent||'')).toLowerCase();
+      card.style.display = (num.includes(term)||desc.includes(term)||assi.includes(term)||siebel.includes(term)) ? '' : 'none';
     });
   });
 }
@@ -3798,6 +3878,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   populateManagerDropdown('manager-sel', currentFila).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
     populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
+    const meId=getCurrentUserSysId();
+    const aSel=document.getElementById('analyst-sel');
+    if(aSel && meId && Array.from(aSel.options).some(o=>o.value===meId)){
+      aSel.value=meId;
+      switchAnalyst(meId);
+    }
     syncBacklogAnalystDropdown();
     renderFilterChips();
   });
@@ -3830,8 +3916,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(accBody){accBody.style.display='block';accBody.dataset.open='1';}
     if(accArrow) accArrow.style.transform='rotate(180deg)';
   }
-  switchReportsFila(currentReportsFila);
-  switchFilaBacklog(currentBacklogFila);
   renderFilterChips();
   document.addEventListener('click',e=>{
     const queueWrap=document.getElementById('req-queue-menu');
@@ -3855,7 +3939,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     openImpactUrgencyBtn,openReassignBtn,closeImpactUrgencyEditor,
     closeCaseModal,modalReassign,
     modalTabSwitch,saveModal,saveModalImpactUrgency,uploadModalAttachment,
-    closeAccountProductsModal,toggleCiPassword,pgNav,pgGoTo,remFil,clrCol,applyCol
+    closeAccountProductsModal,toggleCiPassword,pgNav,pgGoTo,remFil,clrCol,applyCol,setHomeAssignedToMe
   });
 
   // ── Delta Polling (Real-time updates) ──────────────────────────────────
@@ -4128,57 +4212,64 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
 
       try {
-        const out = [];
-        const seen = new Set();
-        const addCases = list => {
-          list.forEach(c => {
-            const sid = c?.sys_id?.value || c?.sys_id;
-            if (!sid || seen.has(sid)) return;
-            seen.add(sid);
-            out.push(c);
+        const normalizeRows = rows => {
+          const byId = new Map();
+          rows.forEach(row => {
+            const sid = row?.sys_id?.value || row?.sys_id || '';
+            if (!sid) return;
+            const prev = byId.get(sid);
+            if (!prev) { byId.set(sid, row); return; }
+            const pTs = String(prev?.sys_updated_on?.value || prev?.sys_updated_on || '');
+            const nTs = String(row?.sys_updated_on?.value || row?.sys_updated_on || '');
+            if (nTs >= pTs) byId.set(sid, row);
+          });
+          return Array.from(byId.values()).sort((a,b)=>{
+            const at=String(a?.sys_updated_on?.value||a?.sys_updated_on||'');
+            const bt=String(b?.sys_updated_on?.value||b?.sys_updated_on||'');
+            return at.localeCompare(bt);
           });
         };
 
-        // Query base: cobre TODOS os casos do grupo.
-        // O filtro de analista é aplicado exclusivamente no DOM via evaluateCardVisibility.
-        addCases(await fetchByQuery(caseEndpoint, caseParams, baseQuery));
-
-        const cases = out;
-        const eventQuery = 'assignment_group.name=EMS L1 OpsCenter AMER^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
-        const deltaEventsRaw = await fetchByQuery(eventEndpoint, eventParams, eventQuery);
-        const deltaEvents = await enrichDeltaEvents(deltaEventsRaw);
-
-        if (cases.length > 0) {
+        const reconcileCases = (cases) => {
           cases.forEach(c => {
             const sid = c?.sys_id?.value || c?.sys_id || '';
             if (!sid) return;
             const cards = targetDoc.querySelectorAll('.card[data-sysid="' + sid + '"]');
-            if (cards.length > 0) {
-              if (isTerminalState(c?.state?.value, c?.state?.display_value)) {
-                cards.forEach(card => {
-                  const board = card.closest('.board-inner');
-                if (isResolvedToday(c)) updateResolvedTodayUI(c);
-                  card.remove();
-                  if (board) updateLaneCounters(board);
-                });
-                return;
-              }
+            if (isTerminalState(c?.state?.value, c?.state?.display_value)) {
+              if (isResolvedToday(c)) updateResolvedTodayUI(c);
+              cards.forEach(card => {
+                const board = card.closest('.board-inner');
+                card.remove();
+                if (board) updateLaneCounters(board);
+              });
+              return;
+            }
+            const meId=getCurrentUserSysId();
+            const assignedId=c?.assigned_to?.value||'';
+            const isMine=!!meId && assignedId===meId;
+            if (cards.length) {
               cards.forEach(card => updateCard(card, c, evaluateCardVisibility));
+              if(isMine) notifyAssignedToMe('Interação no ticket', (c?.number?.display_value||sid), 'upd:'+sid+':'+(c?.sys_updated_on?.value||''));
             } else {
-              if (isTerminalState(c?.state?.value, c?.state?.display_value)) {
-                if (isResolvedToday(c)) updateResolvedTodayUI(c);
-                return;
-              }
               insertNewCaseCard(c, evaluateCardVisibility);
+              if(isMine) notifyAssignedToMe('Novo ticket para você', (c?.number?.display_value||sid), 'new:'+sid);
             }
           });
-        }
-        if (deltaEvents.length > 0) {
-          deltaEvents.forEach(ev => upsertEventCard(ev));
-        }
-        // Dynamic Sync Time: look back at least the polling interval plus a small buffer
+        };
+
+        const reconcileEvents = (events) => events.forEach(ev => upsertEventCard(ev));
+
+        const caseRowsRaw = await fetchByQuery(caseEndpoint, caseParams, baseQuery);
+        const caseRows = normalizeRows(caseRowsRaw);
+
+        const eventQuery = 'assignment_group.name=EMS L1 OpsCenter AMER^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
+        const eventRowsRaw = await fetchByQuery(eventEndpoint, eventParams, eventQuery);
+        const eventRows = await enrichDeltaEvents(normalizeRows(eventRowsRaw));
+
+        reconcileCases(caseRows);
+        reconcileEvents(eventRows);
+
         lastSyncTime = new Date(Date.now() - (POLLING_INTERVAL + 5000)).toISOString().split('.')[0].replace('T', ' ');
-        // DnD rebind: single call per batch instead of per card insertion
         if (window._dndDirty && typeof initCardDragAndDrop === 'function') {
           initCardDragAndDrop();
           window._dndDirty = false;
@@ -4540,8 +4631,8 @@ document.addEventListener('DOMContentLoaded',()=>{
             const card = buildCardElement(data, lane);
             targetBody.prepend(card);
             window._dndDirty = true;
-            if (visibilityCallback && !visibilityCallback(card, data)) {
-              card.remove();
+            if (visibilityCallback) {
+              card.style.display = visibilityCallback(card, data) ? '' : 'none';
             } else {
               card.style.display = '';
             }
@@ -4562,8 +4653,8 @@ document.addEventListener('DOMContentLoaded',()=>{
             const card = buildCardElement(data, lane);
             targetBody.prepend(card);
             window._dndDirty = true;
-            if (visibilityCallback && !visibilityCallback(card, data)) {
-              card.remove();
+            if (visibilityCallback) {
+              card.style.display = visibilityCallback(card, data) ? '' : 'none';
             } else {
               card.style.display = '';
             }
