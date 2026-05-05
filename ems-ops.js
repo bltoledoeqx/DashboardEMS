@@ -3325,16 +3325,24 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     }
   };
 
-  const fetchZabbixDirect = async (ciNameVal) => {
-    const term = String(ciNameVal || '').trim();
-    if (!term || term === '—') throw new Error('CI sem nome para busca direta');
-    const hosts = await zabbixDirectCall('host.get', {
-      search: { name: term },
-      output: ['hostid', 'name'],
-      limit: 10
-    });
+  const fetchZabbixDirect = async (ciNameVal, extraTerms) => {
+    const baseTerms = [ciNameVal].concat(extraTerms || []).map(v => String(v || '').trim()).filter(v => v && v !== '—');
+    const terms = [...new Set(baseTerms)];
+    if (!terms.length) throw new Error('CI sem nome para busca direta');
+
+    let hosts = [];
+    let usedTerm = terms[0] || '';
+    for (const term of terms) {
+      usedTerm = term;
+      hosts = await zabbixDirectCall('host.get', {
+        search: { name: term },
+        output: ['hostid', 'name'],
+        limit: 20
+      });
+      if (hosts.length) break;
+    }
     if (!hosts.length) {
-      return { ok: true, data: { ciName: term, hostFound: false, hasAlert: false, alerts: [], hosts: [], problems: [] } };
+      return { ok: true, data: { ciName: usedTerm, hostFound: false, hasAlert: false, alerts: [], hosts: [], problems: [], searchedTerms: terms } };
     }
     const host = hosts[0];
     const problems = await zabbixDirectCall('problem.get', {
@@ -3412,13 +3420,15 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     return {
       ok: true,
       data: {
-        ciName: host.name || term,
+        ciName: host.name || usedTerm,
         hostFound: true,
         hasAlert: alerts.length > 0,
         alerts,
         history,
         hosts: [host],
-        problems
+        problems,
+        searchedTerms: terms,
+        usedTerm
       }
     };
   };
@@ -3633,7 +3643,16 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     const ciHostnameVal = getVal(ci, 'host_name');
 
     const ciLookupName = ciName || getVal(ci,'name');
-    fetchZabbixDirect(ciLookupName)
+    const eventTerms = isEventTask
+      ? [
+          cardEl?.dataset?.eventtype || '',
+          cardEl?.dataset?.account || '',
+          cardEl?.dataset?.state || '',
+          cardEl?.querySelector?.('.card-desc')?.textContent || '',
+          number || ''
+        ]
+      : [];
+    fetchZabbixDirect(ciLookupName, eventTerms)
       .catch(() => fetchZabbixViaBackground(ciLookupName, ciIpVal, ciHostnameVal))
       .then(zbx => {
         const el = listEl.querySelector('#zabbix-section-'+ciId);
