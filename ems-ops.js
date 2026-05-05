@@ -3271,23 +3271,31 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
   // ── Zabbix: busca via postMessage → content.js → background.js (sem CORS) ──
   // Tentativa 1: consulta direta (mesma lógica validada no DevTools).
   // Tentativa 2 (fallback): ponte content/background.
+  const normalizeZabbixApiUrl = raw => {
+    const fallback = 'https://monbr1.equinix.com.br/api_jsonrpc.php';
+    const txt = String(raw || '').trim();
+    if (!txt) return fallback;
+    if (txt.includes('/api_jsonrpc.php')) return txt;
+    return txt.replace(/\/+$/,'') + '/api_jsonrpc.php';
+  };
+
   const resolveZabbixConfig = () => {
     const s = window._UI_SETTINGS || {};
     const page = window._CURRENT_PAGE || 'kanban';
     if (page === 'event-monitoring') {
       return {
-        url: s.zabbixMonApi || s.zabbixHomeApi || 'https://monbr1.equinix.com.br/api_jsonrpc.php',
+        url: normalizeZabbixApiUrl(s.zabbixMonApi || s.zabbixHomeApi),
         token: s.zabbixMonToken || s.zabbixHomeToken || 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b'
       };
     }
     if (page === 'backup-monitoring') {
       return {
-        url: s.zabbixBackApi || s.zabbixHomeApi || 'https://monbr1.equinix.com.br/api_jsonrpc.php',
+        url: normalizeZabbixApiUrl(s.zabbixBackApi || s.zabbixHomeApi),
         token: s.zabbixBackToken || s.zabbixHomeToken || 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b'
       };
     }
     return {
-      url: s.zabbixHomeApi || 'https://monbr1.equinix.com.br/api_jsonrpc.php',
+      url: normalizeZabbixApiUrl(s.zabbixHomeApi),
       token: s.zabbixHomeToken || 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b'
     };
   };
