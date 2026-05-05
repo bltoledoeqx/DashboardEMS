@@ -2019,7 +2019,7 @@ function applyImpactUrgencyFromLane(card,laneKey){
       showToast('✅ Impact/Urgency ajustado para '+laneKey);
       if(_modalSysId===sysId){
         const numEl=document.getElementById('modal-num');
-        if(numEl) setTimeout(()=>openCaseModal(sysId,numEl.textContent,_modalActiveCard||card),250);
+        if(numEl) requestModalRefresh(sysId, _modalActiveCard||card, 450);
       }
       return true;
     }
@@ -2632,7 +2632,7 @@ function doReassign(sysId,userId,userName,groupId,el){
       // Update modal if open
       if(_modalSysId===sysId){
         const numEl=document.getElementById('modal-num');
-        if(numEl) setTimeout(()=>openCaseModal(sysId,numEl.textContent,_modalActiveCard||document.createElement('div')),300);
+        if(numEl) requestModalRefresh(_modalSysId, _modalActiveCard||document.createElement('div'), 450);
       }
     } else { showToast('❌ Erro ao reatribuir','error'); }
   });
@@ -2701,7 +2701,7 @@ function saveImpactUrgency(sysId,impact,urgency){
       closeImpactUrgencyEditor();
       if(_modalSysId===sysId){
         const numEl=document.getElementById('modal-num');
-        if(numEl) setTimeout(()=>openCaseModal(sysId,numEl.textContent,_modalActiveCard||document.createElement('div')),250);
+        if(numEl) requestModalRefresh(_modalSysId, _modalActiveCard||document.createElement('div'), 450);
       }
     } else {
       showToast('❌ Erro ao atualizar Impact/Urgency','error');
@@ -2908,6 +2908,19 @@ function pgGoTo(p){_pgPage=p;pgRender();document.getElementById('pm-pg-wrap')?.s
 // ── Case Modal ────────────────────────────────────────────────────────────
 let _modalSysId = null;
 let _modalActiveCard = null;
+let _modalRefreshTimer = null;
+function requestModalRefresh(sysId, fallbackCard, delayMs=350) {
+  if (_modalSysId !== sysId) return;
+  const modalEl = document.getElementById('case-iframe-overlay');
+  if (!modalEl) return;
+  if (_modalRefreshTimer) clearTimeout(_modalRefreshTimer);
+  _modalRefreshTimer = setTimeout(() => {
+    _modalRefreshTimer = null;
+    const numEl = document.getElementById('modal-num');
+    if (!numEl || _modalSysId !== sysId) return;
+    openCaseModal(sysId, numEl.textContent, _modalActiveCard || fallbackCard || document.createElement('div'));
+  }, Math.max(200, delayMs|0));
+}
 
 function emsEscapeHtml(v) {
   return String(v ?? '').replace(/[&<>"']/g, ch => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
@@ -3667,7 +3680,7 @@ function saveModalImpactUrgency(){
       syncImpactUrgencyInUI(_modalSysId,impact,urgency);
       showToast('✅ Impact/Urgency salvo');
       const numEl=document.getElementById('modal-num');
-      if(numEl) setTimeout(()=>openCaseModal(_modalSysId,numEl.textContent,_modalActiveCard||document.createElement('div')),250);
+      if(numEl) requestModalRefresh(_modalSysId, _modalActiveCard||document.createElement('div'), 450);
     }else showToast('❌ Erro ao salvar Impact/Urgency','error');
   });
 }
@@ -4540,8 +4553,8 @@ document.addEventListener('DOMContentLoaded',()=>{
             const card = buildCardElement(data, lane);
             targetBody.prepend(card);
             window._dndDirty = true;
-            if (visibilityCallback && !visibilityCallback(card, data)) {
-              card.remove();
+            if (visibilityCallback) {
+              card.style.display = visibilityCallback(card, data) ? '' : 'none';
             } else {
               card.style.display = '';
             }
@@ -4562,8 +4575,8 @@ document.addEventListener('DOMContentLoaded',()=>{
             const card = buildCardElement(data, lane);
             targetBody.prepend(card);
             window._dndDirty = true;
-            if (visibilityCallback && !visibilityCallback(card, data)) {
-              card.remove();
+            if (visibilityCallback) {
+              card.style.display = visibilityCallback(card, data) ? '' : 'none';
             } else {
               card.style.display = '';
             }
