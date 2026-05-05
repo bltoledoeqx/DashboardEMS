@@ -1819,7 +1819,7 @@ function closeReqMenus(){
 }
 
 function toggleQueueMenu(e){
-  e?.stopPropagation?.();
+  if(e && typeof e.stopPropagation==='function') e.stopPropagation();
   const qm=document.getElementById('req-queue-menu');
   const fm=document.getElementById('req-filter-menu');
   if(!qm) return;
@@ -1828,7 +1828,7 @@ function toggleQueueMenu(e){
 }
 
 function toggleFilterMenu(e){
-  e?.stopPropagation?.();
+  if(e && typeof e.stopPropagation==='function') e.stopPropagation();
   const qm=document.getElementById('req-queue-menu');
   const fm=document.getElementById('req-filter-menu');
   if(!fm) return;
@@ -1871,7 +1871,7 @@ function updateRequestsLabel(){
 function topAction(kind){
   if(kind==='search'){
     const inp=document.getElementById('board-search');
-    if(inp){inp.focus();inp.select?.();}
+    if(inp){inp.focus(); if(typeof inp.select==='function') inp.select();}
     return;
   }
   if(kind==='settings'){
@@ -2630,7 +2630,7 @@ function openReassign(e,sysId,gid,currentAssigned){
   grpSel.onchange=function(e){e.stopPropagation();populateList(this.value);inp.value='';};
 
   document.body.appendChild(dd);_reassignDd=dd;
-  const rect=e.target?.getBoundingClientRect?.()|| {bottom:window.innerHeight/2,left:window.innerWidth/2};
+  const rect=(e && e.target && typeof e.target.getBoundingClientRect==='function') ? e.target.getBoundingClientRect() : {bottom:window.innerHeight/2,left:window.innerWidth/2};
   dd.style.top=Math.min(rect.bottom+4,window.innerHeight-320)+'px';
   dd.style.left=Math.min(rect.left,window.innerWidth-270)+'px';
   setTimeout(()=>{inp.focus();document.addEventListener('click',closeReassignOutside);},0);
@@ -2695,7 +2695,7 @@ function openImpactUrgencyEditor(e,sysId,currentImpact,currentUrgency){
     '</div>';
 
   document.body.appendChild(dd);_iuDd=dd;
-  const rect=e.target?.getBoundingClientRect?.()|| {bottom:window.innerHeight/2,left:window.innerWidth/2};
+  const rect=(e && e.target && typeof e.target.getBoundingClientRect==='function') ? e.target.getBoundingClientRect() : {bottom:window.innerHeight/2,left:window.innerWidth/2};
   dd.style.top=Math.min(rect.bottom+4,window.innerHeight-220)+'px';
   dd.style.left=Math.min(rect.left,window.innerWidth-240)+'px';
 
@@ -3648,7 +3648,7 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
           cardEl?.dataset?.eventtype || '',
           cardEl?.dataset?.account || '',
           cardEl?.dataset?.state || '',
-          cardEl?.querySelector?.('.card-desc')?.textContent || '',
+          ((cardEl && typeof cardEl.querySelector==='function' && cardEl.querySelector('.card-desc')) ? cardEl.querySelector('.card-desc').textContent : '') || '',
           number || ''
         ]
       : [];
@@ -3947,7 +3947,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.addEventListener('click',e=>{
     const queueWrap=document.getElementById('req-queue-menu');
     const filterWrap=document.getElementById('req-filter-menu');
-    const actions=e.target?.closest?.('.requests-toolbar');
+    const actions=(e && e.target && typeof e.target.closest==='function') ? e.target.closest('.requests-toolbar') : null;
     if(actions) return;
     if(queueWrap) queueWrap.style.display='none';
     if(filterWrap) filterWrap.style.display='none';
