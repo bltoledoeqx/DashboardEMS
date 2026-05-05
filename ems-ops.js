@@ -1589,7 +1589,7 @@ window._MANAGER_CACHE={};
 window._MSH_NOC_GID=undefined;
 window._REPORTS_FETCH_CACHE={ttlMs:30000,entries:{},inflight:{}};
 window._ACCOUNT_PRODUCTS_CACHE={ttlMs:120000,entries:{}};
-    window._UI_SETTINGS={pollingMs:7000,compact:true,defaultSort:'none',zabbixHomeApi:'',zabbixMonApi:'',zabbixBackApi:''};
+    window._UI_SETTINGS={pollingMs:7000,compact:true,defaultSort:'none',zabbixHomeApi:'',zabbixMonApi:'',zabbixBackApi:'',zabbixHomeToken:'',zabbixMonToken:'',zabbixBackToken:''};
 try{
   const saved=JSON.parse(localStorage.getItem('ems_ops_ui_settings')||'{}');
   window._UI_SETTINGS={...window._UI_SETTINGS,...saved};
@@ -1618,8 +1618,11 @@ function openSettingsModal(){
       '<select id="set-polling"><option value="7000">7s</option><option value="15000">15s</option><option value="30000">30s</option><option value="60000">60s</option><option value="120000">120s</option></select>'+
       '<label for="set-compact">Modo compacto (menos espaçamento)</label><input id="set-compact" type="checkbox" disabled>'+
       '<label for="set-zbx-home">API Zabbix (Home)</label><input id="set-zbx-home" type="text" placeholder="https://.../api_jsonrpc.php">'+
+      '<label for="set-zbx-home-token">Token Zabbix (Home)</label><input id="set-zbx-home-token" type="password" placeholder="Token API">'+
       '<label for="set-zbx-mon">API Zabbix (MON CAN)</label><input id="set-zbx-mon" type="text" placeholder="https://.../api_jsonrpc.php">'+
+      '<label for="set-zbx-mon-token">Token Zabbix (MON CAN)</label><input id="set-zbx-mon-token" type="password" placeholder="Token API">'+
       '<label for="set-zbx-back">API Zabbix (BACK CAN)</label><input id="set-zbx-back" type="text" placeholder="https://.../api_jsonrpc.php">'+
+      '<label for="set-zbx-back-token">Token Zabbix (BACK CAN)</label><input id="set-zbx-back-token" type="password" placeholder="Token API">'+
       '<label for="set-sort">Ordenação padrão</label><select id="set-sort"><option value="none">Padrão</option><option value="sla">SLA</option></select>'+
     '</div>'+
     '<div class="settings-actions"><button type="button" class="refresh-btn" onclick="closeSettingsModal()">Cancelar</button><button type="button" class="refresh-btn" id="set-save-btn">Salvar</button></div>'+
@@ -1628,15 +1631,21 @@ function openSettingsModal(){
   ov.querySelector('#set-polling').value=String(s.pollingMs||7000);
   ov.querySelector('#set-compact').checked=true;
   if(ov.querySelector('#set-zbx-home')) ov.querySelector('#set-zbx-home').value=s.zabbixHomeApi||'';
+  if(ov.querySelector('#set-zbx-home-token')) ov.querySelector('#set-zbx-home-token').value=s.zabbixHomeToken||'';
   if(ov.querySelector('#set-zbx-mon')) ov.querySelector('#set-zbx-mon').value=s.zabbixMonApi||'';
+  if(ov.querySelector('#set-zbx-mon-token')) ov.querySelector('#set-zbx-mon-token').value=s.zabbixMonToken||'';
   if(ov.querySelector('#set-zbx-back')) ov.querySelector('#set-zbx-back').value=s.zabbixBackApi||'';
+  if(ov.querySelector('#set-zbx-back-token')) ov.querySelector('#set-zbx-back-token').value=s.zabbixBackToken||'';
   ov.querySelector('#set-sort').value=s.defaultSort||'none';
   ov.querySelector('#set-save-btn').onclick=()=>{
     window._UI_SETTINGS.pollingMs=parseInt(ov.querySelector('#set-polling').value,10)||7000;
     window._UI_SETTINGS.compact=true;
     window._UI_SETTINGS.zabbixHomeApi=ov.querySelector('#set-zbx-home')?.value?.trim()||'';
+    window._UI_SETTINGS.zabbixHomeToken=ov.querySelector('#set-zbx-home-token')?.value?.trim()||'';
     window._UI_SETTINGS.zabbixMonApi=ov.querySelector('#set-zbx-mon')?.value?.trim()||'';
+    window._UI_SETTINGS.zabbixMonToken=ov.querySelector('#set-zbx-mon-token')?.value?.trim()||'';
     window._UI_SETTINGS.zabbixBackApi=ov.querySelector('#set-zbx-back')?.value?.trim()||'';
+    window._UI_SETTINGS.zabbixBackToken=ov.querySelector('#set-zbx-back-token')?.value?.trim()||'';
     window._UI_SETTINGS.defaultSort=ov.querySelector('#set-sort').value||'none';
     localStorage.setItem('ems_ops_ui_settings',JSON.stringify(window._UI_SETTINGS));
     applyUiSettings();
@@ -1977,6 +1986,7 @@ function applyAnalystTableFilter(){
 }
 
 function showPage(id,el){
+  window._CURRENT_PAGE = id || 'kanban';
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   const page=document.getElementById('page-'+id);
@@ -3261,8 +3271,26 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
   // ── Zabbix: busca via postMessage → content.js → background.js (sem CORS) ──
   // Tentativa 1: consulta direta (mesma lógica validada no DevTools).
   // Tentativa 2 (fallback): ponte content/background.
-  const ZABBIX_URL = (window._UI_SETTINGS?.zabbixHomeApi || window._UI_SETTINGS?.zabbixMonApi || window._UI_SETTINGS?.zabbixBackApi || 'https://monbr1.equinix.com.br/api_jsonrpc.php');
-  const ZABBIX_TOKEN = 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b';
+  const resolveZabbixConfig = () => {
+    const s = window._UI_SETTINGS || {};
+    const page = window._CURRENT_PAGE || 'kanban';
+    if (page === 'event-monitoring') {
+      return {
+        url: s.zabbixMonApi || s.zabbixHomeApi || 'https://monbr1.equinix.com.br/api_jsonrpc.php',
+        token: s.zabbixMonToken || s.zabbixHomeToken || 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b'
+      };
+    }
+    if (page === 'backup-monitoring') {
+      return {
+        url: s.zabbixBackApi || s.zabbixHomeApi || 'https://monbr1.equinix.com.br/api_jsonrpc.php',
+        token: s.zabbixBackToken || s.zabbixHomeToken || 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b'
+      };
+    }
+    return {
+      url: s.zabbixHomeApi || 'https://monbr1.equinix.com.br/api_jsonrpc.php',
+      token: s.zabbixHomeToken || 'd888495a0fd1c258205c7c78bd4d941e5d63aa63621fb74cd01a2d1caa611c7b'
+    };
+  };
   const ZABBIX_CHART_BASE_URL = 'https://monbr1.equinix.com.br/chart.php';
   const ZABBIX_DIRECT_TIMEOUT_MS = 7000;
 
@@ -3270,11 +3298,12 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     const ctl = new AbortController();
     const timer = setTimeout(() => ctl.abort(), ZABBIX_DIRECT_TIMEOUT_MS);
     try {
-      const res = await fetch(ZABBIX_URL, {
+      const zbxCfg = resolveZabbixConfig();
+      const res = await fetch(zbxCfg.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + ZABBIX_TOKEN
+          'Authorization': 'Bearer ' + zbxCfg.token
         },
         body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 }),
         signal: ctl.signal
