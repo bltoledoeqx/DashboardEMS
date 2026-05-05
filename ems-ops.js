@@ -399,7 +399,7 @@ window.runEMSOps = function(userMes) {
     };
 
     const renderCard = c => `
-      <div class="card card-${c.lane}" data-sysid="${c.sysId}" data-assignedid="${c.assignedId||''}" data-assignedname="${c.assigned||''}" data-impact="${c.impactVal||''}" data-urgency="${c.urgencyVal||''}" onclick="openCaseModal('${c.sysId}','${c.number}',this)">
+      <div class="card card-${c.lane}" data-sysid="${c.sysId}" data-assignedid="${c.assignedId||''}" data-assignedname="${c.assigned||''}" data-impact="${c.impactVal||''}" data-urgency="${c.urgencyVal||''}" data-slabreach="${c.slaBreach?'breach':''}" onclick="openCaseModal('${c.sysId}','${c.number}',this)">
         <div class="card-top">
           <a class="card-num" href="${c.url}" target="_blank">${c.number} ↗</a>
           <span class="card-prio-badge card-prio-${c.prio}">${c.priority}</span>
@@ -2072,6 +2072,9 @@ function initCardDragAndDrop(){
         if(laneKey){
           Array.from(_dragCard.classList).filter(c=>c.startsWith('card-')).forEach(c=>_dragCard.classList.remove(c));
           _dragCard.classList.add('card-'+laneKey);
+          // Registra lane fixada manualmente — delta polling não vai sobrescrever esta posição
+          _dragCard.dataset.pinnedLane = laneKey;
+          _dragCard.dataset.pinnedAt = String(Date.now());
         }
         refreshLaneCountersInBoard(board.querySelector('.board-inner'));
         if(laneKey) applyImpactUrgencyFromLane(_dragCard,laneKey);
@@ -2738,13 +2741,20 @@ function switchAnalyst(userId){
   const boards=['board-wrap', 'board-wrap-backlog-tab'];
   const gid=window._GID_MAP?.[currentFila]||'';
   const managerId=document.getElementById('manager-sel')?.value||'';
-  const managerAllowed=new Set(getMembersByManager(gid,managerId).map(m=>m.id));
+  const managerAllowed=(() => {
+    if(!managerId) return null;
+    const gids = String(gid||'').split(',').map(s=>s.trim()).filter(Boolean);
+    const pool = gids.length
+      ? gids.flatMap(oneGid => getMembersByManager(oneGid,managerId))
+      : getMembersByManager(gid,managerId);
+    return new Set(pool.map(m=>m.id).filter(Boolean));
+  })();
   boards.forEach(bid=>{
     const bw=document.getElementById(bid); if(!bw)return;
     bw.querySelectorAll('.card').forEach(card=>{
       const cardAssignedId=card.dataset.assignedid||'';
       const passesAnalyst=!userId||cardAssignedId===userId;
-      const passesManager=!managerId||managerAllowed.has(cardAssignedId);
+      const passesManager=!managerId||(managerAllowed && managerAllowed.has(cardAssignedId));
       card.style.display=(passesAnalyst&&passesManager)?'':'none';
     });
     // Hide empty lanes
@@ -2935,16 +2945,18 @@ function openCaseModalBtn(el) {
 }
 function openCaseModal(sysId, number, cardEl, recordTable='sn_customerservice_case') {
   if(window.__suppressCardModalUntil && Date.now()<window.__suppressCardModalUntil) return;
+  closeCaseModal();
   const tableName = recordTable || 'sn_customerservice_case';
   const isEventTask = tableName === 'u_event_task';
   _modalSysId = sysId;
   if (_modalActiveCard) _modalActiveCard.classList.remove('modal-active');
-  _modalActiveCard = cardEl;
-  cardEl.classList.add('modal-active');
-  closeCaseModal();
+  _modalActiveCard = cardEl || null;
+  if (_modalActiveCard?.classList) _modalActiveCard.classList.add('modal-active');
+
+  // URL absoluta — o painel corre em outWin (about:blank), URLs relativas não funcionam.
   const url = isEventTask
-    ? '/u_event_task.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_nostack=true'
-    : '/sn_customerservice_case.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_view=case&sysparm_nostack=true&sysparm_query=no_related_lists=true';
+    ? _BASE + '/u_event_task.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_nostack=true'
+    : _BASE + '/sn_customerservice_case.do?sys_id='+encodeURIComponent(sysId)+'&sysparm_view=case&sysparm_nostack=true&sysparm_query=no_related_lists=true';
 
   const overlay = document.createElement('div');
   overlay.id = 'case-iframe-overlay';
@@ -2962,7 +2974,7 @@ function openCaseModal(sysId, number, cardEl, recordTable='sn_customerservice_ca
 
   const iframe = document.createElement('iframe');
   iframe.style.cssText = 'flex:1;border:none;width:100%;opacity:0;transition:opacity .25s;';
-  // Show skeleton while iframe loads, then fade in
+
   const iframeSkeleton = document.createElement('div');
   iframeSkeleton.style.cssText = 'position:absolute;inset:0;background:#f6f8fa;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;font-family:sans-serif;font-size:13px;color:#57606A;';
   iframeSkeleton.innerHTML = '<div style="width:32px;height:32px;border:3px solid #D0D7DE;border-top-color:#0969DA;border-radius:50%;animation:emsModalSpin .7s linear infinite;"></div><span>Abrindo chamado...</span>';
@@ -2972,18 +2984,49 @@ function openCaseModal(sysId, number, cardEl, recordTable='sn_customerservice_ca
     st.textContent = '@keyframes emsModalSpin{to{transform:rotate(360deg)}}';
     document.head.appendChild(st);
   }
+
   iframe.onload = function() {
+    // Detecta redirect para login — o ServiceNow redireciona para /login.do quando a sessão expira.
+    // O onload dispara normalmente mas o conteúdo é a tela de login, não o chamado.
+    try {
+      const loc = iframe.contentDocument?.location?.href || iframe.contentWindow?.location?.href || '';
+      if (loc && (loc.includes('login.do') || loc.includes('login_redirect') || loc.includes('%2Flogin'))) {
+        iframeSkeleton.style.display = 'flex';
+        iframeSkeleton.innerHTML =
+          '<div style="text-align:center;padding:24px;">'+
+          '<div style="font-size:28px;margin-bottom:10px;">🔒</div>'+
+          '<div style="font-size:13px;font-weight:600;color:#24292F;margin-bottom:6px;">Sessão expirada no ServiceNow</div>'+
+          '<div style="font-size:12px;color:#57606A;margin-bottom:14px;">Faça login novamente e reabra o chamado.</div>'+
+          '<a href="'+esc(url)+'" target="_blank" style="background:#0969DA;color:#fff;border-radius:4px;padding:7px 16px;text-decoration:none;font-size:12px;font-weight:600;">Abrir no ServiceNow ↗</a>'+
+          '</div>';
+        iframe.style.opacity = '0';
+        return;
+      }
+    } catch(_) {
+      // cross-origin — significa que o iframe carregou o ServiceNow corretamente (mesma origem funciona)
+      // ou está bloqueado por X-Frame-Options. Nos dois casos, segue normal.
+    }
     iframe.style.opacity = '1';
     iframeSkeleton.style.display = 'none';
   };
-  iframe.src = url;
+
+  // Fallback: se onload não disparar em 20s, oferece abrir no ServiceNow
+  const _iframeTimeoutId = setTimeout(() => {
+    if (iframeSkeleton.style.display === 'none') return;
+    iframeSkeleton.innerHTML =
+      '<div style="text-align:center;padding:24px;">'+
+      '<div style="font-size:28px;margin-bottom:10px;">⏱️</div>'+
+      '<div style="font-size:13px;font-weight:600;color:#24292F;margin-bottom:6px;">O chamado está demorando para carregar</div>'+
+      '<div style="font-size:12px;color:#57606A;margin-bottom:14px;">Pode ser lentidão do ServiceNow ou bloqueio de sessão.</div>'+
+      '<a href="'+esc(url)+'" target="_blank" style="background:#0969DA;color:#fff;border-radius:4px;padding:7px 16px;text-decoration:none;font-size:12px;font-weight:600;">Abrir no ServiceNow ↗</a>'+
+      '</div>';
+  }, 20000);
+  iframe._timeoutId = _iframeTimeoutId;
 
   const sidecar = document.createElement('div');
   sidecar.style.cssText = 'width:min(36vw,520px);min-width:320px;border-left:1px solid #D0D7DE;background:#fff;display:flex;flex-direction:column;';
   sidecar.innerHTML = '<div style="padding:10px 12px;border-bottom:1px solid #D0D7DE;background:#F6F8FA;font-size:12px;font-weight:700;color:#1f2937;">'+(isEventTask?'Event Details':'CI Details')+' <span id="case-sidecar-account" style="font-weight:500;color:#57606A;">—</span></div><div id="case-sidecar-list" style="padding:10px 12px;overflow:auto;flex:1;"></div>';
 
-  // Captura referências diretas ANTES de qualquer operação assíncrona
-  // para evitar race condition ao abrir múltiplos modais em sequência.
   const titleEl = header.querySelector('#case-iframe-title');
   const accLbl  = sidecar.querySelector('#case-sidecar-account');
   const listEl  = sidecar.querySelector('#case-sidecar-list');
@@ -2996,15 +3039,39 @@ function openCaseModal(sysId, number, cardEl, recordTable='sn_customerservice_ca
   overlay.appendChild(modal);
   document.body.appendChild(overlay);
 
+  // CRÍTICO: src deve ser definido DEPOIS do iframe estar no DOM
+  // para garantir que o onload dispara no contexto correto.
+  iframe.src = url;
+
+  const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+
   header.querySelector('#closeBtn').onclick = () => closeCaseModal();
-  header.querySelector('#reloadBtn').onclick = () => { iframe.src = iframe.src; };
+  header.querySelector('#reloadBtn').onclick = () => {
+    if (iframe._timeoutId) { clearTimeout(iframe._timeoutId); iframe._timeoutId = null; }
+    iframeSkeleton.innerHTML = '<div style="width:32px;height:32px;border:3px solid #D0D7DE;border-top-color:#0969DA;border-radius:50%;animation:emsModalSpin .7s linear infinite;"></div><span>Abrindo chamado...</span>';
+    iframeSkeleton.style.display = 'flex';
+    iframe.style.opacity = '0';
+    // Força reload limpando src antes de reatribuir
+    iframe.src = 'about:blank';
+    setTimeout(() => { iframe.src = url; }, 50);
+    iframe._timeoutId = setTimeout(() => {
+      if (iframeSkeleton.style.display === 'none') return;
+      iframeSkeleton.innerHTML =
+        '<div style="text-align:center;padding:24px;">'+
+        '<div style="font-size:28px;margin-bottom:10px;">⏱️</div>'+
+        '<div style="font-size:13px;font-weight:600;color:#24292F;margin-bottom:6px;">O chamado está demorando para carregar</div>'+
+        '<div style="font-size:12px;color:#57606A;margin-bottom:14px;">Pode ser lentidão do ServiceNow ou bloqueio de sessão.</div>'+
+        '<a href="'+esc(url)+'" target="_blank" style="background:#0969DA;color:#fff;border-radius:4px;padding:7px 16px;text-decoration:none;font-size:12px;font-weight:600;">Abrir no ServiceNow ↗</a>'+
+        '</div>';
+    }, 20000);
+  };
 
   if (isEventTask) {
-    const assigned = cardEl?.dataset?.assignedname || 'Sem responsável';
-    const account = cardEl?.dataset?.account || 'N/A';
+    const assigned  = cardEl?.dataset?.assignedname || 'Sem responsável';
+    const account   = cardEl?.dataset?.account || 'N/A';
     const eventType = cardEl?.dataset?.eventtype || 'N/A';
-    const state = cardEl?.dataset?.state || 'N/A';
-    const priority = cardEl?.dataset?.priority || 'N/A';
+    const state     = cardEl?.dataset?.state || 'N/A';
+    const priority  = cardEl?.dataset?.priority || 'N/A';
     if (accLbl) accLbl.textContent = eventType;
     if (listEl) {
       listEl.innerHTML = '<div class="acc-sec">'+
@@ -3027,21 +3094,22 @@ function openCaseModal(sysId, number, cardEl, recordTable='sn_customerservice_ca
     .then(r=>r.json())
     .then(data=>{
       const c = data.result || {};
-      const accId = c.account?.value || '';
+      const accId   = c.account?.value || '';
       const accName = c.account?.display_value || c.account?.value || '—';
-      const ciId = c.cmdb_ci?.value || '';
-      const ciName = c.cmdb_ci?.display_value || c.cmdb_ci?.value || '—';
-      const num = c.number?.display_value || c.number?.value || number;
-      // Usa referências locais capturadas na criação do modal, não getElementById
+      const ciId    = c.cmdb_ci?.value || '';
+      const ciName  = c.cmdb_ci?.display_value || c.cmdb_ci?.value || '—';
+      const num     = c.number?.display_value || c.number?.value || number;
       if (titleEl) titleEl.textContent = num || 'Case';
-      if (accLbl) accLbl.textContent = ciName;
-      if (listEl) populateAccountProducts(listEl, accId, accName, ciId, ciName);
+      if (accLbl)  accLbl.textContent  = ciName;
+      if (listEl)  populateAccountProducts(listEl, accId, accName, ciId, ciName);
     })
     .catch(()=>{
-      // listEl local garante que o erro vai para o modal correto
       if (listEl) listEl.innerHTML = '<div class="account-product-empty">Não foi possível carregar dados do account.</div>';
     });
 }
+
+
+
 
 function detailItem(label, valueHtml) {
   return '<div class="modal-detail-item"><span class="modal-detail-lbl">'+label+'</span><span class="modal-detail-val">'+valueHtml+'</span></div>';
@@ -3523,7 +3591,11 @@ function filterManagedItemsRows(query){
 
 function closeCaseModal() {
   const dynamicOverlay = document.getElementById('case-iframe-overlay');
-  if (dynamicOverlay) dynamicOverlay.remove();
+  if (dynamicOverlay) {
+    const iframe = dynamicOverlay.querySelector('iframe');
+    if (iframe && iframe._timeoutId) { clearTimeout(iframe._timeoutId); iframe._timeoutId = null; }
+    dynamicOverlay.remove();
+  }
   const overlay = document.getElementById('case-modal-overlay');
   if (overlay) overlay.style.display = 'none';
   if (_modalActiveCard) { _modalActiveCard.classList.remove('modal-active'); _modalActiveCard = null; }
@@ -3802,6 +3874,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     window.__deltaResetSync = function() {
       lastSyncTime = new Date(Date.now() - 65000).toISOString().split('.')[0].replace('T', ' ');
       isFetching = false;
+      if (_fetchingStuckTimer) { clearTimeout(_fetchingStuckTimer); _fetchingStuckTimer = null; }
     };
     
     const _G_IDS = '1c7c9057db6771d0832ead8ed396197a,673c2170476422503cbfe07a216d430f,ff72689247ee1e143cbfe07a216d4357';
@@ -3836,6 +3909,11 @@ document.addEventListener('DOMContentLoaded',()=>{
     };
 
     function shouldCountResolvedTodayOnce(sysId, resolvedDate) {
+      // Garante inicialização no contexto da outWin (document.write cria novo window)
+      if (!(window._resolvedTodaySeen instanceof Set)) {
+        window._resolvedTodaySeen = new Set();
+        window._resolvedTodaySeenDate = '';
+      }
       const today = getTodayDateLocal();
       if (window._resolvedTodaySeenDate !== today) {
         window._resolvedTodaySeenDate = today;
@@ -3928,11 +4006,23 @@ document.addEventListener('DOMContentLoaded',()=>{
       });
     }
 
+    // Safety net: if isFetching is stuck for >90s, forcibly release it
+    let _fetchingStuckTimer = null;
+
     async function fetchDeltas() {
       if (!window.__deltaPollingActive) return;
       if (window.closed) return;
       if (isFetching) return;
       isFetching = true;
+
+      // Safety: auto-reset isFetching after 90s in case of unhandled rejection
+      if (_fetchingStuckTimer) clearTimeout(_fetchingStuckTimer);
+      _fetchingStuckTimer = setTimeout(() => {
+        if (isFetching) {
+          console.warn('[DeltaPolling] isFetching travado >90s — forçando reset.');
+          isFetching = false;
+        }
+      }, 90000);
 
       const targetDoc = document;
       const isResolvedToday = c => {
@@ -3944,7 +4034,9 @@ document.addEventListener('DOMContentLoaded',()=>{
 
       const fetchStartTime = new Date(Date.now() - 2000).toISOString().split('.')[0].replace('T', ' '); // Overlap de 2s para segurança
 
-      // Escopa a query para a fila ativa. Fila especifica reduz carga vs. buscar os 3 grupos.
+      // Escopa a query para a fila ativa. Sempre busca TODOS os casos do grupo,
+      // independente do filtro de analista (o filtro é aplicado no DOM, não na query).
+      // Isso garante que mudanças de qualquer analista sejam capturadas.
       const _activeGid = (typeof currentFila !== 'undefined' && currentFila && currentFila !== 'all')
         ? (window._GID_MAP?.[currentFila] || _G_IDS)
         : _G_IDS;
@@ -3965,15 +4057,16 @@ document.addEventListener('DOMContentLoaded',()=>{
         let pA = !aId || cAssId === aId;
         let pM = true;
         if (mId && !isBl) {
-          const allowed = new Set(getMembersByManager(g, mId).map(m => m.id));
+          const gList = String(g || '').split(',').map(s => s.trim()).filter(Boolean);
+          const allowedMembers = gList.length
+            ? gList.flatMap(oneGid => getMembersByManager(oneGid, mId))
+            : getMembersByManager(g, mId);
+          const allowed = new Set(allowedMembers.map(m => m.id).filter(Boolean));
           pM = allowed.has(cAssId);
         }
         return (pA && pM);
       };
 
-      const activeAnalystId = document.getElementById('analyst-sel')?.value || '';
-      const activeBacklogAnalystId = currentBacklogAnalyst || document.getElementById('backlog-analyst-sel')?.value || '';
-      const extraAnalystIds = [...new Set([activeAnalystId, activeBacklogAnalystId].filter(Boolean))];
       const caseEndpoint = _BASE + '/api/now/table/sn_customerservice_case';
       const caseParams = '&sysparm_fields=' + _FIELDS + '&sysparm_display_value=all';
       const eventEndpoint = _BASE + '/api/now/table/u_event_task';
@@ -4046,15 +4139,9 @@ document.addEventListener('DOMContentLoaded',()=>{
           });
         };
 
-        // Query base: mantém movimentação geral dos cards (mudança de fila/analista/estado).
+        // Query base: cobre TODOS os casos do grupo.
+        // O filtro de analista é aplicado exclusivamente no DOM via evaluateCardVisibility.
         addCases(await fetchByQuery(caseEndpoint, caseParams, baseQuery));
-
-        // Smart mode: quando filtro por analista estiver ativo, consulta adicional focada no analista
-        // para reforçar responsividade sem perder eventos gerais.
-        for (const analystId of extraAnalystIds) {
-          const analystQuery = baseQuery + '^assigned_to=' + analystId;
-          addCases(await fetchByQuery(caseEndpoint, caseParams, analystQuery));
-        }
 
         const cases = out;
         const eventQuery = 'assignment_group.name=EMS L1 OpsCenter AMER^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
@@ -4097,14 +4184,29 @@ document.addEventListener('DOMContentLoaded',()=>{
           window._dndDirty = false;
         }
       } catch (err) { console.error('[DeltaPolling] Erro:', err); }
-      finally { isFetching = false; }
+      finally {
+        if (_fetchingStuckTimer) { clearTimeout(_fetchingStuckTimer); _fetchingStuckTimer = null; }
+        isFetching = false;
+      }
     }
 
     // Mantém a sessão ativa e verifica token a cada 5 minutos
+    // Usa fetch direto (não snFetch) para evitar interferir no contador de auth failures
     setInterval(() => {
-      snFetch(_BASE + '/api/now/table/sys_user?sysparm_limit=1')
+      const keepAliveHeaders = { 'Accept': 'application/json', 'X-UserToken': _TOK };
+      fetch(_BASE + '/api/now/table/sys_user?sysparm_limit=1', { headers: keepAliveHeaders })
+        .then(r => {
+          // Renova token silenciosamente se expirou
+          if ((r.status === 401 || r.status === 403) && window.opener && !window.opener.closed) {
+            const nt = window.opener.g_ck || window.opener.top?.g_ck;
+            if (nt && nt !== _TOK) {
+              _TOK = nt;
+              _HEADERS_OBJ['X-UserToken'] = nt;
+              console.log('[Dashboard] Token renovado pelo keep-alive.');
+            }
+          }
+        })
         .catch(e => {
-          // If handleCriticalSessionError was called, it would have already thrown and stopped polling.
           console.warn('[Dashboard] Erro no keep-alive da sessão:', e.message);
         });
     }, 300000);
@@ -4132,12 +4234,46 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
 
     function resolveLaneWithSla(data, card) {
-      return resolveLaneFromDelta(data);
+      const stV = String(data?.state?.value || '');
+      const stD = (data?.state?.display_value || '').toLowerCase();
+      const isAwaiting = ['18','32','5','29','30'].includes(stV) || stD.includes('awaiting') || stD.includes('aguardando') || stD.includes('info');
+      if (isAwaiting) return 'awaiting';
+
+      const hasAssigned = !!data?.assigned_to?.value;
+      if (!hasAssigned) return 'orphan';
+
+      const rawDV = (data?.priority?.display_value || '').trim();
+      const match = rawDV.match(/^\d/);
+      let prio = match ? parseInt(match[0], 10) : parseInt(data?.priority?.value || '5', 10);
+      if (prio === 1 && !rawDV.startsWith('1')) prio = 2;
+
+      // Verifica breach de SLA via atributo do card (preenchido pelo render inicial e pelo delta)
+      const slaAttr = card?.dataset?.slabreach || card?.dataset?.sla || '';
+      const hasBreach = slaAttr === 'breach' || slaAttr === 'true' || slaAttr === '1';
+
+      if (prio === 1) return 'critical';
+      if (prio === 2) return hasBreach ? 'critical' : 'high';
+      if (prio === 3) return hasBreach ? 'high' : 'medium';
+      return 'normal';
     }
 
     function moveCardToLane(card, lane) {
       const board = card.closest('.board-inner');
       if (!board || !lane) return;
+
+      // Respeita pin manual — não move o card se foi arrastado manualmente nos últimos 10 min
+      const pinnedLane = card.dataset.pinnedLane || '';
+      const pinnedAt = parseInt(card.dataset.pinnedAt || '0', 10);
+      const PIN_TTL_MS = 10 * 60 * 1000; // 10 minutos
+      if (pinnedLane && (Date.now() - pinnedAt) < PIN_TTL_MS) {
+        // Mantém o card na lane fixada manualmente
+        if (pinnedLane !== lane) return; // delta quer mover para outra lane — ignora
+      } else if (pinnedLane) {
+        // Pin expirou — limpa
+        delete card.dataset.pinnedLane;
+        delete card.dataset.pinnedAt;
+      }
+
       const targetBody = board.querySelector('.lane[data-lane="' + lane + '"] .lane-body');
       if (!targetBody || card.parentElement === targetBody) return;
       targetBody.insertBefore(card, targetBody.firstChild);
@@ -4447,19 +4583,19 @@ document.addEventListener('DOMContentLoaded',()=>{
     }
 
     function updateCard(card, data, visibilityCallback) {
-      const newGroupId = data.assignment_group?.value || '';
-      const managedGroups = _G_IDS.split(',');
-      
+      const newGroupId = (data.assignment_group?.value || '').trim();
+      const managedGroups = _G_IDS.split(',').map(s => s.trim()).filter(Boolean);
+
       // Reprocessa sempre o delta recebido para evitar perder mudanças no mesmo segundo
       card.dataset.lastUpdated = data.sys_updated_on?.value || '';
-      
+
       // Determine which board this card belongs to
       const boardWrap = card.closest('.board-wrap');
       const isBacklog = boardWrap && boardWrap.id === 'board-wrap-backlog-tab';
-      const filaKey = isBacklog ? currentBacklogFila : currentFila;
 
-      // Remove cards that left monitored groups or no longer belong to the selected queue for THIS board.
-      if (!managedGroups.includes(newGroupId) || !queueMatchesFila(newGroupId, filaKey)) {
+      // Remove card APENAS se saiu de todos os grupos monitorados.
+      // Nunca remove por fila/queue mismatch — causa sumiço ao trocar analista ou fila.
+      if (newGroupId && !managedGroups.includes(newGroupId)) {
         card.remove();
         if (boardWrap) updateLaneCounters(boardWrap.querySelector('.board-inner'));
         return;
@@ -4542,17 +4678,26 @@ document.addEventListener('DOMContentLoaded',()=>{
         const ass = footer.querySelector('.card-assigned');
         if (ass) {
           const name = data.assigned_to?.display_value || '';
-          // Só atualiza se o responsável mudar
-          if (card.dataset.assignedname !== name) {
-          card.dataset.assignedid = data.assigned_to?.value || '';
+          // Sempre sincroniza dataset.assignedid — crítico para filtro por analista
+          const newAssId = data.assigned_to?.value || '';
+          card.dataset.assignedid = newAssId;
           card.dataset.assignedname = name;
           const avatar = ass.querySelector('.card-avatar');
           if (avatar) avatar.textContent = name ? name.split(/\s+/).slice(0,2).map(p=>p.charAt(0).toUpperCase()).join('') : '!';
           const lbl = ass.querySelector('span:last-child');
           if (lbl) lbl.textContent = name || 'Sem responsável';
           ass.className = 'card-assigned' + (name ? '' : ' unassigned');
-          }
         }
+      }
+
+      // Preserve SLA breach status from the existing SLA bar (set by the full render or bsla).
+      // The delta does not return SLA data, so we read it from the DOM to avoid regressing lane.
+      const slaBarEl = card.querySelector('.sla-bar-name, .sla-time');
+      if (slaBarEl) {
+        const isBreach = slaBarEl.classList.contains('sla-time') ||
+          (slaBarEl.textContent || '').toUpperCase().includes('BREACH') ||
+          card.querySelector('.sla-bar-fill[style*="#CF222E"]') !== null;
+        card.dataset.slabreach = isBreach ? 'breach' : '';
       }
 
       const prevLane = Array.from(LANE_CLASSES).find(cls => card.classList.contains(cls)) || '';
@@ -4564,18 +4709,11 @@ document.addEventListener('DOMContentLoaded',()=>{
       moveCardToLane(card, nextLane);
       pulseCard(card, prevLane !== ('card-' + nextLane));
 
-      // REAVALIAÇÃO DE FILTRO: Se o analista ou manager mudou, remove o card se não pertencer ao filtro atual
+      // FILTRO DE VISIBILIDADE: nunca remove o card — apenas oculta/exibe via display.
+      // Remover causaria sumiço permanente ao trocar analista ou ao voltar para "todos".
+      // O switchAnalyst() re-avalia todos os cards ao trocar filtro.
       if (visibilityCallback) {
-        if (!visibilityCallback(card, data)) {
-          card.remove(); 
-        } else {
-          card.style.display = ''; 
-          // Atualiza labels de estado e analista explicitamente para refletir o novo dado
-          const sTag = card.querySelector('.tag-state');
-          if (sTag) sTag.textContent = data.state.display_value;
-          const assLbl = card.querySelector('.card-assigned span:last-child');
-          if (assLbl) assLbl.textContent = data.assigned_to?.display_value || 'Sem responsável';
-        }
+        card.style.display = visibilityCallback(card, data) ? '' : 'none';
       }
       if (boardWrap) updateLaneCounters(boardWrap.querySelector('.board-inner'));
     }
