@@ -1203,6 +1203,7 @@ tr:hover td{background:#F6F8FA;}
     <div class="requests-left">
       <button class="req-all-btn" onclick="toggleQueueMenu(event)" id="req-all-btn">🛡️ Assigned to me ▾</button>
       <div class="req-menu" id="req-queue-menu" style="display:none;">
+        <button type="button" onclick="setHomeAssignedToMe();closeReqMenus();">Assigned to me</button>
                 <button type="button" onclick="switchFila('l1');closeReqMenus();">EMS OPS L1</button>
         <button type="button" onclick="switchFila('l2');closeReqMenus();">EMS OPS L2</button>
         <button type="button" onclick="switchFila('event');closeReqMenus();">EVTASK CAN</button>
@@ -1563,12 +1564,21 @@ function refreshMyCases(){
   initMyCases();
 }
 
-let currentFila='l1';
+let currentFila='all';
 let _lazyLoaded={postmortem:false,backlog:false,reports:false};
 function getCurrentUserSysId(){
   try {
     return window.opener?.g_user?.userID || window.opener?.NOW?.user?.userID || window.g_user?.userID || '';
   } catch(_) { return ''; }
+}
+function setHomeAssignedToMe(){
+  const meId=getCurrentUserSysId();
+  const aSel=document.getElementById('analyst-sel');
+  if(aSel && meId){
+    const meOpt=Array.from(aSel.options).find(o=>o.value===meId);
+    if(meOpt) { aSel.value=meId; switchAnalyst(meId); }
+  }
+  updateRequestsLabel();
 }
 let currentBacklogFila='all';
 let currentBacklogAnalyst='';
@@ -1742,7 +1752,10 @@ function populateAnalystDropdown(selectId,key,managerId,placeholder){
   const members=getMembersByManager(gid,managerId).slice().sort((a,b)=>a.name.localeCompare(b.name,'pt'));
   const sig=gid+'|'+(managerId||'all')+'|'+members.length;
   if(sel.dataset.sig!==sig){
-    sel.innerHTML='<option value="">'+(placeholder||'— Todos —')+'</option>'+members.map(a=>'<option value="'+a.id+'">'+a.name+'</option>').join('');
+    const meId=getCurrentUserSysId();
+    const meMember=members.find(m=>m.id===meId);
+    const meOpt=(meId&&meMember)?'<option value="'+meId+'">Assigned to me · '+meMember.name+'</option>':'';
+    sel.innerHTML='<option value="">'+(placeholder||'— Todos —')+'</option>'+meOpt+members.map(a=>'<option value="'+a.id+'">'+a.name+'</option>').join('');
     sel.dataset.sig=sig;
   }
   if(prev&&Array.from(sel.options).some(o=>o.value===prev)) sel.value=prev;
@@ -1834,7 +1847,7 @@ function toggleSlaSort(){
 }
 
 function updateRequestsLabel(){
-  const labels={l1:'EMS OPS L1',l2:'EMS OPS L2',event:'EVTASK CAN'};
+  const labels={all:'Assigned to me',l1:'EMS OPS L1',l2:'EMS OPS L2',event:'EMS Event BR'};
   const btn=document.getElementById('req-all-btn');
   if(btn) btn.textContent='🛡️ '+(labels[currentFila]||'Assigned to me')+' ▾';
 }
@@ -3883,7 +3896,7 @@ document.addEventListener('DOMContentLoaded',()=>{
     openImpactUrgencyBtn,openReassignBtn,closeImpactUrgencyEditor,
     closeCaseModal,modalReassign,
     modalTabSwitch,saveModal,saveModalImpactUrgency,uploadModalAttachment,
-    closeAccountProductsModal,toggleCiPassword,pgNav,pgGoTo,remFil,clrCol,applyCol
+    closeAccountProductsModal,toggleCiPassword,pgNav,pgGoTo,remFil,clrCol,applyCol,setHomeAssignedToMe
   });
 
   // ── Delta Polling (Real-time updates) ──────────────────────────────────
