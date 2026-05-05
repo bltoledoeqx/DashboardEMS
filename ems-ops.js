@@ -1129,8 +1129,8 @@ tr:hover td{background:#F6F8FA;}
 
 <div class="side-nav">
   <button class="side-btn active" onclick="activateSide(this);showPage('kanban')" title="Home"><i class="bi bi-house-door-fill side-ico"></i><span>Home</span></button>
-  <button class="side-btn" onclick="activateSide(this);showPage('event-monitoring')" title="Event Monitoring"><i class="bi bi-broadcast-pin side-ico"></i><span>Event</span></button>
-  <button class="side-btn" onclick="activateSide(this);showPage('backup-monitoring')" title="Backup Monitoring"><i class="bi bi-hdd-network side-ico"></i><span>Backup</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('event-monitoring')" title="Event Monitoring"><i class="bi bi-broadcast-pin side-ico"></i><span>EVTASK CAN</span></button>
+  <button class="side-btn" onclick="activateSide(this);showPage('backup-monitoring')" title="Backup Monitoring"><i class="bi bi-hdd-network side-ico"></i><span>EVTASK CAN</span></button>
   <button class="side-btn" onclick="activateSide(this);showPage('backlog')" title="Backlog"><i class="bi bi-archive side-ico"></i><span>Backlog</span></button>
   <button class="side-btn" onclick="activateSide(this);showPage('postmortem')" title="Post"><i class="bi bi-journal-text side-ico"></i><span>Post</span></button>
   <button class="side-btn" onclick="activateSide(this);showPage('reports')" title="Reports"><i class="bi bi-bar-chart-line side-ico"></i><span>Reports</span></button>
@@ -1201,12 +1201,11 @@ tr:hover td{background:#F6F8FA;}
 <!-- Reports Accordion -->
   <div class="requests-toolbar">
     <div class="requests-left">
-      <button class="req-all-btn" onclick="toggleQueueMenu(event)" id="req-all-btn">🛡️ Todos os casos ▾</button>
+      <button class="req-all-btn" onclick="toggleQueueMenu(event)" id="req-all-btn">🛡️ Assigned to me ▾</button>
       <div class="req-menu" id="req-queue-menu" style="display:none;">
-        <button type="button" onclick="switchFila('all');closeReqMenus();">Todos os casos</button>
-        <button type="button" onclick="switchFila('l1');closeReqMenus();">EMS OPS L1</button>
+                <button type="button" onclick="switchFila('l1');closeReqMenus();">EMS OPS L1</button>
         <button type="button" onclick="switchFila('l2');closeReqMenus();">EMS OPS L2</button>
-        <button type="button" onclick="switchFila('event');closeReqMenus();">EMS Event BR</button>
+        <button type="button" onclick="switchFila('event');closeReqMenus();">EVTASK CAN</button>
       </div>
     </div>
     <div class="requests-actions">
@@ -1564,7 +1563,13 @@ function refreshMyCases(){
   initMyCases();
 }
 
-let currentFila='all';
+let currentFila='l1';
+let _lazyLoaded={postmortem:false,backlog:false,reports:false};
+function getCurrentUserSysId(){
+  try {
+    return window.opener?.g_user?.userID || window.opener?.NOW?.user?.userID || window.g_user?.userID || '';
+  } catch(_) { return ''; }
+}
 let currentBacklogFila='all';
 let currentBacklogAnalyst='';
 let currentReportsFila='all';
@@ -1829,9 +1834,9 @@ function toggleSlaSort(){
 }
 
 function updateRequestsLabel(){
-  const labels={all:'Todos os casos',l1:'EMS OPS L1',l2:'EMS OPS L2',event:'EMS Event BR'};
+  const labels={l1:'EMS OPS L1',l2:'EMS OPS L2',event:'EVTASK CAN'};
   const btn=document.getElementById('req-all-btn');
-  if(btn) btn.textContent='🛡️ '+(labels[currentFila]||'Todos os casos')+' ▾';
+  if(btn) btn.textContent='🛡️ '+(labels[currentFila]||'Assigned to me')+' ▾';
 }
 
 function topAction(kind){
@@ -1970,12 +1975,18 @@ function showPage(id,el){
     const tab=document.querySelectorAll('.tab')[idx];
     if(tab) tab.classList.add('active');
   }
-  if(id==='postmortem') pgInit();
+  if(id==='postmortem'){
+    if(!_lazyLoaded.postmortem){ pgInit(); _lazyLoaded.postmortem=true; }
+  }
   if(id==='backlog'){
+    if(!_lazyLoaded.backlog){ switchFilaBacklog(currentBacklogFila||'all'); _lazyLoaded.backlog=true; }
     switchAnalystBacklog(currentBacklogAnalyst||document.getElementById('backlog-analyst-sel')?.value||'');
   }
   if(id==='reports'){
-    switchReportsFila(currentReportsFila||document.getElementById('rpt-fila-sel')?.value||'all');
+    if(!_lazyLoaded.reports){
+      switchReportsFila(currentReportsFila||document.getElementById('rpt-fila-sel')?.value||'all');
+      _lazyLoaded.reports=true;
+    }
   }
   if(id==='kanban'){
     // Re-init accordion in case it wasn't loaded yet
@@ -3811,6 +3822,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   populateManagerDropdown('manager-sel', currentFila).then(()=>{
     const managerId=document.getElementById('manager-sel')?.value||'';
     populateAnalystDropdown('analyst-sel', currentFila, managerId, '— Todos —');
+    const meId=getCurrentUserSysId();
+    const aSel=document.getElementById('analyst-sel');
+    if(aSel && meId && Array.from(aSel.options).some(o=>o.value===meId)){
+      aSel.value=meId;
+      switchAnalyst(meId);
+    }
     syncBacklogAnalystDropdown();
     renderFilterChips();
   });
@@ -3843,8 +3860,6 @@ document.addEventListener('DOMContentLoaded',()=>{
     if(accBody){accBody.style.display='block';accBody.dataset.open='1';}
     if(accArrow) accArrow.style.transform='rotate(180deg)';
   }
-  switchReportsFila(currentReportsFila);
-  switchFilaBacklog(currentBacklogFila);
   renderFilterChips();
   document.addEventListener('click',e=>{
     const queueWrap=document.getElementById('req-queue-menu');
