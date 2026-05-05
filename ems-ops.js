@@ -1204,7 +1204,7 @@ tr:hover td{background:#F6F8FA;}
         <button type="button" onclick="setHomeAssignedToMe();closeReqMenus();">Assigned to me</button>
                 <button type="button" onclick="switchFila('l1');closeReqMenus();">EMS OPS L1</button>
         <button type="button" onclick="switchFila('l2');closeReqMenus();">EMS OPS L2</button>
-        <button type="button" onclick="switchFila('event');closeReqMenus();">EMS Event BR</button>
+        <button type="button" onclick="switchFila('event');closeReqMenus();">EVTASK CAN</button>
       </div>
     </div>
     <div class="requests-actions">
@@ -4254,6 +4254,8 @@ document.addEventListener('DOMContentLoaded',()=>{
               insertNewCaseCard(c, evaluateCardVisibility);
               if(isMine) notifyAssignedToMe('Novo ticket para você', (c?.number?.display_value||sid), 'new:'+sid);
             }
+            if (cards.length) cards.forEach(card => updateCard(card, c, evaluateCardVisibility));
+            else insertNewCaseCard(c, evaluateCardVisibility);
           });
         };
 
