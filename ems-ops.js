@@ -4169,57 +4169,56 @@ document.addEventListener('DOMContentLoaded',()=>{
       }
 
       try {
-        const out = [];
-        const seen = new Set();
-        const addCases = list => {
-          list.forEach(c => {
-            const sid = c?.sys_id?.value || c?.sys_id;
-            if (!sid || seen.has(sid)) return;
-            seen.add(sid);
-            out.push(c);
+        const normalizeRows = rows => {
+          const byId = new Map();
+          rows.forEach(row => {
+            const sid = row?.sys_id?.value || row?.sys_id || '';
+            if (!sid) return;
+            const prev = byId.get(sid);
+            if (!prev) { byId.set(sid, row); return; }
+            const pTs = String(prev?.sys_updated_on?.value || prev?.sys_updated_on || '');
+            const nTs = String(row?.sys_updated_on?.value || row?.sys_updated_on || '');
+            if (nTs >= pTs) byId.set(sid, row);
+          });
+          return Array.from(byId.values()).sort((a,b)=>{
+            const at=String(a?.sys_updated_on?.value||a?.sys_updated_on||'');
+            const bt=String(b?.sys_updated_on?.value||b?.sys_updated_on||'');
+            return at.localeCompare(bt);
           });
         };
 
-        // Query base: cobre TODOS os casos do grupo.
-        // O filtro de analista é aplicado exclusivamente no DOM via evaluateCardVisibility.
-        addCases(await fetchByQuery(caseEndpoint, caseParams, baseQuery));
-
-        const cases = out;
-        const eventQuery = 'assignment_group.name=EMS L1 OpsCenter AMER^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
-        const deltaEventsRaw = await fetchByQuery(eventEndpoint, eventParams, eventQuery);
-        const deltaEvents = await enrichDeltaEvents(deltaEventsRaw);
-
-        if (cases.length > 0) {
+        const reconcileCases = (cases) => {
           cases.forEach(c => {
             const sid = c?.sys_id?.value || c?.sys_id || '';
             if (!sid) return;
             const cards = targetDoc.querySelectorAll('.card[data-sysid="' + sid + '"]');
-            if (cards.length > 0) {
-              if (isTerminalState(c?.state?.value, c?.state?.display_value)) {
-                cards.forEach(card => {
-                  const board = card.closest('.board-inner');
-                if (isResolvedToday(c)) updateResolvedTodayUI(c);
-                  card.remove();
-                  if (board) updateLaneCounters(board);
-                });
-                return;
-              }
-              cards.forEach(card => updateCard(card, c, evaluateCardVisibility));
-            } else {
-              if (isTerminalState(c?.state?.value, c?.state?.display_value)) {
-                if (isResolvedToday(c)) updateResolvedTodayUI(c);
-                return;
-              }
-              insertNewCaseCard(c, evaluateCardVisibility);
+            if (isTerminalState(c?.state?.value, c?.state?.display_value)) {
+              if (isResolvedToday(c)) updateResolvedTodayUI(c);
+              cards.forEach(card => {
+                const board = card.closest('.board-inner');
+                card.remove();
+                if (board) updateLaneCounters(board);
+              });
+              return;
             }
+            if (cards.length) cards.forEach(card => updateCard(card, c, evaluateCardVisibility));
+            else insertNewCaseCard(c, evaluateCardVisibility);
           });
-        }
-        if (deltaEvents.length > 0) {
-          deltaEvents.forEach(ev => upsertEventCard(ev));
-        }
-        // Dynamic Sync Time: look back at least the polling interval plus a small buffer
+        };
+
+        const reconcileEvents = (events) => events.forEach(ev => upsertEventCard(ev));
+
+        const caseRowsRaw = await fetchByQuery(caseEndpoint, caseParams, baseQuery);
+        const caseRows = normalizeRows(caseRowsRaw);
+
+        const eventQuery = 'assignment_group.name=EMS L1 OpsCenter AMER^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
+        const eventRowsRaw = await fetchByQuery(eventEndpoint, eventParams, eventQuery);
+        const eventRows = await enrichDeltaEvents(normalizeRows(eventRowsRaw));
+
+        reconcileCases(caseRows);
+        reconcileEvents(eventRows);
+
         lastSyncTime = new Date(Date.now() - (POLLING_INTERVAL + 5000)).toISOString().split('.')[0].replace('T', ' ');
-        // DnD rebind: single call per batch instead of per card insertion
         if (window._dndDirty && typeof initCardDragAndDrop === 'function') {
           initCardDragAndDrop();
           window._dndDirty = false;
