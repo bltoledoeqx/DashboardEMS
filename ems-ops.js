@@ -3103,7 +3103,7 @@ function openCaseModal(sysId, number, cardEl, recordTable='sn_customerservice_ca
   // para garantir que o onload dispara no contexto correto.
   iframe.src = url;
 
-  const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
   header.querySelector('#closeBtn').onclick = () => closeCaseModal();
   header.querySelector('#reloadBtn').onclick = () => {
@@ -3266,7 +3266,7 @@ function populateAccountProducts(listEl, accountId, accountName, ciId, ciName){
     return '—';
   };
 
-  const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 
   // ── Zabbix: busca via postMessage → content.js → background.js (sem CORS) ──
   // Tentativa 1: consulta direta (mesma lógica validada no DevTools).
