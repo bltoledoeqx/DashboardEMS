@@ -1140,7 +1140,7 @@ tr:hover td{background:#F6F8FA;}
   <div class="tab" onclick="showPage('postmortem',this)">🔍 Post-mortem</div>
   <div class="tab" style="display:none" onclick="showPage('reports',this)">📊 Reports</div>
   <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
-    <span id="refresh-status" style="font-size:11px;color:var(--muted);"></span>
+    <span id="refresh-mode-badge" style="font-size:11px;color:var(--muted);">⚡ Delta polling</span><span id="refresh-status" style="font-size:11px;color:var(--muted);"></span>
   </div>
 </div>
 
@@ -1470,12 +1470,12 @@ tr:hover td{background:#F6F8FA;}
 </div>
 
 <script>
-let _TOK = (window.opener && !window.opener.closed) ? (window.opener.g_ck || window.opener.top?.g_ck || window.opener.parent?.g_ck) : null;
-let _HEADERS_OBJ = { 'Accept': 'application/json', 'X-UserToken': _TOK };
-const _BASE='${BASE}',_IDS='${G_IDS}',_MES=${m};
-const _MN=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-const _GN={'1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER','673c2170476422503cbfe07a216d430f':'Event Management BR','ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER'};
-const _GK={'1c7c9057db6771d0832ead8ed396197a':'l1','673c2170476422503cbfe07a216d430f':'event','ff72689247ee1e143cbfe07a216d4357':'l2'};
+var _TOK = (window.opener && !window.opener.closed) ? (window.opener.g_ck || window.opener.top?.g_ck || window.opener.parent?.g_ck) : null;
+var _HEADERS_OBJ = { 'Accept': 'application/json', 'X-UserToken': _TOK };
+var _BASE='${BASE}',_IDS='${G_IDS}',_MES=${m};
+var _MN=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+var _GN={'1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER','673c2170476422503cbfe07a216d430f':'Event Management BR','ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER'};
+var _GK={'1c7c9057db6771d0832ead8ed396197a':'l1','673c2170476422503cbfe07a216d430f':'event','ff72689247ee1e143cbfe07a216d4357':'l2'};
 
 // Helper de busca centralizado com renovação de sessão e tratamento de erro
 async function snFetch(url, opts = {}) {
@@ -1562,8 +1562,8 @@ function refreshMyCases(){
   initMyCases();
 }
 
-let currentFila='all';
-let _lazyLoaded={postmortem:false,backlog:false,reports:false};
+var currentFila='all';
+var _lazyLoaded={postmortem:false,backlog:false,reports:false};
 function getCurrentUserSysId(){
   try {
     return window.opener?.g_user?.userID || window.opener?.NOW?.user?.userID || window.g_user?.userID || '';
@@ -1578,25 +1578,40 @@ function setHomeAssignedToMe(){
   }
   updateRequestsLabel();
 }
-let currentBacklogFila='all';
-let currentBacklogAnalyst='';
-let currentReportsFila='all';
-let currentReportsManager='';
-let currentReportsAnalyst='';
+var currentBacklogFila='all';
+var currentBacklogAnalyst='';
+var currentReportsFila='all';
+var currentReportsManager='';
+var currentReportsAnalyst='';
 window._GMEMBERS=${gmembersJson};
 window._GID_MAP={'all':_IDS,'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
 window._MANAGER_CACHE={};
 window._MSH_NOC_GID=undefined;
 window._REPORTS_FETCH_CACHE={ttlMs:30000,entries:{},inflight:{}};
 window._ACCOUNT_PRODUCTS_CACHE={ttlMs:120000,entries:{}};
-    window._UI_SETTINGS={pollingMs:7000,compact:true,defaultSort:'none',zabbixHomeApi:'',zabbixMonApi:'',zabbixBackApi:'',zabbixHomeToken:'',zabbixMonToken:'',zabbixBackToken:''};
+    window._UI_SETTINGS={refreshMode:'delta',pollingMs:7000,fullRefreshMs:300000,compact:true,defaultSort:'none',zabbixHomeApi:'',zabbixMonApi:'',zabbixBackApi:'',zabbixHomeToken:'',zabbixMonToken:'',zabbixBackToken:''};
 try{
   const saved=JSON.parse(localStorage.getItem('ems_ops_ui_settings')||'{}');
   window._UI_SETTINGS={...window._UI_SETTINGS,...saved};
 }catch(e){}
 
+function getRefreshMode(){
+  const mode=window._UI_SETTINGS?.refreshMode||'delta';
+  return ['delta','periodic','manual'].includes(mode)?mode:'delta';
+}
+function getRefreshModeLabel(){
+  const mode=getRefreshMode();
+  if(mode==='periodic') return '↻ Full refresh periódico';
+  if(mode==='manual') return '⏸ Atualização manual';
+  return '⚡ Delta polling';
+}
+function updateRefreshModeBadge(){
+  const el=document.getElementById('refresh-mode-badge');
+  if(el) el.textContent=getRefreshModeLabel();
+}
 function applyUiSettings(){
   document.body.classList.toggle('compact-ui', !!window._UI_SETTINGS.compact);
+  updateRefreshModeBadge();
   if(window._UI_SETTINGS.defaultSort==='sla'&&!window._slaSortOn){
     setTimeout(()=>toggleSlaSort(),0);
   }
@@ -1614,8 +1629,12 @@ function openSettingsModal(){
   ov.innerHTML='<div class="settings-md">'+
     '<div class="settings-h"><div class="settings-ttl">⚙️ Configurações do Painel</div><button type="button" onclick="closeSettingsModal()" class="refresh-btn">✕</button></div>'+
     '<div class="settings-grid">'+
-      '<label for="set-polling">Intervalo do polling (tempo real)</label>'+
+      '<label for="set-refresh-mode">Modo de atualização</label>'+
+      '<select id="set-refresh-mode"><option value="delta">Delta polling (tempo real)</option><option value="periodic">Full refresh periódico</option><option value="manual">Manual (sem polling automático)</option></select>'+
+      '<label for="set-polling">Intervalo do Delta Polling</label>'+
       '<select id="set-polling"><option value="7000">7s</option><option value="15000">15s</option><option value="30000">30s</option><option value="60000">60s</option><option value="120000">120s</option></select>'+
+      '<label for="set-full-refresh">Intervalo do full refresh</label>'+
+      '<select id="set-full-refresh"><option value="120000">2min</option><option value="300000">5min</option><option value="600000">10min</option><option value="900000">15min</option></select>'+
       '<label for="set-compact">Modo compacto (menos espaçamento)</label><input id="set-compact" type="checkbox" disabled>'+
       '<label for="set-zbx-home">API Zabbix (Home)</label><input id="set-zbx-home" type="text" placeholder="https://.../api_jsonrpc.php">'+
       '<label for="set-zbx-home-token">Token Zabbix (Home)</label><input id="set-zbx-home-token" type="password" placeholder="Token API">'+
@@ -1628,7 +1647,9 @@ function openSettingsModal(){
     '<div class="settings-actions"><button type="button" class="refresh-btn" onclick="closeSettingsModal()">Cancelar</button><button type="button" class="refresh-btn" id="set-save-btn">Salvar</button></div>'+
   '</div>';
   document.body.appendChild(ov);
+  ov.querySelector('#set-refresh-mode').value=s.refreshMode||'delta';
   ov.querySelector('#set-polling').value=String(s.pollingMs||7000);
+  ov.querySelector('#set-full-refresh').value=String(s.fullRefreshMs||300000);
   ov.querySelector('#set-compact').checked=true;
   if(ov.querySelector('#set-zbx-home')) ov.querySelector('#set-zbx-home').value=s.zabbixHomeApi||'';
   if(ov.querySelector('#set-zbx-home-token')) ov.querySelector('#set-zbx-home-token').value=s.zabbixHomeToken||'';
@@ -1638,7 +1659,9 @@ function openSettingsModal(){
   if(ov.querySelector('#set-zbx-back-token')) ov.querySelector('#set-zbx-back-token').value=s.zabbixBackToken||'';
   ov.querySelector('#set-sort').value=s.defaultSort||'none';
   ov.querySelector('#set-save-btn').onclick=()=>{
+    window._UI_SETTINGS.refreshMode=ov.querySelector('#set-refresh-mode').value||'delta';
     window._UI_SETTINGS.pollingMs=parseInt(ov.querySelector('#set-polling').value,10)||7000;
+    window._UI_SETTINGS.fullRefreshMs=parseInt(ov.querySelector('#set-full-refresh').value,10)||300000;
     window._UI_SETTINGS.compact=true;
     window._UI_SETTINGS.zabbixHomeApi=ov.querySelector('#set-zbx-home')?.value?.trim()||'';
     window._UI_SETTINGS.zabbixHomeToken=ov.querySelector('#set-zbx-home-token')?.value?.trim()||'';
@@ -1650,6 +1673,7 @@ function openSettingsModal(){
     localStorage.setItem('ems_ops_ui_settings',JSON.stringify(window._UI_SETTINGS));
     applyUiSettings();
     if(typeof window.__setDeltaPollingInterval==='function') window.__setDeltaPollingInterval(window._UI_SETTINGS.pollingMs);
+    startPolling();
     closeSettingsModal();
     showToast('✅ Configurações aplicadas');
   };
@@ -1836,7 +1860,7 @@ function toggleFilterMenu(e){
   fm.style.display=(fm.style.display==='none'||!fm.style.display)?'flex':'none';
 }
 
-let _slaSortOn=false;
+var _slaSortOn=false;
 function getCardSlaScore(card){
   if(!card) return 0;
   const pct=parseInt((card.querySelector('.sla-bar-pct')?.textContent||'0').replace(/\D/g,''),10)||0;
@@ -2025,7 +2049,7 @@ function activateSide(btn){
 }
 
 
-const _LANE_IU_MAP={
+var _LANE_IU_MAP={
   critical:{impact:'1',urgency:'1'},
   high:{impact:'1',urgency:'2'},
   medium:{impact:'2',urgency:'2'},
@@ -2033,7 +2057,7 @@ const _LANE_IU_MAP={
   normal:{impact:'3',urgency:'3'},
   orphan:{impact:'3',urgency:'3'}
 };
-let _dragCard=null;
+var _dragCard=null;
 
 function refreshLaneCountersInBoard(boardInner){
   if(!boardInner) return;
@@ -2442,12 +2466,18 @@ function fetchAccordionScores(){
 function fetchSemTypeScore(){fetchAccordionScores();}
 
 // ── Layered Polling ──────────────────────────────────────────────────────────
-let _pollL1=null, _pollL2=null, _pollL3=null;
-let _lastActivesCount = -1;
+var _pollL1=null, _pollL2=null, _pollL3=null;
+var _lastActivesCount = -1;
 
 function startPolling(){
   stopPolling();
-  window.__deltaPollingActive = true;
+  updateRefreshModeBadge();
+
+  const mode=getRefreshMode();
+  if(mode==='manual'){
+    setRefreshStatus('Atualização automática pausada');
+    return;
+  }
 
   // Layer 1: KPIs (4s) — 3 lightweight aggregate calls
   _pollL1 = setInterval(()=>pollKPIs(), 4000);
@@ -2466,13 +2496,18 @@ function startPolling(){
     if(body&&body.style.display!=='none') fetchAccordionScores();
   }, 180000);
 
-  // Layer 3: Full board (10min) — disabled re-render, using delta polling instead
-  // _pollL3 = setInterval(()=>{
-  //   if(_lastActivesCount>=0){
-  //     pollKPIs(true);
-  //   }
-  // }, 600000);
+  if(mode==='periodic'){
+    const fullMs=Math.max(120000, parseInt(window._UI_SETTINGS?.fullRefreshMs,10)||300000);
+    _pollL3 = setInterval(()=>{
+      if(document.hidden) return;
+      setRefreshStatus('↻ Full refresh periódico...');
+      refreshKanban();
+    }, fullMs);
+    setRefreshStatus('Full refresh a cada '+Math.round(fullMs/60000)+'min');
+    return;
+  }
 
+  window.__deltaPollingActive = true;
   // Delta polling: restart if already initialized (e.g. tab re-focus after hidden)
   if (typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
 }
@@ -2577,13 +2612,13 @@ function dedupeManagerToolbar(){
 
 
 // ── Reassign Dropdown ──────────────────────────────────────────────────────
-let _reassignDd=null;
+var _reassignDd=null;
 function openReassignBtn(e,btn){
   e.stopPropagation();
   openReassign(e,btn.dataset.sysid||'',btn.dataset.gid||'',btn.dataset.assigned||'');
 }
 
-const _ALL_GROUPS = [
+var _ALL_GROUPS = [
   {id:'1c7c9057db6771d0832ead8ed396197a', name:'L1 OpsCenter AMER'},
   {id:'ff72689247ee1e143cbfe07a216d4357', name:'L2 OpsCenter AMER'},
   {id:'673c2170476422503cbfe07a216d430f', name:'Event Management BR'},
@@ -2673,7 +2708,7 @@ function doReassign(sysId,userId,userName,groupId,el){
 }
 
 
-let _iuDd=null;
+var _iuDd=null;
 function openImpactUrgencyBtn(e,btn){
   e.stopPropagation();
   openImpactUrgencyEditor(e,btn.dataset.sysid||'',btn.dataset.impact||'',btn.dataset.urgency||'');
@@ -2756,7 +2791,7 @@ async function patchCase(sysId,data){
 }
 
 // ── Toast notification ─────────────────────────────────────────────────────
-let _lastDeltaNotify={};
+var _lastDeltaNotify={};
 function notifyAssignedToMe(title, body, key){
   const now=Date.now();
   if(key && _lastDeltaNotify[key] && (now-_lastDeltaNotify[key])<8000) return;
@@ -2931,7 +2966,7 @@ function renderAnalystBoard(cases,analystName,gid,container){
 }
 
 // ── Post-mortem Pagination ────────────────────────────────────────────────
-const _PG=50; let _pgPage=0,_pgRows=[];
+var _PG=50, _pgPage=0, _pgRows=[];
 function pgInit(){const tb=document.getElementById('pmtbody');if(!tb)return;_pgRows=Array.from(tb.rows);_pgPage=0;pgRender();}
 function pgRender(){
   const total=_pgRows.length,pages=Math.ceil(total/_PG);
@@ -2953,9 +2988,9 @@ function pgNav(d){const t=_pgRows.length,p=Math.ceil(t/_PG);_pgPage=Math.max(0,M
 function pgGoTo(p){_pgPage=p;pgRender();document.getElementById('pm-pg-wrap')?.scrollIntoView({behavior:'smooth',block:'start'});}
 
 // ── Case Modal ────────────────────────────────────────────────────────────
-let _modalSysId = null;
-let _modalActiveCard = null;
-let _modalRefreshTimer = null;
+var _modalSysId = null;
+var _modalActiveCard = null;
+var _modalRefreshTimer = null;
 function requestModalRefresh(sysId, fallbackCard, delayMs=350) {
   if (_modalSysId !== sysId) return;
   const modalEl = document.getElementById('case-iframe-overlay');
@@ -3730,7 +3765,7 @@ async function uploadModalAttachment(){
   }
 }
 
-let _modalNoteType = 'work_notes';
+var _modalNoteType = 'work_notes';
 function modalTabSwitch(type) {
   _modalNoteType = type === 'wn' ? 'work_notes' : 'comments';
   const ta = document.getElementById('modal-note-ta');
@@ -3825,8 +3860,8 @@ document.addEventListener('click', e => {
 });
 
 // ── Column filters ─────────────────────────────────────────────────────────
-const _fil={};let _dd=null;
-const _FILTER_VALUES_CACHE = {};
+var _fil={}, _dd=null;
+var _FILTER_VALUES_CACHE = {};
 function getCT(row,col){const c=row.cells[col];return c?(c.innerText||c.textContent||'').trim():'';}
 function applyFil(){
   const tb=document.getElementById('pmtbody');if(!tb)return;
@@ -3881,12 +3916,11 @@ function applyCol(ci){const ch=Array.from(document.querySelectorAll('#ddopts inp
 function clrCol(ci){_fil[ci]=new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){
-    if(window.__deltaPollingTimerId){ clearInterval(window.__deltaPollingTimerId); window.__deltaPollingTimerId=null; }
+    stopPolling();
     return;
   }
   if(typeof window.__deltaResetSync === 'function') window.__deltaResetSync();
-  if(!window.__deltaPollingActive || !window.__deltaPollingTimerId) startPolling();
-  else if(typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
+  startPolling();
 });
 document.addEventListener('DOMContentLoaded',()=>{
   const accHdr=document.getElementById('acc-hdr-analyst');
@@ -3976,7 +4010,7 @@ Object.assign(window, {
   try { (function() {
     // Clear any previous interval (survives document.write re-renders)
     if (window.__deltaPollingTimerId) { clearInterval(window.__deltaPollingTimerId); window.__deltaPollingTimerId = null; }
-    window.__deltaPollingActive = true;
+    window.__deltaPollingActive = false;
 
     let POLLING_INTERVAL = window._UI_SETTINGS?.pollingMs || 10000;
     // Start sync from a very recent point since we already seeded the "seen" set
@@ -4187,6 +4221,22 @@ Object.assign(window, {
       const eventParams = '&sysparm_fields=' + _EVENT_FIELDS + '&sysparm_display_value=all';
       const DELTA_PAGE_SIZE = 200;
       const DELTA_MAX_PAGES = 10;
+      const DELTA_FETCH_TIMEOUT_MS = 25000;
+
+      async function snFetchDelta(url) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), DELTA_FETCH_TIMEOUT_MS);
+        try {
+          return await snFetch(url, { signal: controller.signal });
+        } catch (err) {
+          if (err && err.name === 'AbortError') {
+            throw new Error('delta_polling timeout após ' + Math.round(DELTA_FETCH_TIMEOUT_MS / 1000) + 's');
+          }
+          throw err;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
 
       async function fetchByQuery(endpoint, params, query) {
         const allRows = [];
@@ -4195,7 +4245,7 @@ Object.assign(window, {
           const offset = page * DELTA_PAGE_SIZE;
           const paging = '&sysparm_limit=' + DELTA_PAGE_SIZE + '&sysparm_offset=' + offset;
           const url = endpoint + '?sysparm_query=' + encodeURIComponent(query) + params + paging;
-          const response = await snFetch(url);
+          const response = await snFetchDelta(url);
           const raw = await response.text();
           if (!response.ok) {
             const msg = raw ? ': ' + raw.slice(0, 180) : '';
@@ -4226,7 +4276,7 @@ Object.assign(window, {
           const eventNumber = row?.u_event_number?.value;
           if (!eventNumber) return { ...row, _eventType: 'N/A', _account: 'N/A' };
           try {
-            const response = await snFetch(_BASE + '/api/now/table/u_event_management/' + encodeURIComponent(eventNumber) + '?sysparm_display_value=all');
+            const response = await snFetchDelta(_BASE + '/api/now/table/u_event_management/' + encodeURIComponent(eventNumber) + '?sysparm_display_value=all');
             const body = await response.text();
             if (!response.ok) return { ...row, _eventType: 'N/A', _account: 'N/A' };
             const data = body ? JSON.parse(body) : {};
@@ -4313,9 +4363,11 @@ Object.assign(window, {
       }
     }
 
-    // Mantém a sessão ativa e verifica token a cada 5 minutos
+    // Mantém a sessão ativa e verifica token a cada 5 minutos.
+    // Limpa timer antigo porque document.write reexecuta este script no mesmo Window.
+    if (window.__emsKeepAliveTimerId) clearInterval(window.__emsKeepAliveTimerId);
     // Usa fetch direto (não snFetch) para evitar interferir no contador de auth failures
-    setInterval(() => {
+    window.__emsKeepAliveTimerId = setInterval(() => {
       const keepAliveHeaders = { 'Accept': 'application/json', 'X-UserToken': _TOK };
       fetch(_BASE + '/api/now/table/sys_user?sysparm_limit=1', { headers: keepAliveHeaders })
         .then(r => {
@@ -4841,19 +4893,28 @@ Object.assign(window, {
       if (boardWrap) updateLaneCounters(boardWrap.querySelector('.board-inner'));
     }
 
-    window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
+    function shouldRunDeltaPolling(){
+      return (window._UI_SETTINGS?.refreshMode||'delta')==='delta';
+    }
+    function startDeltaTimer(){
+      isFetching = false;
+      if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
+      window.__deltaPollingTimerId = null;
+      if (!shouldRunDeltaPolling()) {
+        window.__deltaPollingActive = false;
+        return;
+      }
+      window.__deltaPollingActive = true;
+      window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
+    }
+
+    startDeltaTimer();
 
     // Expose restart hook so startPolling() can revive delta polling after tab re-focus
-    window.__restartDeltaPolling = function() {
-      isFetching = false;
-      if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
-      window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
-    };
+    window.__restartDeltaPolling = startDeltaTimer;
     window.__setDeltaPollingInterval = function(ms){
       POLLING_INTERVAL = Math.max(4000, parseInt(ms,10)||4000);
-      isFetching = false;
-      if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
-      window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
+      startDeltaTimer();
     };
   })(); } catch(e) { console.error('[EMS Ops] Delta polling init falhou:', e); }
 	</script>
