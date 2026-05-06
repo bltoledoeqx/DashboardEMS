@@ -2471,7 +2471,7 @@ function fetchSemTypeScore(){fetchAccordionScores();}
 
 // ── Layered Polling ──────────────────────────────────────────────────────────
 window.__emsPollingTimers = window.__emsPollingTimers || {};
-var _pollL1=window.__emsPollingTimers.l1||null, _pollL2=window.__emsPollingTimers.l2||null, _pollL3=window.__emsPollingTimers.l3||null, _pollWatchdog=window.__emsPollingTimers.watchdog||null;
+var _pollL1=window.__emsPollingTimers.l1||null, _pollL2=window.__emsPollingTimers.l2||null, _pollL3=window.__emsPollingTimers.l3||null, _pollVerify=window.__emsPollingTimers.verify||null, _pollWatchdog=window.__emsPollingTimers.watchdog||null;
 var _lastActivesCount = -1;
 var _lastFullRefreshAt = Date.now();
 
@@ -2479,6 +2479,60 @@ function runFullReconciliation(statusMsg){
   _lastFullRefreshAt = Date.now();
   setRefreshStatus(statusMsg || '↻ Reconciliação ServiceNow...');
   refreshKanban();
+}
+
+function getVisibleCaseCardsForVerification(){
+  return Array.from(document.querySelectorAll('#board-wrap .card[data-sysid], #board-wrap-backlog-tab .card[data-sysid]'))
+    .filter(card => card.style.display !== 'none')
+    .slice(0, 120);
+}
+
+async function verifyVisibleCardsAgainstServiceNow(){
+  const cards=getVisibleCaseCardsForVerification();
+  if(!cards.length) return;
+  const ids=[...new Set(cards.map(card=>card.dataset.sysid).filter(Boolean))];
+  if(!ids.length) return;
+  const activeAnalyst=document.getElementById('analyst-sel')?.value||'';
+  const terminalStates=new Set(['3','6','7','8','9','10','24','25','33','35']);
+  const fields='sys_id,number,assigned_to,state,sys_updated_on';
+  const rows=[];
+  for(let i=0;i<ids.length;i+=50){
+    const batch=ids.slice(i,i+50);
+    const url=_BASE+'/api/now/table/sn_customerservice_case?sysparm_query='+encodeURIComponent('sys_idIN'+batch.join(','))+'&sysparm_fields='+fields+'&sysparm_display_value=all&sysparm_limit=50';
+    const resp=await snFetch(url);
+    const data=await resp.json();
+    rows.push(...(data.result||[]));
+  }
+  const byId=new Map(rows.map(row=>[row.sys_id?.value||row.sys_id,row]));
+  let divergence=false;
+  cards.forEach(card=>{
+    const sid=card.dataset.sysid||'';
+    const row=byId.get(sid);
+    const rowAssigned=row?.assigned_to?.value||'';
+    const rowState=String(row?.state?.value||'');
+    const cardAssigned=card.dataset.assignedid||'';
+    const isTerminal=!row || terminalStates.has(rowState);
+    const violatesAnalyst=!!activeAnalyst && rowAssigned!==activeAnalyst;
+    const changedAssigned=!!row && rowAssigned!==cardAssigned;
+    if(isTerminal || violatesAnalyst || changedAssigned){
+      divergence=true;
+      card.dataset.assignedid=rowAssigned;
+      if(violatesAnalyst || isTerminal) card.style.display='none';
+      const boardInner=card.closest('.board-inner');
+      if(boardInner) refreshLaneCountersInBoard(boardInner);
+    }
+  });
+  if(divergence){
+    runFullReconciliation('↻ Corrigindo divergência ServiceNow...');
+  }
+}
+
+function startVisibleCardVerifier(){
+  if(_pollVerify) clearInterval(_pollVerify);
+  const runVerifier=()=>verifyVisibleCardsAgainstServiceNow().catch(err=>console.warn('[Verifier] Falha ao validar cards visíveis:', err?.message||err));
+  setTimeout(runVerifier, 1500);
+  _pollVerify=setInterval(runVerifier, 30000);
+  window.__emsPollingTimers.verify=_pollVerify;
 }
 
 function startPollingWatchdog(mode, fullMs){
@@ -2489,7 +2543,7 @@ function startPollingWatchdog(mode, fullMs){
       return;
     }
     if(mode==='manual') return;
-    if(!_pollL1 || !_pollL2 || !_pollL3){
+    if(!_pollL1 || !_pollL2 || !_pollL3 || !_pollVerify){
       console.warn('[PollingWatchdog] Timer ausente — reiniciando polling.');
       startPolling();
       return;
@@ -2545,6 +2599,7 @@ function startPolling(){
   }, fullMs);
   window.__emsPollingTimers.l3 = _pollL3;
 
+  startVisibleCardVerifier();
   startPollingWatchdog(mode, fullMs);
 
   if(mode==='periodic'){
@@ -2560,9 +2615,9 @@ function startPolling(){
 
 function stopPolling(){
   const timers=window.__emsPollingTimers||{};
-  [timers.l1,_pollL1,timers.l2,_pollL2,timers.l3,_pollL3,timers.watchdog,_pollWatchdog].forEach(id=>{ if(id) clearInterval(id); });
-  _pollL1=_pollL2=_pollL3=_pollWatchdog=null;
-  window.__emsPollingTimers={l1:null,l2:null,l3:null,watchdog:null};
+  [timers.l1,_pollL1,timers.l2,_pollL2,timers.l3,_pollL3,timers.verify,_pollVerify,timers.watchdog,_pollWatchdog].forEach(id=>{ if(id) clearInterval(id); });
+  _pollL1=_pollL2=_pollL3=_pollVerify=_pollWatchdog=null;
+  window.__emsPollingTimers={l1:null,l2:null,l3:null,verify:null,watchdog:null};
   if(window.__deltaPollingTimerId){clearInterval(window.__deltaPollingTimerId);window.__deltaPollingTimerId=null;}
   window.__deltaPollingActive=false;
 }
