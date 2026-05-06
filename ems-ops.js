@@ -1470,12 +1470,12 @@ tr:hover td{background:#F6F8FA;}
 </div>
 
 <script>
-let _TOK = (window.opener && !window.opener.closed) ? (window.opener.g_ck || window.opener.top?.g_ck || window.opener.parent?.g_ck) : null;
-let _HEADERS_OBJ = { 'Accept': 'application/json', 'X-UserToken': _TOK };
-const _BASE='${BASE}',_IDS='${G_IDS}',_MES=${m};
-const _MN=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-const _GN={'1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER','673c2170476422503cbfe07a216d430f':'Event Management BR','ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER'};
-const _GK={'1c7c9057db6771d0832ead8ed396197a':'l1','673c2170476422503cbfe07a216d430f':'event','ff72689247ee1e143cbfe07a216d4357':'l2'};
+var _TOK = (window.opener && !window.opener.closed) ? (window.opener.g_ck || window.opener.top?.g_ck || window.opener.parent?.g_ck) : null;
+var _HEADERS_OBJ = { 'Accept': 'application/json', 'X-UserToken': _TOK };
+var _BASE='${BASE}',_IDS='${G_IDS}',_MES=${m};
+var _MN=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+var _GN={'1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER','673c2170476422503cbfe07a216d430f':'Event Management BR','ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER'};
+var _GK={'1c7c9057db6771d0832ead8ed396197a':'l1','673c2170476422503cbfe07a216d430f':'event','ff72689247ee1e143cbfe07a216d4357':'l2'};
 
 // Helper de busca centralizado com renovação de sessão e tratamento de erro
 async function snFetch(url, opts = {}) {
@@ -1562,8 +1562,8 @@ function refreshMyCases(){
   initMyCases();
 }
 
-let currentFila='all';
-let _lazyLoaded={postmortem:false,backlog:false,reports:false};
+var currentFila='all';
+var _lazyLoaded={postmortem:false,backlog:false,reports:false};
 function getCurrentUserSysId(){
   try {
     return window.opener?.g_user?.userID || window.opener?.NOW?.user?.userID || window.g_user?.userID || '';
@@ -1578,11 +1578,11 @@ function setHomeAssignedToMe(){
   }
   updateRequestsLabel();
 }
-let currentBacklogFila='all';
-let currentBacklogAnalyst='';
-let currentReportsFila='all';
-let currentReportsManager='';
-let currentReportsAnalyst='';
+var currentBacklogFila='all';
+var currentBacklogAnalyst='';
+var currentReportsFila='all';
+var currentReportsManager='';
+var currentReportsAnalyst='';
 window._GMEMBERS=${gmembersJson};
 window._GID_MAP={'all':_IDS,'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
 window._MANAGER_CACHE={};
@@ -1836,7 +1836,7 @@ function toggleFilterMenu(e){
   fm.style.display=(fm.style.display==='none'||!fm.style.display)?'flex':'none';
 }
 
-let _slaSortOn=false;
+var _slaSortOn=false;
 function getCardSlaScore(card){
   if(!card) return 0;
   const pct=parseInt((card.querySelector('.sla-bar-pct')?.textContent||'0').replace(/\D/g,''),10)||0;
@@ -2025,7 +2025,7 @@ function activateSide(btn){
 }
 
 
-const _LANE_IU_MAP={
+var _LANE_IU_MAP={
   critical:{impact:'1',urgency:'1'},
   high:{impact:'1',urgency:'2'},
   medium:{impact:'2',urgency:'2'},
@@ -2033,7 +2033,7 @@ const _LANE_IU_MAP={
   normal:{impact:'3',urgency:'3'},
   orphan:{impact:'3',urgency:'3'}
 };
-let _dragCard=null;
+var _dragCard=null;
 
 function refreshLaneCountersInBoard(boardInner){
   if(!boardInner) return;
@@ -2442,8 +2442,8 @@ function fetchAccordionScores(){
 function fetchSemTypeScore(){fetchAccordionScores();}
 
 // ── Layered Polling ──────────────────────────────────────────────────────────
-let _pollL1=null, _pollL2=null, _pollL3=null;
-let _lastActivesCount = -1;
+var _pollL1=null, _pollL2=null, _pollL3=null;
+var _lastActivesCount = -1;
 
 function startPolling(){
   stopPolling();
@@ -2577,13 +2577,13 @@ function dedupeManagerToolbar(){
 
 
 // ── Reassign Dropdown ──────────────────────────────────────────────────────
-let _reassignDd=null;
+var _reassignDd=null;
 function openReassignBtn(e,btn){
   e.stopPropagation();
   openReassign(e,btn.dataset.sysid||'',btn.dataset.gid||'',btn.dataset.assigned||'');
 }
 
-const _ALL_GROUPS = [
+var _ALL_GROUPS = [
   {id:'1c7c9057db6771d0832ead8ed396197a', name:'L1 OpsCenter AMER'},
   {id:'ff72689247ee1e143cbfe07a216d4357', name:'L2 OpsCenter AMER'},
   {id:'673c2170476422503cbfe07a216d430f', name:'Event Management BR'},
@@ -2673,7 +2673,7 @@ function doReassign(sysId,userId,userName,groupId,el){
 }
 
 
-let _iuDd=null;
+var _iuDd=null;
 function openImpactUrgencyBtn(e,btn){
   e.stopPropagation();
   openImpactUrgencyEditor(e,btn.dataset.sysid||'',btn.dataset.impact||'',btn.dataset.urgency||'');
@@ -2756,7 +2756,7 @@ async function patchCase(sysId,data){
 }
 
 // ── Toast notification ─────────────────────────────────────────────────────
-let _lastDeltaNotify={};
+var _lastDeltaNotify={};
 function notifyAssignedToMe(title, body, key){
   const now=Date.now();
   if(key && _lastDeltaNotify[key] && (now-_lastDeltaNotify[key])<8000) return;
@@ -2931,7 +2931,7 @@ function renderAnalystBoard(cases,analystName,gid,container){
 }
 
 // ── Post-mortem Pagination ────────────────────────────────────────────────
-const _PG=50; let _pgPage=0,_pgRows=[];
+var _PG=50, _pgPage=0, _pgRows=[];
 function pgInit(){const tb=document.getElementById('pmtbody');if(!tb)return;_pgRows=Array.from(tb.rows);_pgPage=0;pgRender();}
 function pgRender(){
   const total=_pgRows.length,pages=Math.ceil(total/_PG);
@@ -2953,9 +2953,9 @@ function pgNav(d){const t=_pgRows.length,p=Math.ceil(t/_PG);_pgPage=Math.max(0,M
 function pgGoTo(p){_pgPage=p;pgRender();document.getElementById('pm-pg-wrap')?.scrollIntoView({behavior:'smooth',block:'start'});}
 
 // ── Case Modal ────────────────────────────────────────────────────────────
-let _modalSysId = null;
-let _modalActiveCard = null;
-let _modalRefreshTimer = null;
+var _modalSysId = null;
+var _modalActiveCard = null;
+var _modalRefreshTimer = null;
 function requestModalRefresh(sysId, fallbackCard, delayMs=350) {
   if (_modalSysId !== sysId) return;
   const modalEl = document.getElementById('case-iframe-overlay');
@@ -3730,7 +3730,7 @@ async function uploadModalAttachment(){
   }
 }
 
-let _modalNoteType = 'work_notes';
+var _modalNoteType = 'work_notes';
 function modalTabSwitch(type) {
   _modalNoteType = type === 'wn' ? 'work_notes' : 'comments';
   const ta = document.getElementById('modal-note-ta');
@@ -3825,8 +3825,8 @@ document.addEventListener('click', e => {
 });
 
 // ── Column filters ─────────────────────────────────────────────────────────
-const _fil={};let _dd=null;
-const _FILTER_VALUES_CACHE = {};
+var _fil={}, _dd=null;
+var _FILTER_VALUES_CACHE = {};
 function getCT(row,col){const c=row.cells[col];return c?(c.innerText||c.textContent||'').trim():'';}
 function applyFil(){
   const tb=document.getElementById('pmtbody');if(!tb)return;
@@ -4187,6 +4187,22 @@ Object.assign(window, {
       const eventParams = '&sysparm_fields=' + _EVENT_FIELDS + '&sysparm_display_value=all';
       const DELTA_PAGE_SIZE = 200;
       const DELTA_MAX_PAGES = 10;
+      const DELTA_FETCH_TIMEOUT_MS = 25000;
+
+      async function snFetchDelta(url) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), DELTA_FETCH_TIMEOUT_MS);
+        try {
+          return await snFetch(url, { signal: controller.signal });
+        } catch (err) {
+          if (err && err.name === 'AbortError') {
+            throw new Error('delta_polling timeout após ' + Math.round(DELTA_FETCH_TIMEOUT_MS / 1000) + 's');
+          }
+          throw err;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
 
       async function fetchByQuery(endpoint, params, query) {
         const allRows = [];
@@ -4195,7 +4211,7 @@ Object.assign(window, {
           const offset = page * DELTA_PAGE_SIZE;
           const paging = '&sysparm_limit=' + DELTA_PAGE_SIZE + '&sysparm_offset=' + offset;
           const url = endpoint + '?sysparm_query=' + encodeURIComponent(query) + params + paging;
-          const response = await snFetch(url);
+          const response = await snFetchDelta(url);
           const raw = await response.text();
           if (!response.ok) {
             const msg = raw ? ': ' + raw.slice(0, 180) : '';
@@ -4226,7 +4242,7 @@ Object.assign(window, {
           const eventNumber = row?.u_event_number?.value;
           if (!eventNumber) return { ...row, _eventType: 'N/A', _account: 'N/A' };
           try {
-            const response = await snFetch(_BASE + '/api/now/table/u_event_management/' + encodeURIComponent(eventNumber) + '?sysparm_display_value=all');
+            const response = await snFetchDelta(_BASE + '/api/now/table/u_event_management/' + encodeURIComponent(eventNumber) + '?sysparm_display_value=all');
             const body = await response.text();
             if (!response.ok) return { ...row, _eventType: 'N/A', _account: 'N/A' };
             const data = body ? JSON.parse(body) : {};
@@ -4313,9 +4329,11 @@ Object.assign(window, {
       }
     }
 
-    // Mantém a sessão ativa e verifica token a cada 5 minutos
+    // Mantém a sessão ativa e verifica token a cada 5 minutos.
+    // Limpa timer antigo porque document.write reexecuta este script no mesmo Window.
+    if (window.__emsKeepAliveTimerId) clearInterval(window.__emsKeepAliveTimerId);
     // Usa fetch direto (não snFetch) para evitar interferir no contador de auth failures
-    setInterval(() => {
+    window.__emsKeepAliveTimerId = setInterval(() => {
       const keepAliveHeaders = { 'Accept': 'application/json', 'X-UserToken': _TOK };
       fetch(_BASE + '/api/now/table/sys_user?sysparm_limit=1', { headers: keepAliveHeaders })
         .then(r => {
