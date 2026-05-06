@@ -51,6 +51,7 @@ window.runEMSOps = function(userMes) {
   const SLA_F     = 'task,planned_end_time,has_breached,percentage,sla,original_breach_time';
   const BATCH     = 50;
   const BASE      = window.location.origin;
+  const CURRENT_USER_ID = window.g_user?.userID || window.NOW?.user?.userID || '';
   const TZ_BR     = 'America/Sao_Paulo';
   const MES_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -1140,7 +1141,7 @@ tr:hover td{background:#F6F8FA;}
   <div class="tab" onclick="showPage('postmortem',this)">🔍 Post-mortem</div>
   <div class="tab" style="display:none" onclick="showPage('reports',this)">📊 Reports</div>
   <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
-    <span id="refresh-mode-badge" style="font-size:11px;color:var(--muted);">⚡ Tempo real + reconciliação · 2min</span><span id="refresh-status" style="font-size:11px;color:var(--muted);"></span>
+    <span id="refresh-mode-badge" style="font-size:11px;color:var(--muted);">⏸ Sob demanda</span><span id="refresh-status" style="font-size:11px;color:var(--muted);"></span>
   </div>
 </div>
 
@@ -1530,12 +1531,7 @@ async function snFetch(url, opts = {}) {
 
 // Per-module refresh (no auto-refresh)
 function refreshKanban(){
-  setRefreshStatus('↻ Atualizando...');
-  if(window.opener&&!window.opener.closed&&typeof window.opener._emsOpsRender==='function'){
-    window.opener._emsOpsRender(_TOK,_MES,window);
-  } else {
-    changeMes(_MES);
-  }
+  requestCurrentPageQuery('↻ Consultando página atual...');
 }
 function refreshBacklog(){
   refreshKanban();
@@ -1589,25 +1585,32 @@ window._MANAGER_CACHE={};
 window._MSH_NOC_GID=undefined;
 window._REPORTS_FETCH_CACHE={ttlMs:30000,entries:{},inflight:{}};
 window._ACCOUNT_PRODUCTS_CACHE={ttlMs:120000,entries:{}};
-    window._UI_SETTINGS={refreshMode:'delta',pollingMs:7000,fullRefreshMs:120000,compact:true,defaultSort:'none',zabbixHomeApi:'',zabbixMonApi:'',zabbixBackApi:'',zabbixHomeToken:'',zabbixMonToken:'',zabbixBackToken:''};
+    window._UI_SETTINGS={refreshMode:'manual',pollingMs:30000,fullRefreshMs:300000,safeModeV2:true,compact:true,defaultSort:'none',zabbixHomeApi:'',zabbixMonApi:'',zabbixBackApi:'',zabbixHomeToken:'',zabbixMonToken:'',zabbixBackToken:''};
 try{
   const saved=JSON.parse(localStorage.getItem('ems_ops_ui_settings')||'{}');
   window._UI_SETTINGS={...window._UI_SETTINGS,...saved};
+  if(!window._UI_SETTINGS.safeModeV2){
+    window._UI_SETTINGS.refreshMode='manual';
+    window._UI_SETTINGS.pollingMs=30000;
+    window._UI_SETTINGS.fullRefreshMs=300000;
+    window._UI_SETTINGS.safeModeV2=true;
+    localStorage.setItem('ems_ops_ui_settings',JSON.stringify(window._UI_SETTINGS));
+  }
 }catch(e){}
 
 function getRefreshMode(){
-  const mode=window._UI_SETTINGS?.refreshMode||'delta';
-  return ['delta','periodic','manual'].includes(mode)?mode:'delta';
+  const mode=window._UI_SETTINGS?.refreshMode||'manual';
+  return ['delta','periodic','manual'].includes(mode)?mode:'manual';
 }
 function getFullRefreshMinutes(){
-  const ms=Math.max(120000, parseInt(window._UI_SETTINGS?.fullRefreshMs,10)||120000);
+  const ms=Math.max(300000, parseInt(window._UI_SETTINGS?.fullRefreshMs,10)||300000);
   return Math.round(ms/60000);
 }
 function getRefreshModeLabel(){
   const mode=getRefreshMode();
   if(mode==='periodic') return '↻ Full refresh periódico · '+getFullRefreshMinutes()+'min';
-  if(mode==='manual') return '⏸ Atualização manual';
-  return '⚡ Tempo real + reconciliação · '+getFullRefreshMinutes()+'min';
+  if(mode==='manual') return '⏸ Sob demanda';
+  return '⚡ Tempo real sob demanda · '+getFullRefreshMinutes()+'min';
 }
 function updateRefreshModeBadge(){
   const el=document.getElementById('refresh-mode-badge');
@@ -1634,11 +1637,11 @@ function openSettingsModal(){
     '<div class="settings-h"><div class="settings-ttl">⚙️ Configurações do Painel</div><button type="button" onclick="closeSettingsModal()" class="refresh-btn">✕</button></div>'+
     '<div class="settings-grid">'+
       '<label for="set-refresh-mode">Modo de atualização</label>'+
-      '<select id="set-refresh-mode"><option value="delta">Tempo real + reconciliação</option><option value="periodic">Full refresh periódico</option><option value="manual">Manual (sem polling automático)</option></select>'+
+      '<select id="set-refresh-mode"><option value="manual">Sob demanda (recomendado)</option><option value="delta">Tempo real da página atual</option><option value="periodic">Full refresh periódico</option></select>'+
       '<label for="set-polling">Intervalo do Delta Polling</label>'+
-      '<select id="set-polling"><option value="7000">7s</option><option value="15000">15s</option><option value="30000">30s</option><option value="60000">60s</option><option value="120000">120s</option></select>'+
+      '<select id="set-polling"><option value="30000">30s</option><option value="60000">60s</option><option value="120000">120s</option></select>'+
       '<label for="set-full-refresh">Intervalo do full refresh</label>'+
-      '<select id="set-full-refresh"><option value="120000">2min</option><option value="300000">5min</option><option value="600000">10min</option><option value="900000">15min</option></select>'+
+      '<select id="set-full-refresh"><option value="300000">5min</option><option value="600000">10min</option><option value="900000">15min</option></select>'+
       '<label for="set-compact">Modo compacto (menos espaçamento)</label><input id="set-compact" type="checkbox" disabled>'+
       '<label for="set-zbx-home">API Zabbix (Home)</label><input id="set-zbx-home" type="text" placeholder="https://.../api_jsonrpc.php">'+
       '<label for="set-zbx-home-token">Token Zabbix (Home)</label><input id="set-zbx-home-token" type="password" placeholder="Token API">'+
@@ -1651,9 +1654,9 @@ function openSettingsModal(){
     '<div class="settings-actions"><button type="button" class="refresh-btn" onclick="closeSettingsModal()">Cancelar</button><button type="button" class="refresh-btn" id="set-save-btn">Salvar</button></div>'+
   '</div>';
   document.body.appendChild(ov);
-  ov.querySelector('#set-refresh-mode').value=s.refreshMode||'delta';
-  ov.querySelector('#set-polling').value=String(s.pollingMs||7000);
-  ov.querySelector('#set-full-refresh').value=String(s.fullRefreshMs||120000);
+  ov.querySelector('#set-refresh-mode').value=s.refreshMode||'manual';
+  ov.querySelector('#set-polling').value=String(s.pollingMs||30000);
+  ov.querySelector('#set-full-refresh').value=String(s.fullRefreshMs||300000);
   ov.querySelector('#set-compact').checked=true;
   if(ov.querySelector('#set-zbx-home')) ov.querySelector('#set-zbx-home').value=s.zabbixHomeApi||'';
   if(ov.querySelector('#set-zbx-home-token')) ov.querySelector('#set-zbx-home-token').value=s.zabbixHomeToken||'';
@@ -1663,9 +1666,9 @@ function openSettingsModal(){
   if(ov.querySelector('#set-zbx-back-token')) ov.querySelector('#set-zbx-back-token').value=s.zabbixBackToken||'';
   ov.querySelector('#set-sort').value=s.defaultSort||'none';
   ov.querySelector('#set-save-btn').onclick=()=>{
-    window._UI_SETTINGS.refreshMode=ov.querySelector('#set-refresh-mode').value||'delta';
-    window._UI_SETTINGS.pollingMs=parseInt(ov.querySelector('#set-polling').value,10)||7000;
-    window._UI_SETTINGS.fullRefreshMs=parseInt(ov.querySelector('#set-full-refresh').value,10)||120000;
+    window._UI_SETTINGS.refreshMode=ov.querySelector('#set-refresh-mode').value||'manual';
+    window._UI_SETTINGS.pollingMs=parseInt(ov.querySelector('#set-polling').value,10)||30000;
+    window._UI_SETTINGS.fullRefreshMs=parseInt(ov.querySelector('#set-full-refresh').value,10)||300000;
     window._UI_SETTINGS.compact=true;
     window._UI_SETTINGS.zabbixHomeApi=ov.querySelector('#set-zbx-home')?.value?.trim()||'';
     window._UI_SETTINGS.zabbixHomeToken=ov.querySelector('#set-zbx-home-token')?.value?.trim()||'';
@@ -1674,6 +1677,7 @@ function openSettingsModal(){
     window._UI_SETTINGS.zabbixBackApi=ov.querySelector('#set-zbx-back')?.value?.trim()||'';
     window._UI_SETTINGS.zabbixBackToken=ov.querySelector('#set-zbx-back-token')?.value?.trim()||'';
     window._UI_SETTINGS.defaultSort=ov.querySelector('#set-sort').value||'none';
+    window._UI_SETTINGS.safeModeV2=true;
     localStorage.setItem('ems_ops_ui_settings',JSON.stringify(window._UI_SETTINGS));
     applyUiSettings();
     if(typeof window.__setDeltaPollingInterval==='function') window.__setDeltaPollingInterval(window._UI_SETTINGS.pollingMs);
@@ -1934,6 +1938,7 @@ function switchReportsFila(value){
     updateReportsByFila();
     applyAnalystTableFilter();
     fetchAccordionScores();
+    requestCurrentPageQuery('↻ Consultando reports atuais...');
   });
 }
 function switchReportsManager(value){
@@ -1950,6 +1955,7 @@ function switchReportsManager(value){
   }
   applyAnalystTableFilter();
   fetchAccordionScores();
+  requestCurrentPageQuery('↻ Consultando manager atual...');
 }
 function switchReportsAnalyst(value){
   currentReportsAnalyst=value||'';
@@ -1957,6 +1963,7 @@ function switchReportsAnalyst(value){
   if(analystSel&&analystSel.value!==currentReportsAnalyst) analystSel.value=currentReportsAnalyst;
   applyAnalystTableFilter();
   fetchAccordionScores();
+  requestCurrentPageQuery('↻ Consultando analista atual...');
 }
 
 function getReportAssigneeFilter(gid){
@@ -2046,6 +2053,7 @@ function showPage(id,el){
       initAccordion();
     }
   }
+  requestCurrentPageQuery('↻ Consultando '+(id||'página atual')+'...');
 }
 function activateSide(btn){
   document.querySelectorAll('.side-btn').forEach(b=>b.classList.remove('active'));
@@ -2183,6 +2191,7 @@ function switchFila(key){
   window._switchFilaDebounce = setTimeout(function() {
     if (typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
   }, 150);
+  requestCurrentPageQuery('↻ Consultando fila atual...');
 }
 
 function updateReportsByFila(){
@@ -2213,6 +2222,7 @@ function switchManager(managerId){
   const analystId=document.getElementById('analyst-sel')?.value||'';
   switchAnalyst(analystId);
   renderFilterChips();
+  requestCurrentPageQuery('↻ Consultando filtro atual...');
 }
 
 function syncBacklogAnalystDropdown(){
@@ -2237,6 +2247,7 @@ function switchFilaBacklog(key){
   if(bBacklog)bBacklog.innerHTML=backlogBoards[safeKey]||'';
   syncBacklogAnalystDropdown();
   switchAnalystBacklog(currentBacklogAnalyst);
+  requestCurrentPageQuery('↻ Consultando backlog atual...');
 }
 
 function switchAnalystBacklogFromToolbar(analystId){
@@ -2244,6 +2255,7 @@ function switchAnalystBacklogFromToolbar(analystId){
   const bsel=document.getElementById('backlog-analyst-sel');
   if(bsel&&bsel.value!==currentBacklogAnalyst) bsel.value=currentBacklogAnalyst;
   switchAnalystBacklog(currentBacklogAnalyst);
+  requestCurrentPageQuery('↻ Consultando analista atual...');
 }
 
 function switchAnalystBacklog(analystId){
@@ -2475,14 +2487,33 @@ var _pollL1=window.__emsPollingTimers.l1||null, _pollL2=window.__emsPollingTimer
 var _lastActivesCount = -1;
 var _lastFullRefreshAt = Date.now();
 
-function runFullReconciliation(statusMsg){
+function runCurrentPageSync(statusMsg){
   _lastFullRefreshAt = Date.now();
-  setRefreshStatus(statusMsg || '↻ Reconciliação ServiceNow...');
-  refreshKanban();
+  setRefreshStatus(statusMsg || '↻ Sincronizando página atual...');
+  const page=window._CURRENT_PAGE||'kanban';
+  if(page==='reports') { fetchAccordionScores(); return; }
+  if(page==='postmortem') { refreshPostmortem(); return; }
+  if(page==='kanban' || page==='backlog') {
+    verifyVisibleCardsAgainstServiceNow().catch(err=>console.warn('[Verifier] Falha ao sincronizar página atual:', err?.message||err));
+    if(typeof window.__deltaResetSync === 'function') window.__deltaResetSync();
+    if(typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
+    return;
+  }
+  if(page==='event-monitoring' || page==='backup-monitoring') {
+    if(typeof window.__deltaResetSync === 'function') window.__deltaResetSync();
+    if(typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
+  }
+}
+
+function requestCurrentPageQuery(reason){
+  if(window.__currentPageQueryTimer) clearTimeout(window.__currentPageQueryTimer);
+  window.__currentPageQueryTimer=setTimeout(()=>runCurrentPageSync(reason || '↻ Consultando página atual...'), 150);
 }
 
 function getVisibleCaseCardsForVerification(){
-  return Array.from(document.querySelectorAll('#board-wrap .card[data-sysid], #board-wrap-backlog-tab .card[data-sysid]'))
+  const page=window._CURRENT_PAGE||'kanban';
+  const selector=page==='backlog' ? '#board-wrap-backlog-tab .card[data-sysid]' : '#board-wrap .card[data-sysid]';
+  return Array.from(document.querySelectorAll(selector))
     .filter(card => card.style.display !== 'none')
     .slice(0, 120);
 }
@@ -2523,7 +2554,7 @@ async function verifyVisibleCardsAgainstServiceNow(){
     }
   });
   if(divergence){
-    runFullReconciliation('↻ Corrigindo divergência ServiceNow...');
+    setRefreshStatus('↻ Divergência corrigida na página atual');
   }
 }
 
@@ -2554,7 +2585,7 @@ function startPollingWatchdog(mode, fullMs){
     }
     if(Date.now() - _lastFullRefreshAt > fullMs + 60000){
       console.warn('[PollingWatchdog] Full refresh atrasado — forçando reconciliação.');
-      runFullReconciliation('↻ Reconciliação watchdog...');
+      runCurrentPageSync('↻ Watchdog: sincronizando página atual...');
     }
   }, 30000);
   window.__emsPollingTimers.watchdog = _pollWatchdog;
@@ -2573,8 +2604,8 @@ function startPolling(){
   const fullMs=getFullRefreshMinutes()*60000;
   _lastFullRefreshAt = Date.now();
 
-  // Layer 1: KPIs (4s) — 3 lightweight aggregate calls
-  _pollL1 = setInterval(()=>pollKPIs(), 4000);
+  // Layer 1: KPIs (60s) — lightweight aggregate calls
+  _pollL1 = setInterval(()=>pollKPIs(), 60000);
   window.__emsPollingTimers.l1 = _pollL1;
 
   // Layer 2: Reports/Scores (3min) — staggered
@@ -2595,7 +2626,7 @@ function startPolling(){
   // Layer 3: full reconciliation. Even in delta mode, this keeps the board
   // eventually identical to ServiceNow if an incremental update is missed.
   _pollL3 = setInterval(()=>{
-    runFullReconciliation(mode==='periodic' ? '↻ Full refresh periódico...' : '↻ Reconciliação ServiceNow...');
+    runCurrentPageSync(mode==='periodic' ? '↻ Atualizando página atual...' : '↻ Sincronizando página atual...');
   }, fullMs);
   window.__emsPollingTimers.l3 = _pollL3;
 
@@ -2920,7 +2951,7 @@ function switchAnalyst(userId){
   if(asel&&asel.value!==userId) asel.value=userId||'';
   const analystContent=document.getElementById('analyst-board-content');
   if(analystContent) analystContent.innerHTML='';
-  if (window._boardJustReplaced) { window._boardJustReplaced = false; renderFilterChips(); return; }
+  if (window._boardJustReplaced) window._boardJustReplaced = false;
   const boards=['board-wrap', 'board-wrap-backlog-tab'];
   const gid=window._GID_MAP?.[currentFila]||'';
   const managerId=document.getElementById('manager-sel')?.value||'';
@@ -2951,9 +2982,9 @@ function switchAnalyst(userId){
 
   renderFilterChips();
   if(_slaSortOn) applySlaSort();
-  // Don't fetch separately — boards are filtered.
-  // Keep this function side-effect free for polling callbacks
-  // (avoid optional data lookups that may throw and interrupt delta updates).
+  requestCurrentPageQuery('↻ Consultando analista atual...');
+  // Após aplicar filtro local, consulta somente a página/filtro atual para
+  // corrigir qualquer divergência com o ServiceNow sem recarregar outros módulos.
   return;
 
   // DEAD CODE BELOW (kept for reference)
@@ -4285,8 +4316,10 @@ Object.assign(window, {
       // Escopa a query para a fila ativa. Sempre busca TODOS os casos do grupo,
       // independente do filtro de analista (o filtro é aplicado no DOM, não na query).
       // Isso garante que mudanças de qualquer analista sejam capturadas.
-      const _activeGid = (typeof currentFila !== 'undefined' && currentFila && currentFila !== 'all')
-        ? (window._GID_MAP?.[currentFila] || _G_IDS)
+      const _pageForDelta = window._CURRENT_PAGE || 'kanban';
+      const _filaForDelta = _pageForDelta === 'backlog' ? currentBacklogFila : currentFila;
+      const _activeGid = (typeof _filaForDelta !== 'undefined' && _filaForDelta && _filaForDelta !== 'all')
+        ? (window._GID_MAP?.[_filaForDelta] || _G_IDS)
         : _G_IDS;
       const _groupClause = _activeGid.includes(',') ? 'assignment_groupIN' + _activeGid : 'assignment_group=' + _activeGid;
       const baseQuery = _groupClause + '^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
@@ -4441,15 +4474,19 @@ Object.assign(window, {
 
         const reconcileEvents = (events) => events.forEach(ev => upsertEventCard(ev));
 
-        const caseRowsRaw = await fetchByQuery(caseEndpoint, caseParams, baseQuery);
-        const caseRows = normalizeRows(caseRowsRaw);
+        const activePage = window._CURRENT_PAGE || 'kanban';
+        if (activePage === 'kanban' || activePage === 'backlog') {
+          const caseRowsRaw = await fetchByQuery(caseEndpoint, caseParams, baseQuery);
+          const caseRows = normalizeRows(caseRowsRaw);
+          reconcileCases(caseRows);
+        }
 
-        const eventQuery = 'assignment_group.name=EMS L1 OpsCenter AMER^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
-        const eventRowsRaw = await fetchByQuery(eventEndpoint, eventParams, eventQuery);
-        const eventRows = await enrichDeltaEvents(normalizeRows(eventRowsRaw));
-
-        reconcileCases(caseRows);
-        reconcileEvents(eventRows);
+        if (activePage === 'event-monitoring' || activePage === 'backup-monitoring') {
+          const eventQuery = 'assignment_group.name=EMS L1 OpsCenter AMER^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
+          const eventRowsRaw = await fetchByQuery(eventEndpoint, eventParams, eventQuery);
+          const eventRows = await enrichDeltaEvents(normalizeRows(eventRowsRaw));
+          reconcileEvents(eventRows);
+        }
 
         lastSyncTime = new Date(Date.now() - (POLLING_INTERVAL + 5000)).toISOString().split('.')[0].replace('T', ' ');
         if (window._dndDirty && typeof initCardDragAndDrop === 'function') {
@@ -5086,11 +5123,12 @@ Object.assign(window, {
 
   // ── Fetch and build ────────────────────────────────────────────────────
   const {ini, fim} = mesRange(mes);
-  const qA = `assignment_groupIN${G_IDS}${EXCL}`; // All active — backlog split done client-side by age
-  const qP = `assignment_groupIN${G_IDS}^stateIN3,6^resolved_at>=${ini}^resolved_at<=${fim}`;
+  const assigneeInitial = CURRENT_USER_ID ? `^assigned_to=${CURRENT_USER_ID}` : '';
+  const qA = `assignment_groupIN${G_IDS}${EXCL}${assigneeInitial}`; // Initial page loads only Assigned to me
+  const qP = 'sys_idISEMPTY';
   const todayStart = new Date().toLocaleDateString('en-CA') + ' 00:00:00';
   const todayEnd   = new Date().toLocaleDateString('en-CA') + ' 23:59:59';
-  const qRT = `assignment_groupIN${G_IDS}^stateIN6,7,3^resolved_at>=${todayStart}^resolved_at<=${todayEnd}`;
+  const qRT = `assignment_groupIN${G_IDS}^stateIN6,7,3^resolved_at>=${todayStart}^resolved_at<=${todayEnd}${assigneeInitial}`;
 
   const G_ID_MAP_FETCH = {
     l1   : '1c7c9057db6771d0832ead8ed396197a',
@@ -5159,12 +5197,11 @@ Object.assign(window, {
 
   outWin.document.write('<html><body style="background:#F6F8FA;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:system-ui"><div style="text-align:center;color:#57606A"><div style="font-size:40px;margin-bottom:12px">🖥</div><div style="font-size:16px;font-weight:600;color:#24292F">EMS Ops Dashboard</div><div style="font-size:13px;margin-top:6px">Carregando dados...</div></div></body></html>');
 
-  // Stagger agg calls to reduce server load (performance improvement)
+  // Initial load is scoped to the visible Home page to avoid overloading ServiceNow.
+  const emptyAgg = gid => Promise.resolve({ gid, rows: [] });
   Promise.all([
-    fcases(qA), fcasesAllGroups(qP), fcases(qRT), fetchEventTasks(),
-    fagg(G_ID_MAP_FETCH.l1),
-    new Promise(r=>setTimeout(()=>fagg(G_ID_MAP_FETCH.l2).then(r),300)),
-    new Promise(r=>setTimeout(()=>fagg(G_ID_MAP_FETCH.event).then(r),600)),
+    fcases(qA), fcases(qP), fcases(qRT), Promise.resolve([]),
+    emptyAgg(G_ID_MAP_FETCH.l1), emptyAgg(G_ID_MAP_FETCH.l2), emptyAgg(G_ID_MAP_FETCH.event),
   ])
   .then(([ativos, postMortem, resolvedToday, eventTasks, aggL1, aggL2, aggEvent]) => {
     const ia = ativos.map(c=>c.sys_id?.value).filter(Boolean);
