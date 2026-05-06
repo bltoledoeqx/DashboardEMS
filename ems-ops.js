@@ -51,6 +51,7 @@ window.runEMSOps = function(userMes) {
   const SLA_F     = 'task,planned_end_time,has_breached,percentage,sla,original_breach_time';
   const BATCH     = 50;
   const BASE      = window.location.origin;
+  const CURRENT_USER_ID = window.g_user?.userID || window.NOW?.user?.userID || '';
   const TZ_BR     = 'America/Sao_Paulo';
   const MES_NAMES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -1140,7 +1141,7 @@ tr:hover td{background:#F6F8FA;}
   <div class="tab" onclick="showPage('postmortem',this)">🔍 Post-mortem</div>
   <div class="tab" style="display:none" onclick="showPage('reports',this)">📊 Reports</div>
   <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
-    <span id="refresh-status" style="font-size:11px;color:var(--muted);"></span>
+    <span id="refresh-mode-badge" style="font-size:11px;color:var(--muted);">⏸ Sob demanda</span><span id="refresh-status" style="font-size:11px;color:var(--muted);"></span>
   </div>
 </div>
 
@@ -1470,12 +1471,12 @@ tr:hover td{background:#F6F8FA;}
 </div>
 
 <script>
-let _TOK = (window.opener && !window.opener.closed) ? (window.opener.g_ck || window.opener.top?.g_ck || window.opener.parent?.g_ck) : null;
-let _HEADERS_OBJ = { 'Accept': 'application/json', 'X-UserToken': _TOK };
-const _BASE='${BASE}',_IDS='${G_IDS}',_MES=${m};
-const _MN=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-const _GN={'1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER','673c2170476422503cbfe07a216d430f':'Event Management BR','ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER'};
-const _GK={'1c7c9057db6771d0832ead8ed396197a':'l1','673c2170476422503cbfe07a216d430f':'event','ff72689247ee1e143cbfe07a216d4357':'l2'};
+var _TOK = (window.opener && !window.opener.closed) ? (window.opener.g_ck || window.opener.top?.g_ck || window.opener.parent?.g_ck) : null;
+var _HEADERS_OBJ = { 'Accept': 'application/json', 'X-UserToken': _TOK };
+var _BASE='${BASE}',_IDS='${G_IDS}',_MES=${m};
+var _MN=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+var _GN={'1c7c9057db6771d0832ead8ed396197a':'L1 OpsCenter AMER','673c2170476422503cbfe07a216d430f':'Event Management BR','ff72689247ee1e143cbfe07a216d4357':'L2 OpsCenter AMER'};
+var _GK={'1c7c9057db6771d0832ead8ed396197a':'l1','673c2170476422503cbfe07a216d430f':'event','ff72689247ee1e143cbfe07a216d4357':'l2'};
 
 // Helper de busca centralizado com renovação de sessão e tratamento de erro
 async function snFetch(url, opts = {}) {
@@ -1530,12 +1531,7 @@ async function snFetch(url, opts = {}) {
 
 // Per-module refresh (no auto-refresh)
 function refreshKanban(){
-  setRefreshStatus('↻ Atualizando...');
-  if(window.opener&&!window.opener.closed&&typeof window.opener._emsOpsRender==='function'){
-    window.opener._emsOpsRender(_TOK,_MES,window);
-  } else {
-    changeMes(_MES);
-  }
+  requestCurrentPageQuery('↻ Consultando página atual...');
 }
 function refreshBacklog(){
   refreshKanban();
@@ -1562,8 +1558,8 @@ function refreshMyCases(){
   initMyCases();
 }
 
-let currentFila='all';
-let _lazyLoaded={postmortem:false,backlog:false,reports:false};
+var currentFila='all';
+var _lazyLoaded={postmortem:false,backlog:false,reports:false};
 function getCurrentUserSysId(){
   try {
     return window.opener?.g_user?.userID || window.opener?.NOW?.user?.userID || window.g_user?.userID || '';
@@ -1578,25 +1574,51 @@ function setHomeAssignedToMe(){
   }
   updateRequestsLabel();
 }
-let currentBacklogFila='all';
-let currentBacklogAnalyst='';
-let currentReportsFila='all';
-let currentReportsManager='';
-let currentReportsAnalyst='';
+var currentBacklogFila='all';
+var currentBacklogAnalyst='';
+var currentReportsFila='all';
+var currentReportsManager='';
+var currentReportsAnalyst='';
 window._GMEMBERS=${gmembersJson};
 window._GID_MAP={'all':_IDS,'l1':'1c7c9057db6771d0832ead8ed396197a','l2':'ff72689247ee1e143cbfe07a216d4357','event':'673c2170476422503cbfe07a216d430f'};
 window._MANAGER_CACHE={};
 window._MSH_NOC_GID=undefined;
 window._REPORTS_FETCH_CACHE={ttlMs:30000,entries:{},inflight:{}};
 window._ACCOUNT_PRODUCTS_CACHE={ttlMs:120000,entries:{}};
-    window._UI_SETTINGS={pollingMs:7000,compact:true,defaultSort:'none',zabbixHomeApi:'',zabbixMonApi:'',zabbixBackApi:'',zabbixHomeToken:'',zabbixMonToken:'',zabbixBackToken:''};
+    window._UI_SETTINGS={refreshMode:'manual',pollingMs:30000,fullRefreshMs:300000,safeModeV2:true,compact:true,defaultSort:'none',zabbixHomeApi:'',zabbixMonApi:'',zabbixBackApi:'',zabbixHomeToken:'',zabbixMonToken:'',zabbixBackToken:''};
 try{
   const saved=JSON.parse(localStorage.getItem('ems_ops_ui_settings')||'{}');
   window._UI_SETTINGS={...window._UI_SETTINGS,...saved};
+  if(!window._UI_SETTINGS.safeModeV2){
+    window._UI_SETTINGS.refreshMode='manual';
+    window._UI_SETTINGS.pollingMs=30000;
+    window._UI_SETTINGS.fullRefreshMs=300000;
+    window._UI_SETTINGS.safeModeV2=true;
+    localStorage.setItem('ems_ops_ui_settings',JSON.stringify(window._UI_SETTINGS));
+  }
 }catch(e){}
 
+function getRefreshMode(){
+  const mode=window._UI_SETTINGS?.refreshMode||'manual';
+  return ['delta','periodic','manual'].includes(mode)?mode:'manual';
+}
+function getFullRefreshMinutes(){
+  const ms=Math.max(300000, parseInt(window._UI_SETTINGS?.fullRefreshMs,10)||300000);
+  return Math.round(ms/60000);
+}
+function getRefreshModeLabel(){
+  const mode=getRefreshMode();
+  if(mode==='periodic') return '↻ Full refresh periódico · '+getFullRefreshMinutes()+'min';
+  if(mode==='manual') return '⏸ Sob demanda';
+  return '⚡ Tempo real sob demanda · '+getFullRefreshMinutes()+'min';
+}
+function updateRefreshModeBadge(){
+  const el=document.getElementById('refresh-mode-badge');
+  if(el) el.textContent=getRefreshModeLabel();
+}
 function applyUiSettings(){
   document.body.classList.toggle('compact-ui', !!window._UI_SETTINGS.compact);
+  updateRefreshModeBadge();
   if(window._UI_SETTINGS.defaultSort==='sla'&&!window._slaSortOn){
     setTimeout(()=>toggleSlaSort(),0);
   }
@@ -1614,8 +1636,12 @@ function openSettingsModal(){
   ov.innerHTML='<div class="settings-md">'+
     '<div class="settings-h"><div class="settings-ttl">⚙️ Configurações do Painel</div><button type="button" onclick="closeSettingsModal()" class="refresh-btn">✕</button></div>'+
     '<div class="settings-grid">'+
-      '<label for="set-polling">Intervalo do polling (tempo real)</label>'+
-      '<select id="set-polling"><option value="7000">7s</option><option value="15000">15s</option><option value="30000">30s</option><option value="60000">60s</option><option value="120000">120s</option></select>'+
+      '<label for="set-refresh-mode">Modo de atualização</label>'+
+      '<select id="set-refresh-mode"><option value="manual">Sob demanda (recomendado)</option><option value="delta">Tempo real da página atual</option><option value="periodic">Full refresh periódico</option></select>'+
+      '<label for="set-polling">Intervalo do Delta Polling</label>'+
+      '<select id="set-polling"><option value="30000">30s</option><option value="60000">60s</option><option value="120000">120s</option></select>'+
+      '<label for="set-full-refresh">Intervalo do full refresh</label>'+
+      '<select id="set-full-refresh"><option value="300000">5min</option><option value="600000">10min</option><option value="900000">15min</option></select>'+
       '<label for="set-compact">Modo compacto (menos espaçamento)</label><input id="set-compact" type="checkbox" disabled>'+
       '<label for="set-zbx-home">API Zabbix (Home)</label><input id="set-zbx-home" type="text" placeholder="https://.../api_jsonrpc.php">'+
       '<label for="set-zbx-home-token">Token Zabbix (Home)</label><input id="set-zbx-home-token" type="password" placeholder="Token API">'+
@@ -1628,7 +1654,9 @@ function openSettingsModal(){
     '<div class="settings-actions"><button type="button" class="refresh-btn" onclick="closeSettingsModal()">Cancelar</button><button type="button" class="refresh-btn" id="set-save-btn">Salvar</button></div>'+
   '</div>';
   document.body.appendChild(ov);
-  ov.querySelector('#set-polling').value=String(s.pollingMs||7000);
+  ov.querySelector('#set-refresh-mode').value=s.refreshMode||'manual';
+  ov.querySelector('#set-polling').value=String(s.pollingMs||30000);
+  ov.querySelector('#set-full-refresh').value=String(s.fullRefreshMs||300000);
   ov.querySelector('#set-compact').checked=true;
   if(ov.querySelector('#set-zbx-home')) ov.querySelector('#set-zbx-home').value=s.zabbixHomeApi||'';
   if(ov.querySelector('#set-zbx-home-token')) ov.querySelector('#set-zbx-home-token').value=s.zabbixHomeToken||'';
@@ -1638,7 +1666,9 @@ function openSettingsModal(){
   if(ov.querySelector('#set-zbx-back-token')) ov.querySelector('#set-zbx-back-token').value=s.zabbixBackToken||'';
   ov.querySelector('#set-sort').value=s.defaultSort||'none';
   ov.querySelector('#set-save-btn').onclick=()=>{
-    window._UI_SETTINGS.pollingMs=parseInt(ov.querySelector('#set-polling').value,10)||7000;
+    window._UI_SETTINGS.refreshMode=ov.querySelector('#set-refresh-mode').value||'manual';
+    window._UI_SETTINGS.pollingMs=parseInt(ov.querySelector('#set-polling').value,10)||30000;
+    window._UI_SETTINGS.fullRefreshMs=parseInt(ov.querySelector('#set-full-refresh').value,10)||300000;
     window._UI_SETTINGS.compact=true;
     window._UI_SETTINGS.zabbixHomeApi=ov.querySelector('#set-zbx-home')?.value?.trim()||'';
     window._UI_SETTINGS.zabbixHomeToken=ov.querySelector('#set-zbx-home-token')?.value?.trim()||'';
@@ -1647,9 +1677,11 @@ function openSettingsModal(){
     window._UI_SETTINGS.zabbixBackApi=ov.querySelector('#set-zbx-back')?.value?.trim()||'';
     window._UI_SETTINGS.zabbixBackToken=ov.querySelector('#set-zbx-back-token')?.value?.trim()||'';
     window._UI_SETTINGS.defaultSort=ov.querySelector('#set-sort').value||'none';
+    window._UI_SETTINGS.safeModeV2=true;
     localStorage.setItem('ems_ops_ui_settings',JSON.stringify(window._UI_SETTINGS));
     applyUiSettings();
     if(typeof window.__setDeltaPollingInterval==='function') window.__setDeltaPollingInterval(window._UI_SETTINGS.pollingMs);
+    startPolling();
     closeSettingsModal();
     showToast('✅ Configurações aplicadas');
   };
@@ -1836,7 +1868,7 @@ function toggleFilterMenu(e){
   fm.style.display=(fm.style.display==='none'||!fm.style.display)?'flex':'none';
 }
 
-let _slaSortOn=false;
+var _slaSortOn=false;
 function getCardSlaScore(card){
   if(!card) return 0;
   const pct=parseInt((card.querySelector('.sla-bar-pct')?.textContent||'0').replace(/\D/g,''),10)||0;
@@ -1906,6 +1938,7 @@ function switchReportsFila(value){
     updateReportsByFila();
     applyAnalystTableFilter();
     fetchAccordionScores();
+    requestCurrentPageQuery('↻ Consultando reports atuais...');
   });
 }
 function switchReportsManager(value){
@@ -1922,6 +1955,7 @@ function switchReportsManager(value){
   }
   applyAnalystTableFilter();
   fetchAccordionScores();
+  requestCurrentPageQuery('↻ Consultando manager atual...');
 }
 function switchReportsAnalyst(value){
   currentReportsAnalyst=value||'';
@@ -1929,6 +1963,7 @@ function switchReportsAnalyst(value){
   if(analystSel&&analystSel.value!==currentReportsAnalyst) analystSel.value=currentReportsAnalyst;
   applyAnalystTableFilter();
   fetchAccordionScores();
+  requestCurrentPageQuery('↻ Consultando analista atual...');
 }
 
 function getReportAssigneeFilter(gid){
@@ -2018,6 +2053,7 @@ function showPage(id,el){
       initAccordion();
     }
   }
+  requestCurrentPageQuery('↻ Consultando '+(id||'página atual')+'...');
 }
 function activateSide(btn){
   document.querySelectorAll('.side-btn').forEach(b=>b.classList.remove('active'));
@@ -2025,7 +2061,7 @@ function activateSide(btn){
 }
 
 
-const _LANE_IU_MAP={
+var _LANE_IU_MAP={
   critical:{impact:'1',urgency:'1'},
   high:{impact:'1',urgency:'2'},
   medium:{impact:'2',urgency:'2'},
@@ -2033,7 +2069,7 @@ const _LANE_IU_MAP={
   normal:{impact:'3',urgency:'3'},
   orphan:{impact:'3',urgency:'3'}
 };
-let _dragCard=null;
+var _dragCard=null;
 
 function refreshLaneCountersInBoard(boardInner){
   if(!boardInner) return;
@@ -2155,6 +2191,7 @@ function switchFila(key){
   window._switchFilaDebounce = setTimeout(function() {
     if (typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
   }, 150);
+  requestCurrentPageQuery('↻ Consultando fila atual...');
 }
 
 function updateReportsByFila(){
@@ -2185,6 +2222,7 @@ function switchManager(managerId){
   const analystId=document.getElementById('analyst-sel')?.value||'';
   switchAnalyst(analystId);
   renderFilterChips();
+  requestCurrentPageQuery('↻ Consultando filtro atual...');
 }
 
 function syncBacklogAnalystDropdown(){
@@ -2209,6 +2247,7 @@ function switchFilaBacklog(key){
   if(bBacklog)bBacklog.innerHTML=backlogBoards[safeKey]||'';
   syncBacklogAnalystDropdown();
   switchAnalystBacklog(currentBacklogAnalyst);
+  requestCurrentPageQuery('↻ Consultando backlog atual...');
 }
 
 function switchAnalystBacklogFromToolbar(analystId){
@@ -2216,6 +2255,7 @@ function switchAnalystBacklogFromToolbar(analystId){
   const bsel=document.getElementById('backlog-analyst-sel');
   if(bsel&&bsel.value!==currentBacklogAnalyst) bsel.value=currentBacklogAnalyst;
   switchAnalystBacklog(currentBacklogAnalyst);
+  requestCurrentPageQuery('↻ Consultando analista atual...');
 }
 
 function switchAnalystBacklog(analystId){
@@ -2442,15 +2482,131 @@ function fetchAccordionScores(){
 function fetchSemTypeScore(){fetchAccordionScores();}
 
 // ── Layered Polling ──────────────────────────────────────────────────────────
-let _pollL1=null, _pollL2=null, _pollL3=null;
-let _lastActivesCount = -1;
+window.__emsPollingTimers = window.__emsPollingTimers || {};
+var _pollL1=window.__emsPollingTimers.l1||null, _pollL2=window.__emsPollingTimers.l2||null, _pollL3=window.__emsPollingTimers.l3||null, _pollVerify=window.__emsPollingTimers.verify||null, _pollWatchdog=window.__emsPollingTimers.watchdog||null;
+var _lastActivesCount = -1;
+var _lastFullRefreshAt = Date.now();
+
+function runCurrentPageSync(statusMsg){
+  _lastFullRefreshAt = Date.now();
+  setRefreshStatus(statusMsg || '↻ Sincronizando página atual...');
+  const page=window._CURRENT_PAGE||'kanban';
+  if(page==='reports') { fetchAccordionScores(); return; }
+  if(page==='postmortem') { refreshPostmortem(); return; }
+  if(page==='kanban' || page==='backlog') {
+    verifyVisibleCardsAgainstServiceNow().catch(err=>console.warn('[Verifier] Falha ao sincronizar página atual:', err?.message||err));
+    if(typeof window.__deltaResetSync === 'function') window.__deltaResetSync();
+    if(typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
+    return;
+  }
+  if(page==='event-monitoring' || page==='backup-monitoring') {
+    if(typeof window.__deltaResetSync === 'function') window.__deltaResetSync();
+    if(typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
+  }
+}
+
+function requestCurrentPageQuery(reason){
+  if(window.__currentPageQueryTimer) clearTimeout(window.__currentPageQueryTimer);
+  window.__currentPageQueryTimer=setTimeout(()=>runCurrentPageSync(reason || '↻ Consultando página atual...'), 150);
+}
+
+function getVisibleCaseCardsForVerification(){
+  const page=window._CURRENT_PAGE||'kanban';
+  const selector=page==='backlog' ? '#board-wrap-backlog-tab .card[data-sysid]' : '#board-wrap .card[data-sysid]';
+  return Array.from(document.querySelectorAll(selector))
+    .filter(card => card.style.display !== 'none')
+    .slice(0, 120);
+}
+
+async function verifyVisibleCardsAgainstServiceNow(){
+  const cards=getVisibleCaseCardsForVerification();
+  if(!cards.length) return;
+  const ids=[...new Set(cards.map(card=>card.dataset.sysid).filter(Boolean))];
+  if(!ids.length) return;
+  const activeAnalyst=document.getElementById('analyst-sel')?.value||'';
+  const terminalStates=new Set(['3','6','7','8','9','10','24','25','33','35']);
+  const fields='sys_id,number,assigned_to,state,sys_updated_on';
+  const rows=[];
+  for(let i=0;i<ids.length;i+=50){
+    const batch=ids.slice(i,i+50);
+    const url=_BASE+'/api/now/table/sn_customerservice_case?sysparm_query='+encodeURIComponent('sys_idIN'+batch.join(','))+'&sysparm_fields='+fields+'&sysparm_display_value=all&sysparm_limit=50';
+    const resp=await snFetch(url);
+    const data=await resp.json();
+    rows.push(...(data.result||[]));
+  }
+  const byId=new Map(rows.map(row=>[row.sys_id?.value||row.sys_id,row]));
+  let divergence=false;
+  cards.forEach(card=>{
+    const sid=card.dataset.sysid||'';
+    const row=byId.get(sid);
+    const rowAssigned=row?.assigned_to?.value||'';
+    const rowState=String(row?.state?.value||'');
+    const cardAssigned=card.dataset.assignedid||'';
+    const isTerminal=!row || terminalStates.has(rowState);
+    const violatesAnalyst=!!activeAnalyst && rowAssigned!==activeAnalyst;
+    const changedAssigned=!!row && rowAssigned!==cardAssigned;
+    if(isTerminal || violatesAnalyst || changedAssigned){
+      divergence=true;
+      card.dataset.assignedid=rowAssigned;
+      if(violatesAnalyst || isTerminal) card.style.display='none';
+      const boardInner=card.closest('.board-inner');
+      if(boardInner) refreshLaneCountersInBoard(boardInner);
+    }
+  });
+  if(divergence){
+    setRefreshStatus('↻ Divergência corrigida na página atual');
+  }
+}
+
+function startVisibleCardVerifier(){
+  if(_pollVerify) clearInterval(_pollVerify);
+  const runVerifier=()=>verifyVisibleCardsAgainstServiceNow().catch(err=>console.warn('[Verifier] Falha ao validar cards visíveis:', err?.message||err));
+  setTimeout(runVerifier, 1500);
+  _pollVerify=setInterval(runVerifier, 30000);
+  window.__emsPollingTimers.verify=_pollVerify;
+}
+
+function startPollingWatchdog(mode, fullMs){
+  if(_pollWatchdog) clearInterval(_pollWatchdog);
+  _pollWatchdog = setInterval(()=>{
+    if(getRefreshMode()!==mode){
+      startPolling();
+      return;
+    }
+    if(mode==='manual') return;
+    if(!_pollL1 || !_pollL2 || !_pollL3 || !_pollVerify){
+      console.warn('[PollingWatchdog] Timer ausente — reiniciando polling.');
+      startPolling();
+      return;
+    }
+    if(mode==='delta' && (!window.__deltaPollingActive || !window.__deltaPollingTimerId)){
+      console.warn('[PollingWatchdog] Delta parado — reiniciando timer.');
+      if(typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
+    }
+    if(Date.now() - _lastFullRefreshAt > fullMs + 60000){
+      console.warn('[PollingWatchdog] Full refresh atrasado — forçando reconciliação.');
+      runCurrentPageSync('↻ Watchdog: sincronizando página atual...');
+    }
+  }, 30000);
+  window.__emsPollingTimers.watchdog = _pollWatchdog;
+}
 
 function startPolling(){
   stopPolling();
-  window.__deltaPollingActive = true;
+  updateRefreshModeBadge();
 
-  // Layer 1: KPIs (4s) — 3 lightweight aggregate calls
-  _pollL1 = setInterval(()=>pollKPIs(), 4000);
+  const mode=getRefreshMode();
+  if(mode==='manual'){
+    setRefreshStatus('Atualização automática pausada');
+    return;
+  }
+
+  const fullMs=getFullRefreshMinutes()*60000;
+  _lastFullRefreshAt = Date.now();
+
+  // Layer 1: KPIs (60s) — lightweight aggregate calls
+  _pollL1 = setInterval(()=>pollKPIs(), 60000);
+  window.__emsPollingTimers.l1 = _pollL1;
 
   // Layer 2: Reports/Scores (3min) — staggered
   _pollL2 = setInterval(()=>{
@@ -2465,23 +2621,34 @@ function startPolling(){
     const body=document.getElementById('acc-body-analyst');
     if(body&&body.style.display!=='none') fetchAccordionScores();
   }, 180000);
+  window.__emsPollingTimers.l2 = _pollL2;
 
-  // Layer 3: Full board (10min) — disabled re-render, using delta polling instead
-  // _pollL3 = setInterval(()=>{
-  //   if(_lastActivesCount>=0){
-  //     pollKPIs(true);
-  //   }
-  // }, 600000);
+  // Layer 3: full reconciliation. Even in delta mode, this keeps the board
+  // eventually identical to ServiceNow if an incremental update is missed.
+  _pollL3 = setInterval(()=>{
+    runCurrentPageSync(mode==='periodic' ? '↻ Atualizando página atual...' : '↻ Sincronizando página atual...');
+  }, fullMs);
+  window.__emsPollingTimers.l3 = _pollL3;
 
+  startVisibleCardVerifier();
+  startPollingWatchdog(mode, fullMs);
+
+  if(mode==='periodic'){
+    setRefreshStatus('Full refresh a cada '+getFullRefreshMinutes()+'min');
+    return;
+  }
+
+  window.__deltaPollingActive = true;
   // Delta polling: restart if already initialized (e.g. tab re-focus after hidden)
   if (typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
+  setRefreshStatus('Tempo real + reconciliação a cada '+getFullRefreshMinutes()+'min');
 }
 
 function stopPolling(){
-  if(_pollL1)clearInterval(_pollL1);
-  if(_pollL2)clearInterval(_pollL2);
-  if(_pollL3)clearInterval(_pollL3);
-  _pollL1=_pollL2=_pollL3=null;
+  const timers=window.__emsPollingTimers||{};
+  [timers.l1,_pollL1,timers.l2,_pollL2,timers.l3,_pollL3,timers.verify,_pollVerify,timers.watchdog,_pollWatchdog].forEach(id=>{ if(id) clearInterval(id); });
+  _pollL1=_pollL2=_pollL3=_pollVerify=_pollWatchdog=null;
+  window.__emsPollingTimers={l1:null,l2:null,l3:null,verify:null,watchdog:null};
   if(window.__deltaPollingTimerId){clearInterval(window.__deltaPollingTimerId);window.__deltaPollingTimerId=null;}
   window.__deltaPollingActive=false;
 }
@@ -2577,13 +2744,13 @@ function dedupeManagerToolbar(){
 
 
 // ── Reassign Dropdown ──────────────────────────────────────────────────────
-let _reassignDd=null;
+var _reassignDd=null;
 function openReassignBtn(e,btn){
   e.stopPropagation();
   openReassign(e,btn.dataset.sysid||'',btn.dataset.gid||'',btn.dataset.assigned||'');
 }
 
-const _ALL_GROUPS = [
+var _ALL_GROUPS = [
   {id:'1c7c9057db6771d0832ead8ed396197a', name:'L1 OpsCenter AMER'},
   {id:'ff72689247ee1e143cbfe07a216d4357', name:'L2 OpsCenter AMER'},
   {id:'673c2170476422503cbfe07a216d430f', name:'Event Management BR'},
@@ -2673,7 +2840,7 @@ function doReassign(sysId,userId,userName,groupId,el){
 }
 
 
-let _iuDd=null;
+var _iuDd=null;
 function openImpactUrgencyBtn(e,btn){
   e.stopPropagation();
   openImpactUrgencyEditor(e,btn.dataset.sysid||'',btn.dataset.impact||'',btn.dataset.urgency||'');
@@ -2756,7 +2923,7 @@ async function patchCase(sysId,data){
 }
 
 // ── Toast notification ─────────────────────────────────────────────────────
-let _lastDeltaNotify={};
+var _lastDeltaNotify={};
 function notifyAssignedToMe(title, body, key){
   const now=Date.now();
   if(key && _lastDeltaNotify[key] && (now-_lastDeltaNotify[key])<8000) return;
@@ -2784,7 +2951,7 @@ function switchAnalyst(userId){
   if(asel&&asel.value!==userId) asel.value=userId||'';
   const analystContent=document.getElementById('analyst-board-content');
   if(analystContent) analystContent.innerHTML='';
-  if (window._boardJustReplaced) { window._boardJustReplaced = false; renderFilterChips(); return; }
+  if (window._boardJustReplaced) window._boardJustReplaced = false;
   const boards=['board-wrap', 'board-wrap-backlog-tab'];
   const gid=window._GID_MAP?.[currentFila]||'';
   const managerId=document.getElementById('manager-sel')?.value||'';
@@ -2815,9 +2982,9 @@ function switchAnalyst(userId){
 
   renderFilterChips();
   if(_slaSortOn) applySlaSort();
-  // Don't fetch separately — boards are filtered.
-  // Keep this function side-effect free for polling callbacks
-  // (avoid optional data lookups that may throw and interrupt delta updates).
+  requestCurrentPageQuery('↻ Consultando analista atual...');
+  // Após aplicar filtro local, consulta somente a página/filtro atual para
+  // corrigir qualquer divergência com o ServiceNow sem recarregar outros módulos.
   return;
 
   // DEAD CODE BELOW (kept for reference)
@@ -2931,7 +3098,7 @@ function renderAnalystBoard(cases,analystName,gid,container){
 }
 
 // ── Post-mortem Pagination ────────────────────────────────────────────────
-const _PG=50; let _pgPage=0,_pgRows=[];
+var _PG=50, _pgPage=0, _pgRows=[];
 function pgInit(){const tb=document.getElementById('pmtbody');if(!tb)return;_pgRows=Array.from(tb.rows);_pgPage=0;pgRender();}
 function pgRender(){
   const total=_pgRows.length,pages=Math.ceil(total/_PG);
@@ -2953,9 +3120,9 @@ function pgNav(d){const t=_pgRows.length,p=Math.ceil(t/_PG);_pgPage=Math.max(0,M
 function pgGoTo(p){_pgPage=p;pgRender();document.getElementById('pm-pg-wrap')?.scrollIntoView({behavior:'smooth',block:'start'});}
 
 // ── Case Modal ────────────────────────────────────────────────────────────
-let _modalSysId = null;
-let _modalActiveCard = null;
-let _modalRefreshTimer = null;
+var _modalSysId = null;
+var _modalActiveCard = null;
+var _modalRefreshTimer = null;
 function requestModalRefresh(sysId, fallbackCard, delayMs=350) {
   if (_modalSysId !== sysId) return;
   const modalEl = document.getElementById('case-iframe-overlay');
@@ -3730,7 +3897,7 @@ async function uploadModalAttachment(){
   }
 }
 
-let _modalNoteType = 'work_notes';
+var _modalNoteType = 'work_notes';
 function modalTabSwitch(type) {
   _modalNoteType = type === 'wn' ? 'work_notes' : 'comments';
   const ta = document.getElementById('modal-note-ta');
@@ -3825,8 +3992,8 @@ document.addEventListener('click', e => {
 });
 
 // ── Column filters ─────────────────────────────────────────────────────────
-const _fil={};let _dd=null;
-const _FILTER_VALUES_CACHE = {};
+var _fil={}, _dd=null;
+var _FILTER_VALUES_CACHE = {};
 function getCT(row,col){const c=row.cells[col];return c?(c.innerText||c.textContent||'').trim():'';}
 function applyFil(){
   const tb=document.getElementById('pmtbody');if(!tb)return;
@@ -3880,13 +4047,11 @@ function filtOpts(i){
 function applyCol(ci){const ch=Array.from(document.querySelectorAll('#ddopts input:checked')).map(i=>i.value);_fil[ci]=ch.length?new Set(ch):new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 function clrCol(ci){_fil[ci]=new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){
-    if(window.__deltaPollingTimerId){ clearInterval(window.__deltaPollingTimerId); window.__deltaPollingTimerId=null; }
-    return;
-  }
+  // Não paramos os timers ao ocultar a aba: o objetivo é manter o painel
+  // reconciliando com o ServiceNow sempre que o navegador permitir execução.
+  if(document.hidden) return;
   if(typeof window.__deltaResetSync === 'function') window.__deltaResetSync();
-  if(!window.__deltaPollingActive || !window.__deltaPollingTimerId) startPolling();
-  else if(typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
+  startPolling();
 });
 document.addEventListener('DOMContentLoaded',()=>{
   const accHdr=document.getElementById('acc-hdr-analyst');
@@ -3976,7 +4141,7 @@ Object.assign(window, {
   try { (function() {
     // Clear any previous interval (survives document.write re-renders)
     if (window.__deltaPollingTimerId) { clearInterval(window.__deltaPollingTimerId); window.__deltaPollingTimerId = null; }
-    window.__deltaPollingActive = true;
+    window.__deltaPollingActive = false;
 
     let POLLING_INTERVAL = window._UI_SETTINGS?.pollingMs || 10000;
     // Start sync from a very recent point since we already seeded the "seen" set
@@ -4151,8 +4316,10 @@ Object.assign(window, {
       // Escopa a query para a fila ativa. Sempre busca TODOS os casos do grupo,
       // independente do filtro de analista (o filtro é aplicado no DOM, não na query).
       // Isso garante que mudanças de qualquer analista sejam capturadas.
-      const _activeGid = (typeof currentFila !== 'undefined' && currentFila && currentFila !== 'all')
-        ? (window._GID_MAP?.[currentFila] || _G_IDS)
+      const _pageForDelta = window._CURRENT_PAGE || 'kanban';
+      const _filaForDelta = _pageForDelta === 'backlog' ? currentBacklogFila : currentFila;
+      const _activeGid = (typeof _filaForDelta !== 'undefined' && _filaForDelta && _filaForDelta !== 'all')
+        ? (window._GID_MAP?.[_filaForDelta] || _G_IDS)
         : _G_IDS;
       const _groupClause = _activeGid.includes(',') ? 'assignment_groupIN' + _activeGid : 'assignment_group=' + _activeGid;
       const baseQuery = _groupClause + '^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
@@ -4187,6 +4354,22 @@ Object.assign(window, {
       const eventParams = '&sysparm_fields=' + _EVENT_FIELDS + '&sysparm_display_value=all';
       const DELTA_PAGE_SIZE = 200;
       const DELTA_MAX_PAGES = 10;
+      const DELTA_FETCH_TIMEOUT_MS = 25000;
+
+      async function snFetchDelta(url) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), DELTA_FETCH_TIMEOUT_MS);
+        try {
+          return await snFetch(url, { signal: controller.signal });
+        } catch (err) {
+          if (err && err.name === 'AbortError') {
+            throw new Error('delta_polling timeout após ' + Math.round(DELTA_FETCH_TIMEOUT_MS / 1000) + 's');
+          }
+          throw err;
+        } finally {
+          clearTimeout(timer);
+        }
+      }
 
       async function fetchByQuery(endpoint, params, query) {
         const allRows = [];
@@ -4195,7 +4378,7 @@ Object.assign(window, {
           const offset = page * DELTA_PAGE_SIZE;
           const paging = '&sysparm_limit=' + DELTA_PAGE_SIZE + '&sysparm_offset=' + offset;
           const url = endpoint + '?sysparm_query=' + encodeURIComponent(query) + params + paging;
-          const response = await snFetch(url);
+          const response = await snFetchDelta(url);
           const raw = await response.text();
           if (!response.ok) {
             const msg = raw ? ': ' + raw.slice(0, 180) : '';
@@ -4226,7 +4409,7 @@ Object.assign(window, {
           const eventNumber = row?.u_event_number?.value;
           if (!eventNumber) return { ...row, _eventType: 'N/A', _account: 'N/A' };
           try {
-            const response = await snFetch(_BASE + '/api/now/table/u_event_management/' + encodeURIComponent(eventNumber) + '?sysparm_display_value=all');
+            const response = await snFetchDelta(_BASE + '/api/now/table/u_event_management/' + encodeURIComponent(eventNumber) + '?sysparm_display_value=all');
             const body = await response.text();
             if (!response.ok) return { ...row, _eventType: 'N/A', _account: 'N/A' };
             const data = body ? JSON.parse(body) : {};
@@ -4291,15 +4474,19 @@ Object.assign(window, {
 
         const reconcileEvents = (events) => events.forEach(ev => upsertEventCard(ev));
 
-        const caseRowsRaw = await fetchByQuery(caseEndpoint, caseParams, baseQuery);
-        const caseRows = normalizeRows(caseRowsRaw);
+        const activePage = window._CURRENT_PAGE || 'kanban';
+        if (activePage === 'kanban' || activePage === 'backlog') {
+          const caseRowsRaw = await fetchByQuery(caseEndpoint, caseParams, baseQuery);
+          const caseRows = normalizeRows(caseRowsRaw);
+          reconcileCases(caseRows);
+        }
 
-        const eventQuery = 'assignment_group.name=EMS L1 OpsCenter AMER^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
-        const eventRowsRaw = await fetchByQuery(eventEndpoint, eventParams, eventQuery);
-        const eventRows = await enrichDeltaEvents(normalizeRows(eventRowsRaw));
-
-        reconcileCases(caseRows);
-        reconcileEvents(eventRows);
+        if (activePage === 'event-monitoring' || activePage === 'backup-monitoring') {
+          const eventQuery = 'assignment_group.name=EMS L1 OpsCenter AMER^sys_updated_on>=' + lastSyncTime + '^ORDERBYDESCsys_updated_on';
+          const eventRowsRaw = await fetchByQuery(eventEndpoint, eventParams, eventQuery);
+          const eventRows = await enrichDeltaEvents(normalizeRows(eventRowsRaw));
+          reconcileEvents(eventRows);
+        }
 
         lastSyncTime = new Date(Date.now() - (POLLING_INTERVAL + 5000)).toISOString().split('.')[0].replace('T', ' ');
         if (window._dndDirty && typeof initCardDragAndDrop === 'function') {
@@ -4313,9 +4500,11 @@ Object.assign(window, {
       }
     }
 
-    // Mantém a sessão ativa e verifica token a cada 5 minutos
+    // Mantém a sessão ativa e verifica token a cada 5 minutos.
+    // Limpa timer antigo porque document.write reexecuta este script no mesmo Window.
+    if (window.__emsKeepAliveTimerId) clearInterval(window.__emsKeepAliveTimerId);
     // Usa fetch direto (não snFetch) para evitar interferir no contador de auth failures
-    setInterval(() => {
+    window.__emsKeepAliveTimerId = setInterval(() => {
       const keepAliveHeaders = { 'Accept': 'application/json', 'X-UserToken': _TOK };
       fetch(_BASE + '/api/now/table/sys_user?sysparm_limit=1', { headers: keepAliveHeaders })
         .then(r => {
@@ -4841,19 +5030,28 @@ Object.assign(window, {
       if (boardWrap) updateLaneCounters(boardWrap.querySelector('.board-inner'));
     }
 
-    window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
+    function shouldRunDeltaPolling(){
+      return (window._UI_SETTINGS?.refreshMode||'delta')==='delta';
+    }
+    function startDeltaTimer(){
+      isFetching = false;
+      if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
+      window.__deltaPollingTimerId = null;
+      if (!shouldRunDeltaPolling()) {
+        window.__deltaPollingActive = false;
+        return;
+      }
+      window.__deltaPollingActive = true;
+      window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
+    }
+
+    startDeltaTimer();
 
     // Expose restart hook so startPolling() can revive delta polling after tab re-focus
-    window.__restartDeltaPolling = function() {
-      isFetching = false;
-      if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
-      window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
-    };
+    window.__restartDeltaPolling = startDeltaTimer;
     window.__setDeltaPollingInterval = function(ms){
       POLLING_INTERVAL = Math.max(4000, parseInt(ms,10)||4000);
-      isFetching = false;
-      if (window.__deltaPollingTimerId) clearInterval(window.__deltaPollingTimerId);
-      window.__deltaPollingTimerId = setInterval(fetchDeltas, POLLING_INTERVAL);
+      startDeltaTimer();
     };
   })(); } catch(e) { console.error('[EMS Ops] Delta polling init falhou:', e); }
 	</script>
@@ -4925,11 +5123,12 @@ Object.assign(window, {
 
   // ── Fetch and build ────────────────────────────────────────────────────
   const {ini, fim} = mesRange(mes);
-  const qA = `assignment_groupIN${G_IDS}${EXCL}`; // All active — backlog split done client-side by age
-  const qP = `assignment_groupIN${G_IDS}^stateIN3,6^resolved_at>=${ini}^resolved_at<=${fim}`;
+  const assigneeInitial = CURRENT_USER_ID ? `^assigned_to=${CURRENT_USER_ID}` : '';
+  const qA = `assignment_groupIN${G_IDS}${EXCL}${assigneeInitial}`; // Initial page loads only Assigned to me
+  const qP = 'sys_idISEMPTY';
   const todayStart = new Date().toLocaleDateString('en-CA') + ' 00:00:00';
   const todayEnd   = new Date().toLocaleDateString('en-CA') + ' 23:59:59';
-  const qRT = `assignment_groupIN${G_IDS}^stateIN6,7,3^resolved_at>=${todayStart}^resolved_at<=${todayEnd}`;
+  const qRT = `assignment_groupIN${G_IDS}^stateIN6,7,3^resolved_at>=${todayStart}^resolved_at<=${todayEnd}${assigneeInitial}`;
 
   const G_ID_MAP_FETCH = {
     l1   : '1c7c9057db6771d0832ead8ed396197a',
@@ -4998,12 +5197,11 @@ Object.assign(window, {
 
   outWin.document.write('<html><body style="background:#F6F8FA;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;font-family:system-ui"><div style="text-align:center;color:#57606A"><div style="font-size:40px;margin-bottom:12px">🖥</div><div style="font-size:16px;font-weight:600;color:#24292F">EMS Ops Dashboard</div><div style="font-size:13px;margin-top:6px">Carregando dados...</div></div></body></html>');
 
-  // Stagger agg calls to reduce server load (performance improvement)
+  // Initial load is scoped to the visible Home page to avoid overloading ServiceNow.
+  const emptyAgg = gid => Promise.resolve({ gid, rows: [] });
   Promise.all([
-    fcases(qA), fcasesAllGroups(qP), fcases(qRT), fetchEventTasks(),
-    fagg(G_ID_MAP_FETCH.l1),
-    new Promise(r=>setTimeout(()=>fagg(G_ID_MAP_FETCH.l2).then(r),300)),
-    new Promise(r=>setTimeout(()=>fagg(G_ID_MAP_FETCH.event).then(r),600)),
+    fcases(qA), fcases(qP), fcases(qRT), Promise.resolve([]),
+    emptyAgg(G_ID_MAP_FETCH.l1), emptyAgg(G_ID_MAP_FETCH.l2), emptyAgg(G_ID_MAP_FETCH.event),
   ])
   .then(([ativos, postMortem, resolvedToday, eventTasks, aggL1, aggL2, aggEvent]) => {
     const ia = ativos.map(c=>c.sys_id?.value).filter(Boolean);
