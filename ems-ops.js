@@ -1140,7 +1140,7 @@ tr:hover td{background:#F6F8FA;}
   <div class="tab" onclick="showPage('postmortem',this)">🔍 Post-mortem</div>
   <div class="tab" style="display:none" onclick="showPage('reports',this)">📊 Reports</div>
   <div style="display:flex;align-items:center;gap:6px;margin-left:auto;">
-    <span id="refresh-mode-badge" style="font-size:11px;color:var(--muted);">⚡ Delta polling</span><span id="refresh-status" style="font-size:11px;color:var(--muted);"></span>
+    <span id="refresh-mode-badge" style="font-size:11px;color:var(--muted);">⚡ Tempo real + reconciliação · 2min</span><span id="refresh-status" style="font-size:11px;color:var(--muted);"></span>
   </div>
 </div>
 
@@ -1589,7 +1589,7 @@ window._MANAGER_CACHE={};
 window._MSH_NOC_GID=undefined;
 window._REPORTS_FETCH_CACHE={ttlMs:30000,entries:{},inflight:{}};
 window._ACCOUNT_PRODUCTS_CACHE={ttlMs:120000,entries:{}};
-    window._UI_SETTINGS={refreshMode:'delta',pollingMs:7000,fullRefreshMs:300000,compact:true,defaultSort:'none',zabbixHomeApi:'',zabbixMonApi:'',zabbixBackApi:'',zabbixHomeToken:'',zabbixMonToken:'',zabbixBackToken:''};
+    window._UI_SETTINGS={refreshMode:'delta',pollingMs:7000,fullRefreshMs:120000,compact:true,defaultSort:'none',zabbixHomeApi:'',zabbixMonApi:'',zabbixBackApi:'',zabbixHomeToken:'',zabbixMonToken:'',zabbixBackToken:''};
 try{
   const saved=JSON.parse(localStorage.getItem('ems_ops_ui_settings')||'{}');
   window._UI_SETTINGS={...window._UI_SETTINGS,...saved};
@@ -1599,11 +1599,15 @@ function getRefreshMode(){
   const mode=window._UI_SETTINGS?.refreshMode||'delta';
   return ['delta','periodic','manual'].includes(mode)?mode:'delta';
 }
+function getFullRefreshMinutes(){
+  const ms=Math.max(120000, parseInt(window._UI_SETTINGS?.fullRefreshMs,10)||120000);
+  return Math.round(ms/60000);
+}
 function getRefreshModeLabel(){
   const mode=getRefreshMode();
-  if(mode==='periodic') return '↻ Full refresh periódico';
+  if(mode==='periodic') return '↻ Full refresh periódico · '+getFullRefreshMinutes()+'min';
   if(mode==='manual') return '⏸ Atualização manual';
-  return '⚡ Delta polling';
+  return '⚡ Tempo real + reconciliação · '+getFullRefreshMinutes()+'min';
 }
 function updateRefreshModeBadge(){
   const el=document.getElementById('refresh-mode-badge');
@@ -1630,7 +1634,7 @@ function openSettingsModal(){
     '<div class="settings-h"><div class="settings-ttl">⚙️ Configurações do Painel</div><button type="button" onclick="closeSettingsModal()" class="refresh-btn">✕</button></div>'+
     '<div class="settings-grid">'+
       '<label for="set-refresh-mode">Modo de atualização</label>'+
-      '<select id="set-refresh-mode"><option value="delta">Delta polling (tempo real)</option><option value="periodic">Full refresh periódico</option><option value="manual">Manual (sem polling automático)</option></select>'+
+      '<select id="set-refresh-mode"><option value="delta">Tempo real + reconciliação</option><option value="periodic">Full refresh periódico</option><option value="manual">Manual (sem polling automático)</option></select>'+
       '<label for="set-polling">Intervalo do Delta Polling</label>'+
       '<select id="set-polling"><option value="7000">7s</option><option value="15000">15s</option><option value="30000">30s</option><option value="60000">60s</option><option value="120000">120s</option></select>'+
       '<label for="set-full-refresh">Intervalo do full refresh</label>'+
@@ -1649,7 +1653,7 @@ function openSettingsModal(){
   document.body.appendChild(ov);
   ov.querySelector('#set-refresh-mode').value=s.refreshMode||'delta';
   ov.querySelector('#set-polling').value=String(s.pollingMs||7000);
-  ov.querySelector('#set-full-refresh').value=String(s.fullRefreshMs||300000);
+  ov.querySelector('#set-full-refresh').value=String(s.fullRefreshMs||120000);
   ov.querySelector('#set-compact').checked=true;
   if(ov.querySelector('#set-zbx-home')) ov.querySelector('#set-zbx-home').value=s.zabbixHomeApi||'';
   if(ov.querySelector('#set-zbx-home-token')) ov.querySelector('#set-zbx-home-token').value=s.zabbixHomeToken||'';
@@ -1661,7 +1665,7 @@ function openSettingsModal(){
   ov.querySelector('#set-save-btn').onclick=()=>{
     window._UI_SETTINGS.refreshMode=ov.querySelector('#set-refresh-mode').value||'delta';
     window._UI_SETTINGS.pollingMs=parseInt(ov.querySelector('#set-polling').value,10)||7000;
-    window._UI_SETTINGS.fullRefreshMs=parseInt(ov.querySelector('#set-full-refresh').value,10)||300000;
+    window._UI_SETTINGS.fullRefreshMs=parseInt(ov.querySelector('#set-full-refresh').value,10)||120000;
     window._UI_SETTINGS.compact=true;
     window._UI_SETTINGS.zabbixHomeApi=ov.querySelector('#set-zbx-home')?.value?.trim()||'';
     window._UI_SETTINGS.zabbixHomeToken=ov.querySelector('#set-zbx-home-token')?.value?.trim()||'';
@@ -2466,8 +2470,41 @@ function fetchAccordionScores(){
 function fetchSemTypeScore(){fetchAccordionScores();}
 
 // ── Layered Polling ──────────────────────────────────────────────────────────
-var _pollL1=null, _pollL2=null, _pollL3=null;
+window.__emsPollingTimers = window.__emsPollingTimers || {};
+var _pollL1=window.__emsPollingTimers.l1||null, _pollL2=window.__emsPollingTimers.l2||null, _pollL3=window.__emsPollingTimers.l3||null, _pollWatchdog=window.__emsPollingTimers.watchdog||null;
 var _lastActivesCount = -1;
+var _lastFullRefreshAt = Date.now();
+
+function runFullReconciliation(statusMsg){
+  _lastFullRefreshAt = Date.now();
+  setRefreshStatus(statusMsg || '↻ Reconciliação ServiceNow...');
+  refreshKanban();
+}
+
+function startPollingWatchdog(mode, fullMs){
+  if(_pollWatchdog) clearInterval(_pollWatchdog);
+  _pollWatchdog = setInterval(()=>{
+    if(getRefreshMode()!==mode){
+      startPolling();
+      return;
+    }
+    if(mode==='manual') return;
+    if(!_pollL1 || !_pollL2 || !_pollL3){
+      console.warn('[PollingWatchdog] Timer ausente — reiniciando polling.');
+      startPolling();
+      return;
+    }
+    if(mode==='delta' && (!window.__deltaPollingActive || !window.__deltaPollingTimerId)){
+      console.warn('[PollingWatchdog] Delta parado — reiniciando timer.');
+      if(typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
+    }
+    if(Date.now() - _lastFullRefreshAt > fullMs + 60000){
+      console.warn('[PollingWatchdog] Full refresh atrasado — forçando reconciliação.');
+      runFullReconciliation('↻ Reconciliação watchdog...');
+    }
+  }, 30000);
+  window.__emsPollingTimers.watchdog = _pollWatchdog;
+}
 
 function startPolling(){
   stopPolling();
@@ -2479,8 +2516,12 @@ function startPolling(){
     return;
   }
 
+  const fullMs=getFullRefreshMinutes()*60000;
+  _lastFullRefreshAt = Date.now();
+
   // Layer 1: KPIs (4s) — 3 lightweight aggregate calls
   _pollL1 = setInterval(()=>pollKPIs(), 4000);
+  window.__emsPollingTimers.l1 = _pollL1;
 
   // Layer 2: Reports/Scores (3min) — staggered
   _pollL2 = setInterval(()=>{
@@ -2495,28 +2536,33 @@ function startPolling(){
     const body=document.getElementById('acc-body-analyst');
     if(body&&body.style.display!=='none') fetchAccordionScores();
   }, 180000);
+  window.__emsPollingTimers.l2 = _pollL2;
+
+  // Layer 3: full reconciliation. Even in delta mode, this keeps the board
+  // eventually identical to ServiceNow if an incremental update is missed.
+  _pollL3 = setInterval(()=>{
+    runFullReconciliation(mode==='periodic' ? '↻ Full refresh periódico...' : '↻ Reconciliação ServiceNow...');
+  }, fullMs);
+  window.__emsPollingTimers.l3 = _pollL3;
+
+  startPollingWatchdog(mode, fullMs);
 
   if(mode==='periodic'){
-    const fullMs=Math.max(120000, parseInt(window._UI_SETTINGS?.fullRefreshMs,10)||300000);
-    _pollL3 = setInterval(()=>{
-      if(document.hidden) return;
-      setRefreshStatus('↻ Full refresh periódico...');
-      refreshKanban();
-    }, fullMs);
-    setRefreshStatus('Full refresh a cada '+Math.round(fullMs/60000)+'min');
+    setRefreshStatus('Full refresh a cada '+getFullRefreshMinutes()+'min');
     return;
   }
 
   window.__deltaPollingActive = true;
   // Delta polling: restart if already initialized (e.g. tab re-focus after hidden)
   if (typeof window.__restartDeltaPolling === 'function') window.__restartDeltaPolling();
+  setRefreshStatus('Tempo real + reconciliação a cada '+getFullRefreshMinutes()+'min');
 }
 
 function stopPolling(){
-  if(_pollL1)clearInterval(_pollL1);
-  if(_pollL2)clearInterval(_pollL2);
-  if(_pollL3)clearInterval(_pollL3);
-  _pollL1=_pollL2=_pollL3=null;
+  const timers=window.__emsPollingTimers||{};
+  [timers.l1,_pollL1,timers.l2,_pollL2,timers.l3,_pollL3,timers.watchdog,_pollWatchdog].forEach(id=>{ if(id) clearInterval(id); });
+  _pollL1=_pollL2=_pollL3=_pollWatchdog=null;
+  window.__emsPollingTimers={l1:null,l2:null,l3:null,watchdog:null};
   if(window.__deltaPollingTimerId){clearInterval(window.__deltaPollingTimerId);window.__deltaPollingTimerId=null;}
   window.__deltaPollingActive=false;
 }
@@ -3915,10 +3961,9 @@ function filtOpts(i){
 function applyCol(ci){const ch=Array.from(document.querySelectorAll('#ddopts input:checked')).map(i=>i.value);_fil[ci]=ch.length?new Set(ch):new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 function clrCol(ci){_fil[ci]=new Set();applyFil();closeDd();document.removeEventListener('click',oc);}
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){
-    stopPolling();
-    return;
-  }
+  // Não paramos os timers ao ocultar a aba: o objetivo é manter o painel
+  // reconciliando com o ServiceNow sempre que o navegador permitir execução.
+  if(document.hidden) return;
   if(typeof window.__deltaResetSync === 'function') window.__deltaResetSync();
   startPolling();
 });
